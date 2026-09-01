@@ -1,0 +1,7 @@
+---
+description: Headquarters and product experience
+globs: "apps/**,frontend/**"
+alwaysApply: false
+---
+
+Read docs/11-user-experience.md. Rooms and animations derive from confirmed events. Provide a usable list view, accessible controls and reduced motion. Display real spend separately from simulated growth. Avoid exposing engine jargon in normal user flows.

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "position_id": "master-consultant",
+  "reports_to": "ceo",
+  "mode": "advisory",
+  "model_position": "master-consultant",
+  "read_scope": [
+    "company_source",
+    "organization_metadata"
+  ],
+  "review_triggers": [
+    "manual",
+    "project_accepted",
+    "repeated_failure",
+    "material_policy_change"
+  ],
+  "max_proposals_per_review": 5,
+  "review_budget_cents": 100,
+  "diagnostics_execution_enabled": false,
+  "can_change_code": false,
+  "can_change_policy": false,
+  "can_approve_own_proposals": false,
+  "note": "Future service configuration; not auto-loaded by the offline scan. Budget is illustrative, not spending authorization."
+}

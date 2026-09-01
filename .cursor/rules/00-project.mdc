@@ -1,0 +1,7 @@
+---
+description: Project purpose, autonomy and scope
+globs: ""
+alwaysApply: true
+---
+
+Read AGENTS.md, docs/00-project-context.md and docs/18-handoff.md. Preserve user requirements. Continue reversible local work without repeated confirmations. Distinguish implemented behavior, mock behavior and future design. Keep the human owner as root authority.

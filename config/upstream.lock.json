@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/OpenBMB/ChatDev",
+  "branch_reference": "main",
+  "commit": "4fb2db0ea90375ce1059f44fe03ffbd191a7a169",
+  "commit_date": "2026-07-24T08:01:27Z",
+  "inspected_at": "2026-09-01",
+  "license": "Apache-2.0",
+  "vendored": false,
+  "integration_tested": false,
+  "sdk_entrypoint": "runtime.sdk.run_workflow"
+}

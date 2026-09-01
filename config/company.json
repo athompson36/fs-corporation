@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "name": "FS-Tech AI Company",
+  "working_title": true,
+  "owner": "Andrew Thompson",
+  "ceo_mode": "hybrid",
+  "human_authority": "human-ceo",
+  "runtime_mode": "offline_mock",
+  "timezone": "UTC",
+  "currency": "USD",
+  "initial_room_count": 1,
+  "growth": {
+    "accepted_project_credits": 1,
+    "expansion_requires_approval": true,
+    "staffing_requires_capacity_case": true
+  },
+  "note": "Product configuration template. Only policy and model routing formats have reference runtime implementations."
+}

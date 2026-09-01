@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "departments": [
+    {
+      "id": "executive",
+      "name": "Executive",
+      "head": "CEO",
+      "positions": [
+        "COO",
+        "Chief of Staff",
+        "Strategy Analyst"
+      ],
+      "mission": "Set strategy, allocate capital, approve charters, resolve conflicts",
+      "measures": [
+        "Accepted portfolio outcomes",
+        "decision latency"
+      ],
+      "room_type": "boardroom",
+      "initially_active": true,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "product",
+      "name": "Product",
+      "head": "Product Director",
+      "positions": [
+        "Product Manager",
+        "User Researcher",
+        "Business Analyst"
+      ],
+      "mission": "Define customer problems, requirements, roadmaps and acceptance criteria",
+      "measures": [
+        "Acceptance rate",
+        "adoption",
+        "requirement stability"
+      ],
+      "room_type": "product-lab",
+      "initially_active": false,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "engineering",
+      "name": "Engineering",
+      "head": "CTO",
+      "positions": [
+        "Software Architect",
+        "Developer",
+        "QA Engineer",
+        "Release Engineer"
+      ],
+      "mission": "Develop, test and maintain software in assigned project workspaces. In-team QA does not replace independent Quality Control.",
+      "measures": [
+        "Defect escape rate",
+        "cycle time",
+        "accepted change cost"
+      ],
+      "room_type": "engineering-studio",
+      "initially_active": true,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "quality",
+      "name": "Quality Control",
+      "head": "QC Director",
+      "positions": [
+        "Quality Inspector",
+        "Audit Specialist"
+      ],
+      "mission": "Independently verify every product deliverable against acceptance criteria before the company accepts the work",
+      "measures": [
+        "Inspection coverage",
+        "escaped defects",
+        "rework rate"
+      ],
+      "room_type": "quality-lab",
+      "initially_active": true,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "art",
+      "name": "Art and Design",
+      "head": "Creative Director",
+      "positions": [
+        "UI Designer",
+        "Illustrator",
+        "Brand Designer",
+        "Accessibility Reviewer"
+      ],
+      "mission": "Create usable interfaces and licensed visual assets",
+      "measures": [
+        "Approved assets",
+        "accessibility",
+        "brand consistency"
+      ],
+      "room_type": "design-studio",
+      "initially_active": true,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "media",
+      "name": "Media and Audio",
+      "head": "Production Director",
+      "positions": [
+        "Video Editor",
+        "Music Producer",
+        "Sound Designer",
+        "Animator"
+      ],
+      "mission": "Produce audiovisual assets and document provenance",
+      "measures": [
+        "Accepted deliverables",
+        "revision count"
+      ],
+      "room_type": "media-studio",
+      "initially_active": false,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "marketing",
+      "name": "Marketing",
+      "head": "CMO",
+      "positions": [
+        "Copywriter",
+        "Market Researcher",
+        "Campaign Analyst",
+        "SEO Specialist"
+      ],
+      "mission": "Research audiences, draft campaigns and evaluate results",
+      "measures": [
+        "Qualified engagement",
+        "experiment outcomes"
+      ],
+      "room_type": "marketing-suite",
+      "initially_active": true,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "sales",
+      "name": "Sales and Partnerships",
+      "head": "Sales Director",
+      "positions": [
+        "Proposal Writer",
+        "Opportunity Analyst",
+        "Partnerships Manager"
+      ],
+      "mission": "Research opportunities and prepare proposals",
+      "measures": [
+        "Qualified opportunities",
+        "proposal acceptance"
+      ],
+      "room_type": "sales-suite",
+      "initially_active": false,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "finance",
+      "name": "Finance",
+      "head": "CFO",
+      "positions": [
+        "Budget Analyst",
+        "Cost Controller",
+        "Procurement Analyst"
+      ],
+      "mission": "Reconcile real spending and estimate project economics",
+      "measures": [
+        "Forecast accuracy",
+        "budget adherence"
+      ],
+      "room_type": "finance-office",
+      "initially_active": true,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "legal",
+      "name": "Legal and Compliance",
+      "head": "Compliance Director",
+      "positions": [
+        "Contract Analyst",
+        "Policy Analyst",
+        "Licensing Reviewer"
+      ],
+      "mission": "Draft documents and flag issues needing qualified review",
+      "measures": [
+        "Review coverage",
+        "unresolved issues"
+      ],
+      "room_type": "compliance-office",
+      "initially_active": false,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "people",
+      "name": "Human Resources",
+      "head": "HR Director",
+      "positions": [
+        "Role Designer",
+        "Agent Evaluator",
+        "Knowledge Curator",
+        "Training Specialist"
+      ],
+      "mission": "Oversee employee development and training, propose staffing, assess model performance and file certified procedures",
+      "measures": [
+        "Role utilization",
+        "training completion",
+        "evaluation performance"
+      ],
+      "room_type": "training-center",
+      "initially_active": true,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "it",
+      "name": "IT and Security",
+      "head": "IT Director",
+      "positions": [
+        "Systems Administrator",
+        "Security Reviewer",
+        "Incident Coordinator"
+      ],
+      "mission": "Operate infrastructure, access controls and incident response",
+      "measures": [
+        "Reliability",
+        "time to restore",
+        "exposure reduction"
+      ],
+      "room_type": "operations-center",
+      "initially_active": false,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "facilities",
+      "name": "Facilities and Procurement",
+      "head": "Facilities Director",
+      "positions": [
+        "Architect",
+        "General Contractor",
+        "Workspace Provisioner",
+        "Acceptance Inspector"
+      ],
+      "mission": "Plan virtual space and provision approved operational resources",
+      "measures": [
+        "Provisioning success",
+        "utilization",
+        "cost"
+      ],
+      "room_type": "construction-office",
+      "initially_active": true,
+      "default_model_profile": "mock-text"
+    },
+    {
+      "id": "support",
+      "name": "Customer Success",
+      "head": "Support Director",
+      "positions": [
+        "Support Specialist",
+        "Documentation Writer",
+        "Feedback Analyst"
+      ],
+      "mission": "Prepare guides, triage feedback and improve support",
+      "measures": [
+        "Resolution quality",
+        "documentation coverage"
+      ],
+      "room_type": "support-center",
+      "initially_active": false,
+      "default_model_profile": "mock-text"
+    }
+  ]
+}

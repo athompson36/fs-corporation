@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "enabled": false,
+  "defaults": {
+    "poll_minutes": 1440,
+    "max_findings_per_run": 20,
+    "max_research_cost_cents": 100,
+    "max_age_days": 14,
+    "deduplication": "canonical URL + event type + source timestamp",
+    "min_relevance_score": 0.7,
+    "cooldown_hours": 24
+  },
+  "watchlists": [
+    {
+      "id": "platform-changes",
+      "departments": [
+        "engineering",
+        "product"
+      ],
+      "source_type": "official_release_feed",
+      "sources": [],
+      "topics": [
+        "dependencies used by enrolled projects",
+        "platform API changes"
+      ],
+      "response": "prepare-impact-proposal"
+    },
+    {
+      "id": "market-opportunities",
+      "departments": [
+        "marketing",
+        "sales",
+        "executive"
+      ],
+      "source_type": "licensed_search_or_feed",
+      "sources": [],
+      "topics": [
+        "user-configured target markets"
+      ],
+      "response": "prepare-opportunity-brief"
+    }
+  ],
+  "note": "No real sources subscribed. Sources and polling adapters must be configured explicitly."
+}

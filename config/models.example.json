@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "mock-text": {
+      "provider": "mock",
+      "model": "deterministic-fixture",
+      "enabled": true,
+      "capabilities": [
+        "text",
+        "code_review"
+      ],
+      "allowed_data": [
+        "public",
+        "internal",
+        "restricted"
+      ],
+      "credential_ref": null
+    },
+    "reasoning-cloud": {
+      "provider": "configure-provider",
+      "model": "configure-exact-model-id",
+      "enabled": false,
+      "capabilities": [
+        "text",
+        "code_review"
+      ],
+      "allowed_data": [
+        "public"
+      ],
+      "credential_ref": "MODEL_PROVIDER_API_KEY"
+    },
+    "local-text": {
+      "provider": "configure-local-adapter",
+      "model": "configure-exact-model-id",
+      "enabled": false,
+      "capabilities": [
+        "text"
+      ],
+      "allowed_data": [
+        "public",
+        "internal",
+        "restricted"
+      ],
+      "credential_ref": null
+    },
+    "image-tool": {
+      "provider": "configure-image-adapter",
+      "model": "configure-exact-model-id",
+      "enabled": false,
+      "capabilities": [
+        "image_generation"
+      ],
+      "allowed_data": [
+        "public"
+      ],
+      "credential_ref": "IMAGE_PROVIDER_API_KEY"
+    }
+  },
+  "departments": {
+    "executive": [
+      "mock-text"
+    ],
+    "product": [
+      "mock-text"
+    ],
+    "engineering": [
+      "mock-text"
+    ],
+    "art": [
+      "mock-text"
+    ],
+    "media": [
+      "mock-text"
+    ],
+    "marketing": [
+      "mock-text"
+    ],
+    "sales": [
+      "mock-text"
+    ],
+    "finance": [
+      "mock-text"
+    ],
+    "legal": [
+      "mock-text"
+    ],
+    "people": [
+      "mock-text"
+    ],
+    "quality": [
+      "mock-text"
+    ],
+    "it": [
+      "mock-text"
+    ],
+    "facilities": [
+      "mock-text"
+    ],
+    "support": [
+      "mock-text"
+    ]
+  },
+  "positions": {
+    "engineering-reviewer": [
+      "reasoning-cloud",
+      "mock-text"
+    ],
+    "art-generator": [
+      "image-tool"
+    ],
+    "master-consultant": [
+      "reasoning-cloud",
+      "mock-text"
+    ]
+  },
+  "ensemble_example": {
+    "creator": "engineering-developer",
+    "reviewer": "engineering-reviewer",
+    "arbiter": "executive-chief-of-staff",
+    "max_revision_rounds": 2,
+    "note": "Design metadata only; ensemble scheduling is not implemented."
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "projects": [
+    {
+      "id": "example-app",
+      "display_name": "Replace with an explicitly selected FS-Tech project",
+      "upstream_repository": "OWNER/PROJECT",
+      "company_repository": "COMPANY/PROJECT-FORK",
+      "default_branch": "main",
+      "company_branch": "company/development",
+      "allowed_branch_prefix": "company/",
+      "departments": [
+        "product",
+        "engineering",
+        "art",
+        "marketing"
+      ],
+      "data_classification": "internal",
+      "github_installation_id": null,
+      "enabled": false,
+      "permissions": {
+        "read": true,
+        "create_branch": false,
+        "push_branch": false,
+        "open_pull_request": false,
+        "merge_company_branch": false,
+        "merge_upstream": false,
+        "deploy": false
+      },
+      "acceptance": {
+        "required_checks": [
+          "unit",
+          "integration",
+          "security"
+        ],
+        "reviewer_role": "independent-reviewer",
+        "human_acceptance": true
+      }
+    }
+  ]
+}

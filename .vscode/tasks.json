@@ -1,0 +1,45 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Company: offline demo",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "-m",
+        "company",
+        "demo"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Company: loopback service",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "-m",
+        "company.service",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Company: tests",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

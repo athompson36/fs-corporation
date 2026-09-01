@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "company_budget_cents": 10000,
+  "grants": {
+    "engineering-head": {
+      "actions": [
+        "draft",
+        "review",
+        "prepare_pr"
+      ],
+      "projects": [
+        "example-app"
+      ],
+      "budget_cents": 3000,
+      "per_action_cents": 500,
+      "expires_at": "2027-01-01T00:00:00+00:00",
+      "requires_approval": [
+        "prepare_pr"
+      ]
+    },
+    "facilities-contractor": {
+      "actions": [
+        "provision_room"
+      ],
+      "projects": [
+        "example-app"
+      ],
+      "budget_cents": 0,
+      "per_action_cents": 0,
+      "expires_at": "2027-01-01T00:00:00+00:00",
+      "requires_approval": []
+    }
+  }
+}

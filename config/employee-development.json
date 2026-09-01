@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "training_interval_days": 90,
+  "company_skills": [
+    {"id": "company-conduct", "name": "Company conduct and policy", "department_id": "people", "platform": "hr"},
+    {"id": "quality-basics", "name": "Quality Control basics", "department_id": "quality", "platform": "hr"}
+  ],
+  "department_skills": {
+    "engineering": ["secure-coding"],
+    "quality": ["inspection-method"],
+    "people": ["coaching-basics"],
+    "it": ["access-hygiene"],
+    "art": ["asset-provenance"],
+    "marketing": ["claim-evidence"],
+    "finance": ["cost-integrity"],
+    "facilities": ["inspection-path"]
+  },
+  "position_skills": {
+    "engineering:Developer": ["code-review-basics"]
+  },
+  "extra_skills": {
+    "secure-coding": {"name": "Secure coding baseline", "department_id": "engineering", "platform": "hr"},
+    "inspection-method": {"name": "Independent inspection method", "department_id": "quality", "platform": "hr"},
+    "coaching-basics": {"name": "Coaching and feedback", "department_id": "people", "platform": "hr"},
+    "access-hygiene": {"name": "Access and secret hygiene", "department_id": "it", "platform": "hr"},
+    "asset-provenance": {"name": "Asset provenance and licensing", "department_id": "art", "platform": "hr"},
+    "claim-evidence": {"name": "Evidence-backed marketing claims", "department_id": "marketing", "platform": "hr"},
+    "cost-integrity": {"name": "Estimated vs actual cost integrity", "department_id": "finance", "platform": "hr"},
+    "inspection-path": {"name": "Facilities inspection path", "department_id": "facilities", "platform": "hr"},
+    "code-review-basics": {"name": "Independent code review basics", "department_id": "engineering", "platform": "hr"}
+  },
+  "note": "Regular training is documented study plus independent HR certification. Live fetch remains disabled."
+}

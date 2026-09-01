@@ -1,0 +1,7 @@
+---
+description: Handoff and truthful documentation
+globs: "docs/**,README.md,START_HERE.md"
+alwaysApply: false
+---
+
+Keep requirements traceable to acceptance criteria. Update docs/18-handoff.md with actual tests, changed files and next task. Clearly label proposed contracts and unimplemented capabilities. Do not claim live integration based on mocks.

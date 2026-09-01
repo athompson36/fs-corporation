@@ -1,0 +1,7 @@
+---
+description: Governance, transactions and delegation
+globs: "company/**/*.py,tests/**/*.py"
+alwaysApply: false
+---
+
+Use authenticated principals in the future service. Demo strings are not authentication. Reject stale policy versions and approval reuse. Bind decisions to action payloads. Reserve budgets atomically. Add tests for denied operations and concurrent execution. Do not reset spending on policy revision.

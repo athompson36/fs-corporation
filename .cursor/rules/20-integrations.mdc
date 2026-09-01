@@ -1,0 +1,7 @@
+---
+description: Live adapters and credentials
+globs: "company/adapters.py,integrations/**,config/**"
+alwaysApply: false
+---
+
+Read docs/07-chatdev-integration.md, docs/08-github-cursor.md and docs/12-security.md. External actions require an explicit target scope and capability. Keep live adapters disabled until configured and gated. Pin upstream. Never let agent-controlled code access root credentials or policy storage.

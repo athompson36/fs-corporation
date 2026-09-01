@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "platforms": {
+    "esp32": {
+      "name": "Espressif ESP32",
+      "skills": ["esp32-idf", "esp32-peripherals"],
+      "learners": [
+        {"department_id": "engineering", "learner": "engineering:Developer"},
+        {"department_id": "people", "learner": "people:Knowledge Curator"}
+      ]
+    },
+    "raspberry-pi": {
+      "name": "Raspberry Pi",
+      "skills": ["rpi-linux", "rpi-gpio"],
+      "learners": [
+        {"department_id": "engineering", "learner": "engineering:Developer"},
+        {"department_id": "it", "learner": "it:Systems Administrator"},
+        {"department_id": "people", "learner": "people:Knowledge Curator"}
+      ]
+    },
+    "rockpro64": {
+      "name": "Pine64 RockPro64",
+      "skills": ["rockchip-uboot", "arm64-linux"],
+      "learners": [
+        {"department_id": "engineering", "learner": "engineering:Developer"},
+        {"department_id": "it", "learner": "it:Systems Administrator"},
+        {"department_id": "people", "learner": "people:Knowledge Curator"}
+      ]
+    },
+    "generic-sbc": {
+      "name": "Generic single-board computer",
+      "skills": ["embedded-linux"],
+      "learners": [
+        {"department_id": "engineering", "learner": "engineering:Developer"},
+        {"department_id": "it", "learner": "it:Systems Administrator"},
+        {"department_id": "people", "learner": "people:Knowledge Curator"}
+      ]
+    }
+  },
+  "skills": {
+    "esp32-idf": {"name": "ESP-IDF firmware toolchain", "platform": "esp32", "department_id": "engineering"},
+    "esp32-peripherals": {"name": "ESP32 GPIO, I2C, SPI and wireless", "platform": "esp32", "department_id": "engineering"},
+    "rpi-linux": {"name": "Raspberry Pi OS and device tree", "platform": "raspberry-pi", "department_id": "it"},
+    "rpi-gpio": {"name": "Raspberry Pi GPIO and HAT interfaces", "platform": "raspberry-pi", "department_id": "engineering"},
+    "rockchip-uboot": {"name": "Rockchip U-Boot and board bring-up", "platform": "rockpro64", "department_id": "engineering"},
+    "arm64-linux": {"name": "ARM64 Linux on Pine64-class boards", "platform": "rockpro64", "department_id": "it"},
+    "embedded-linux": {"name": "Embedded Linux on single-board computers", "platform": "generic-sbc", "department_id": "engineering"}
+  },
+  "aliases": {
+    "esp-32": "esp32",
+    "espressif": "esp32",
+    "rpi": "raspberry-pi",
+    "raspberrypi": "raspberry-pi",
+    "pi": "raspberry-pi",
+    "rock-pro-64": "rockpro64",
+    "rockpro-64": "rockpro64",
+    "pine64": "rockpro64",
+    "sbc": "generic-sbc"
+  },
+  "note": "Firmware and board-support software only. Physical fabrication or hiring physical contractors is out of scope."
+}
