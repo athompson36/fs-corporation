@@ -1,2 +1,2 @@
-"""FS-Tech AI Company: offline reference core, not a production authority service."""
-__version__ = "0.3.4"
+"""FS-Corporation: offline reference core, not a production authority service."""
+__version__ = "0.3.6"

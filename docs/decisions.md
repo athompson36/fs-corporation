@@ -16,6 +16,8 @@
 | ADR-012 | 2026-09-01 | Quality Control inspects product work; HR oversees training | QC is a distinct department; producer/CEO cannot inspect; acceptance requires a passing exact-hash verdict. People catalog id remains `people` with HR naming; HR or CEO certifies skills. |
 | ADR-013 | 2026-09-01 | Hired employees, recurring training files, performance trends | Hire stores configurable attributes and background; pertinent skills refresh on an interval; overdue training blocks that employee; HR records goals/reviews; self-review denied. |
 | ADR-014 | 2026-09-01 | Subprocess workers with parent-mediated gateway | Workers run in a spawned process without DB credentials; only gateway_check, store_artifact, execute_mock, and mock invoke_model are allowed; container runtime stays fail-closed until a worker image exists. |
+| ADR-015 | 2026-09-01 | Mobile CEO companion over Tailscale | Dashboard/read APIs, owner inbox, project dispatch-brief, SSE stream, and a mobile PWA; control service may bind to tailnet IP with --allow-remote; phone is not a trust boundary. |
+| ADR-016 | 2026-09-01 | Native control plane + Caddy edge on owned Debian host; Docker for workers only | fs-dev phase 1: systemd runs API on 127.0.0.1:8000; Caddy terminates TLS on 192.168.4.100 and serves companion + /api proxy; ufw denies LAN:8000. Container workers and 192.168.4.101 are phase 2. |
 
 ### ADR-010 detail
 
@@ -81,5 +83,32 @@
 - Give workers a read-only DB replica: still exposes grants, approvals, and secrets paths.
 
 **Consequences.** Alembic revision `0005_worker_runs`. API route `POST /api/v1/tasks/{task_id}/dispatch-worker`. Subprocess isolation is not a full sandbox; container mode remains owner-configuration work.
+
+### ADR-015 detail
+
+**Context.** The owner requested a smartphone companion to view company/project statistics, approve proposals, deploy projects to department heads, and respond to team feedback—effectively running the corporation from a phone.
+
+**Decision.** Add M8 APIs: `GET /api/v1/dashboard`, project list/detail, unified decisions inbox, owner inbox with `owner_requests`, `POST /api/v1/projects/{id}/dispatch-brief`, and `GET /api/v1/events/stream` (SSE). Ship a Vite/React PWA in `companion/` and document Tailscale access with `--allow-remote`. Optional Expo shell in `companion-native/` loads the PWA.
+
+**Alternatives considered.**
+
+- Public cloud API without VPN: contradicts loopback-first security posture for v1.
+- Native-only app without shared API: duplicates governance logic on the device.
+
+**Consequences.** Alembic revision `0006_mobile_companion`. New scope `owner.escalate` for head escalations. PWA polls every 15s; SSE available for live refresh. Push notifications deferred.
+
+### ADR-016 detail
+
+**Context.** M9 requires a production hosting path on an owned Debian machine (`fs-dev`) so the owner can use the mobile companion on LAN (`192.168.4.100`) and optionally Tailscale, without exposing the raw control API on the network.
+
+**Decision.** Run the control API **natively** under systemd bound to **loopback only** (`127.0.0.1:8000`). Terminate TLS and serve the companion PWA with **Caddy** on the LAN edge. Use **Docker only for isolated workers** (image and compose scaffold); do not containerize the control plane in phase 1. Reserve **`192.168.4.101`** for phase-2 worker/internal traffic.
+
+**Alternatives considered.**
+
+- Containerize the full stack (API + Caddy): adds operational complexity without isolation benefit for the control plane on a single owner host.
+- Bind API directly to LAN/Tailscale with `--allow-remote`: acceptable for dev; production fs-dev keeps API on loopback and proxies through Caddy on 443.
+- Public internet exposure without VPN: contradicts loopback-first security posture.
+
+**Consequences.** `deploy/fs-dev/` ships `install.sh`, systemd unit, Caddyfile, ufw example, and worker Dockerfile/compose (scaffold). Runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md). Live adapter dispatch and worker host on `.101` remain owner-configuration work (phase 2).
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

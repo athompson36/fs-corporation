@@ -33,6 +33,7 @@ def money(value):
 
 class Company:
     def __init__(self, path=":memory:", ceo="human-ceo"):
+        self.db_path = str(path)
         self.db = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys=ON")
@@ -368,7 +369,7 @@ class Company:
             raise PermissionError("Period budget exceeded")
 
     def _hash_token(self,token):
-        return hashlib.sha256(("fs-tech-identity:"+token).encode()).hexdigest()
+        return hashlib.sha256(("fs-corporation-identity:"+token).encode()).hexdigest()
 
     def register_identity(self,principal_id,kind,token,scopes=None):
         if kind not in {"owner","service"}:raise ValueError("Unknown identity kind")
@@ -1153,6 +1154,207 @@ class Company:
         goals=[dict(r) for r in self.db.execute(
             "SELECT * FROM performance_goals WHERE employee_id=? ORDER BY created_at",(employee_id,))]
         return {"employee_id":employee_id,"points":points,"direction":direction,"goals":goals}
+
+    def _is_paused(self):
+        return self.db.execute("SELECT value FROM settings WHERE key='paused'").fetchone()[0] == "true"
+
+    def _project_blockers(self, project_id):
+        blockers = []
+        if self._is_paused():
+            blockers.append("company_paused")
+        if self.project_skill_gaps(project_id):
+            blockers.append("skill_gaps")
+        pending_qc = self.db.execute(
+            """SELECT 1 FROM tasks t
+               LEFT JOIN qc_inspections q ON q.task_id=t.id AND q.verdict='pass'
+               WHERE t.project=? AND t.status='produced' AND q.id IS NULL LIMIT 1""",
+            (project_id,)).fetchone()
+        if pending_qc:
+            blockers.append("qc_pending")
+        return blockers
+
+    def _project_summary(self, row):
+        project_id = row["id"]
+        completion = self.db.execute("SELECT 1 FROM completions WHERE project=?", (project_id,)).fetchone()
+        open_queue = self.db.execute(
+            "SELECT COUNT(*) FROM queue WHERE project=? AND status IN ('queued','leased')",
+            (project_id,)).fetchone()[0]
+        departments = [r[0] for r in self.db.execute(
+            "SELECT department_id FROM project_dispatches WHERE project_id=? ORDER BY created_at",
+            (project_id,))]
+        return {
+            "id": project_id,
+            "brief": row["brief"],
+            "classification": row["classification"],
+            "enrolled_at": row["enrolled_at"],
+            "completed": completion is not None,
+            "open_queue_count": open_queue,
+            "blockers": self._project_blockers(project_id),
+            "departments": departments,
+        }
+
+    def list_projects(self):
+        return [self._project_summary(dict(r)) for r in self.db.execute(
+            "SELECT * FROM projects ORDER BY enrolled_at")]
+
+    def project_detail(self, project_id):
+        row = self.db.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+        if not row:
+            raise ValueError("Project not found")
+        summary = self._project_summary(dict(row))
+        tasks = [dict(r) for r in self.db.execute(
+            "SELECT * FROM tasks WHERE project=? ORDER BY rowid", (project_id,))]
+        timeline = [dict(r) for r in self.db.execute(
+            "SELECT seq,at,kind,body FROM events WHERE project_id=? ORDER BY seq DESC LIMIT 30",
+            (project_id,))]
+        qc = [dict(r) for r in self.db.execute(
+            """SELECT q.* FROM qc_inspections q JOIN tasks t ON t.id=q.task_id
+               WHERE t.project=? ORDER BY q.created_at DESC""", (project_id,))]
+        dispatches = [dict(r) for r in self.db.execute(
+            "SELECT * FROM project_dispatches WHERE project_id=? ORDER BY created_at", (project_id,))]
+        return {**summary, "tasks": tasks, "timeline": timeline,
+                "qc_inspections": qc, "dispatches": dispatches,
+                "skill_gaps": self.project_skill_gaps(project_id)}
+
+    def decisions_inbox(self):
+        items = []
+        for p in self.db.execute("SELECT * FROM proposals WHERE status='pending' ORDER BY rowid"):
+            body = json.loads(p["body"])
+            items.append({
+                "id": p["id"], "kind": "policy",
+                "title": f"Policy version {body['version']}",
+                "summary": p["reason"], "project_id": None,
+                "created_at": None, "evidence_refs": [],
+            })
+        for p in self.db.execute("SELECT * FROM consultant_proposals WHERE status='pending' ORDER BY rowid"):
+            body = json.loads(p["body"])
+            items.append({
+                "id": p["id"], "kind": "consultant",
+                "title": body.get("title", p["id"]),
+                "summary": body.get("finding", ""),
+                "project_id": None, "created_at": None,
+                "evidence_refs": [body.get("evidence", "")[:240]],
+            })
+        for e in self.db.execute("SELECT * FROM expansions WHERE status IN ('proposed','costed') ORDER BY id"):
+            items.append({
+                "id": e["id"], "kind": "expansion",
+                "title": f"Facilities expansion for {e['source_project']}",
+                "summary": e["status"], "project_id": e["source_project"],
+                "created_at": None, "evidence_refs": [],
+            })
+        return {"items": items}
+
+    def ceo_dashboard(self):
+        status = self.status()
+        reserved = self.db.execute(
+            "SELECT COALESCE(SUM(amount_cents),0) FROM reservations WHERE status='reserved'").fetchone()[0]
+        dept_queues = []
+        for d in self.db.execute("SELECT id,name FROM departments ORDER BY id"):
+            cnt = self.db.execute(
+                """SELECT COUNT(*) FROM queue
+                   WHERE status IN ('queued','leased')
+                   AND (actor=? OR actor LIKE ?)""",
+                (d["id"], f"{d['id']}:%")).fetchone()[0]
+            dept_queues.append({"department_id": d["id"], "name": d["name"], "open_count": cnt})
+        return {
+            "company": {**status, "paused": self._is_paused(), "reserved_cents": reserved},
+            "projects": self.list_projects(),
+            "pending_decisions": self.decisions_inbox()["items"],
+            "department_queues": dept_queues,
+            "owner_inbox_open": self.db.execute(
+                "SELECT COUNT(*) FROM owner_requests WHERE status='open'").fetchone()[0],
+        }
+
+    def create_owner_request(self, actor, department_id, kind, subject, body, project_id=None):
+        if kind not in {"feedback", "escalation", "approval_needed"}:
+            raise ValueError("Unknown request kind")
+        if not subject or not str(subject).strip():
+            raise ValueError("Subject required")
+        if not body or not str(body).strip():
+            raise ValueError("Body required")
+        if actor != self.ceo and not self.db.execute(
+                "SELECT 1 FROM identities WHERE principal_id=?", (actor,)).fetchone():
+            raise PermissionError("Unknown requester")
+        if not self.db.execute("SELECT 1 FROM departments WHERE id=?", (department_id,)).fetchone():
+            raise ValueError("Unknown department")
+        rid = str(uuid.uuid4())
+        with self.tx():
+            self.db.execute(
+                "INSERT INTO owner_requests VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (rid, project_id, department_id, actor, kind, subject.strip(), body.strip(),
+                 "open", None, now().isoformat(), None))
+            self._event("owner.request_created", {"id": rid, "kind": kind, "department_id": department_id},
+                        actor_id=actor, project_id=project_id)
+        return dict(self.db.execute("SELECT * FROM owner_requests WHERE id=?", (rid,)).fetchone())
+
+    def owner_inbox(self, status=None):
+        if status and status not in {"open", "answered", "closed"}:
+            raise ValueError("Invalid inbox status")
+        if status:
+            rows = self.db.execute(
+                "SELECT * FROM owner_requests WHERE status=? ORDER BY created_at DESC", (status,))
+        else:
+            rows = self.db.execute("SELECT * FROM owner_requests ORDER BY created_at DESC")
+        return {"items": [dict(r) for r in rows]}
+
+    def respond_owner_request(self, actor, request_id, response, close=True):
+        self._ceo(actor)
+        if not response or not str(response).strip():
+            raise ValueError("Response required")
+        with self.tx():
+            row = self.db.execute("SELECT * FROM owner_requests WHERE id=?", (request_id,)).fetchone()
+            if not row:
+                raise ValueError("Owner request not found")
+            if row["status"] != "open":
+                raise ValueError("Request is not open")
+            new_status = "closed" if close else "answered"
+            self.db.execute(
+                "UPDATE owner_requests SET status=?, owner_response=?, responded_at=? WHERE id=?",
+                (new_status, response.strip(), now().isoformat(), request_id))
+            self._event("owner.request_responded", {"id": request_id, "status": new_status},
+                        actor_id=actor, project_id=row["project_id"])
+        return dict(self.db.execute("SELECT * FROM owner_requests WHERE id=?", (request_id,)).fetchone())
+
+    def dispatch_project_brief(self, actor, project_id, brief, departments, acceptance_criteria,
+                               budget_cents, due_at=None):
+        self._ceo(actor)
+        money(budget_cents)
+        if not brief or not str(brief).strip():
+            raise ValueError("Brief required")
+        if not acceptance_criteria or not str(acceptance_criteria).strip():
+            raise ValueError("Acceptance criteria required")
+        if not isinstance(departments, list) or not departments:
+            raise ValueError("At least one department required")
+        if not self.db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
+            raise ValueError("Project not found")
+        known = {r[0] for r in self.db.execute("SELECT id FROM departments")}
+        for dept_id in departments:
+            if dept_id not in known:
+                raise ValueError(f"Unknown department {dept_id}")
+        dispatches = []
+        with self.tx():
+            for dept_id in departments:
+                dispatch_id = str(uuid.uuid4())
+                woid = digest({"dispatch": project_id, "department": dept_id, "at": now().isoformat()})
+                task_id = f"dispatch-{project_id}-{dept_id}-{dispatch_id[:8]}"
+                payload = {
+                    "project_id": project_id, "department_id": dept_id,
+                    "brief": brief.strip(), "acceptance_criteria": acceptance_criteria.strip(),
+                    "due_at": due_at,
+                }
+                self.db.execute(
+                    "INSERT INTO work_orders VALUES(?,?,?,?,?,?,?)",
+                    (woid, task_id, self.policy()["version"], digest(payload), budget_cents,
+                     canonical(payload), "authorized"))
+                self.db.execute(
+                    "INSERT INTO project_dispatches VALUES(?,?,?,?,?,?,?,?,?)",
+                    (dispatch_id, project_id, dept_id, woid, brief.strip(),
+                     acceptance_criteria.strip(), budget_cents, due_at, now().isoformat()))
+                self._event("project.dispatched",
+                              {"dispatch_id": dispatch_id, "department_id": dept_id, "work_order_id": woid},
+                              actor_id=actor, project_id=project_id)
+                dispatches.append({"id": dispatch_id, "department_id": dept_id, "work_order_id": woid})
+        return dispatches
 
     def backup(self,dest):
         dest=Path(dest);dest.parent.mkdir(parents=True,exist_ok=True)

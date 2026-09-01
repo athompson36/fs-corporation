@@ -1,0 +1,79 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #111;
+  color: #eee;
+  line-height: 1.4;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; }
+
+.app { max-width: 32rem; margin: 0 auto; padding: 0.75rem 1rem 5rem; }
+
+nav.tabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  background: #111;
+  padding: 0.5rem 0;
+  z-index: 1;
+}
+
+nav.tabs button {
+  flex: 1;
+  min-width: 4.5rem;
+  border: 1px solid #444;
+  background: #1a1a1a;
+  color: #eee;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+}
+
+nav.tabs button.active { border-color: #69c; background: #223; }
+
+h1 { font-size: 1.25rem; margin: 0.5rem 0; }
+
+.card {
+  border: 1px solid #444;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.muted { color: #aaa; font-size: 0.85rem; }
+
+.error { color: #f88; }
+
+.actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+
+.actions button, .actions input, textarea {
+  font: inherit;
+  border-radius: 0.4rem;
+  border: 1px solid #555;
+  background: #222;
+  color: #eee;
+  padding: 0.45rem 0.6rem;
+}
+
+.actions button.primary { background: #264; border-color: #486; }
+.actions button.danger { background: #522; border-color: #844; }
+
+.offline { background: #522; padding: 0.5rem; text-align: center; font-size: 0.85rem; }
+
+label { display: block; margin: 0.5rem 0 0.25rem; font-size: 0.85rem; }
+
+input[type="text"], input[type="password"], textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 0.4rem;
+  border: 1px solid #555;
+  background: #1a1a1a;
+  color: #eee;
+}
+
+textarea { min-height: 4rem; }

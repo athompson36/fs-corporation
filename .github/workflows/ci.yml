@@ -16,3 +16,30 @@ jobs:
       - run: pip install -e .
       - run: python -m unittest discover -s tests -v
       - run: python scripts/check_bundle.py
+  companion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+        working-directory: companion
+      - run: npm run build
+        working-directory: companion
+  deploy-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Caddy
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+          sudo apt-get update -qq
+          sudo apt-get install -y caddy
+      - name: Validate Caddyfile
+        run: caddy validate --config deploy/fs-dev/Caddyfile
+      - name: Verify systemd unit
+        run: systemd-analyze verify deploy/fs-dev/fs-corporation-api.service

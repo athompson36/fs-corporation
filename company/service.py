@@ -1,20 +1,26 @@
 """Loopback control service. Not a trusted remote API."""
 from __future__ import annotations
 import argparse
+import asyncio
 import json
 import tempfile
 from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
+from company import __version__
 from company.core import Company, canonical, digest
 from company.consultant import ConsultantDesk
+
+DEFAULT_DATA_DIR = ".local"
+DEFAULT_DB = ".local/company.db"
+DEFAULT_TOKEN_FILE = ".local/owner.token"
 
 DESK_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>CEO desk</title>
+<title>FS-Corporation — CEO desk</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
 :root { color-scheme: dark; }
@@ -116,7 +122,7 @@ def _json(data, code=200):
 
 
 def create_app(company: Company) -> FastAPI:
-    app = FastAPI(title="FS-Tech AI Company", version="0.3.4")
+    app = FastAPI(title="FS-Corporation", version=__version__)
     app.state.company = company
     desk = ConsultantDesk(company)
 
@@ -179,6 +185,10 @@ def create_app(company: Company) -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def desk_page():
         return DESK_HTML
+
+    @app.get("/api/v1/health")
+    def health():
+        return {"ok": True, "version": app.version, "db": company.db_path}
 
     @app.get("/api/v1/company")
     def get_company(authorization: str | None = Header(default=None)):
@@ -261,6 +271,92 @@ def create_app(company: Company) -> FastAPI:
         scoped(ident, "policy.approve")
         payload = envelope(ident, body)
         return run(ident, idempotency_key, payload, lambda: ({"version": company.rollback_policy(ident["principal_id"], payload["target_version"], payload.get("reason", "rollback"))}, 200))
+
+    @app.get("/api/v1/dashboard")
+    def dashboard(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.ceo_dashboard()
+
+    @app.get("/api/v1/projects")
+    def list_projects(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"projects": company.list_projects()}
+
+    @app.get("/api/v1/projects/{project_id}")
+    def get_project(project_id: str, authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.project_detail(project_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/decisions/inbox")
+    def decisions_inbox(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.decisions_inbox()
+
+    @app.get("/api/v1/owner-inbox")
+    def owner_inbox(status: str | None = None, authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.owner_inbox(status)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/owner-inbox")
+    def owner_inbox_create(body: Command, authorization: str | None = Header(default=None),
+                            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "owner.escalate")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (company.create_owner_request(
+            ident["principal_id"], payload["department_id"], payload["kind"],
+            payload["subject"], payload["body"], payload.get("project_id")), 200))
+
+    @app.post("/api/v1/owner-inbox/{request_id}/respond")
+    def owner_inbox_respond(request_id: str, body: Command, authorization: str | None = Header(default=None),
+                              idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"id": request_id}, lambda: (
+            company.respond_owner_request(ident["principal_id"], request_id, payload["response"],
+                                          payload.get("close", True)), 200))
+
+    @app.post("/api/v1/projects/{project_id}/dispatch-brief")
+    def dispatch_brief(project_id: str, body: Command, authorization: str | None = Header(default=None),
+                       idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "project.enroll")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"project_id": project_id}, lambda: (
+            {"dispatches": company.dispatch_project_brief(
+                ident["principal_id"], project_id, payload["brief"], payload["departments"],
+                payload["acceptance_criteria"], payload["budget_cents"], payload.get("due_at"))}, 200))
+
+    @app.get("/api/v1/events/stream")
+    async def events_stream(cursor: int = 0, authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "audit.read")
+
+        async def generate():
+            pos = cursor
+            while True:
+                page = company.events_page(pos, 20)
+                for item in page["items"]:
+                    pos = item["seq"]
+                    yield f"data: {json.dumps({'seq': item['seq'], 'kind': item['kind'], 'at': item['at']})}\n\n"
+                if not page["items"]:
+                    await asyncio.sleep(1)
+                if len(page["items"]) < 20:
+                    await asyncio.sleep(1)
+
+        return StreamingResponse(generate(), media_type="text/event-stream")
 
     @app.post("/api/v1/projects")
     def projects(body: Command, authorization: str | None = Header(default=None), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
@@ -506,18 +602,43 @@ def bootstrap_owner(company: Company, token_path: Path, principal_id="human-ceo"
     return token
 
 
+def resolve_paths(args):
+    data_dir = Path(args.data_dir)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    db_path = Path(data_dir) / "company.db" if args.db == DEFAULT_DB else Path(args.db)
+    token_path = Path(data_dir) / "owner.token" if args.token_file == DEFAULT_TOKEN_FILE else Path(args.token_file)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return data_dir, db_path, token_path
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Loopback company control service; bind to 127.0.0.1 only")
-    parser.add_argument("--db", default=".local/company.db")
+    parser = argparse.ArgumentParser(description="FS-Corporation control service")
+    parser.add_argument("--data-dir", default=DEFAULT_DATA_DIR,
+                        help="Data directory (default .local; production uses /var/lib/fs-corporation)")
+    parser.add_argument("--db", default=DEFAULT_DB)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--token-file", default=".local/owner.token")
+    parser.add_argument("--token-file", default=DEFAULT_TOKEN_FILE)
+    parser.add_argument("--allow-remote", action="store_true",
+                        help="Allow binding beyond loopback (use with Tailscale or private network)")
     args = parser.parse_args()
-    if args.host not in {"127.0.0.1", "localhost", "::1"}:
-        raise SystemExit("Refusing to bind a non-loopback address")
-    Path(args.db).parent.mkdir(parents=True, exist_ok=True)
-    company = Company(args.db)
-    bootstrap_owner(company, Path(args.token_file))
+    loopback = {"127.0.0.1", "localhost", "::1"}
+    if args.host not in loopback and not args.allow_remote:
+        raise SystemExit(
+            "Refusing to bind a non-loopback address without --allow-remote. "
+            "Use Tailscale and bind to your tailnet IP, or keep 127.0.0.1 for local-only access.")
+    data_dir, db_path, token_path = resolve_paths(args)
+    bind_mode = "loopback" if args.host in loopback else "remote (--allow-remote)"
+    companion_dist = data_dir / "companion" / "dist"
+    import sys
+    print(f"FS-Corporation {__version__}: bind={args.host}:{args.port} mode={bind_mode}", file=sys.stderr)
+    print(f"  data-dir={data_dir} db={db_path} token-file={token_path}", file=sys.stderr)
+    print(f"  companion-dist={companion_dist} (served by Caddy in production)", file=sys.stderr)
+    if args.host not in loopback:
+        print("WARNING: control service bound to a non-loopback address; restrict access to your private network.",
+              file=sys.stderr)
+    company = Company(str(db_path))
+    bootstrap_owner(company, token_path)
     import uvicorn
     uvicorn.run(create_app(company), host=args.host, port=args.port, log_level="info")
 

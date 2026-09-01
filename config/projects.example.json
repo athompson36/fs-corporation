@@ -3,7 +3,7 @@
   "projects": [
     {
       "id": "example-app",
-      "display_name": "Replace with an explicitly selected FS-Tech project",
+      "display_name": "Replace with an explicitly selected FS-Corporation project",
       "upstream_repository": "OWNER/PROJECT",
       "company_repository": "COMPANY/PROJECT-FORK",
       "default_branch": "main",

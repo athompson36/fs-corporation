@@ -1,0 +1,219 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ApiClient,
+  DecisionItem,
+  OwnerRequest,
+  loadSettings,
+  saveSettings,
+  type Settings,
+} from "./api/client";
+
+type Tab = "dashboard" | "projects" | "decisions" | "inbox" | "settings";
+
+export default function App() {
+  const [settings, setSettings] = useState<Settings>(loadSettings);
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
+  const [dashboard, setDashboard] = useState<Record<string, unknown> | null>(null);
+  const [projects, setProjects] = useState<Record<string, unknown>[]>([]);
+  const [decisions, setDecisions] = useState<DecisionItem[]>([]);
+  const [inbox, setInbox] = useState<OwnerRequest[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [projectDetail, setProjectDetail] = useState<Record<string, unknown> | null>(null);
+
+  const api = useMemo(() => new ApiClient(settings), [settings]);
+
+  const refresh = useCallback(async () => {
+    if (!settings.token) {
+      setError("Set your bearer token in Settings.");
+      return;
+    }
+    setError(null);
+    setOffline(false);
+    try {
+      const [d, p, dec, own] = await Promise.all([
+        api.dashboard(),
+        api.projects(),
+        api.decisions(),
+        api.ownerInbox("open"),
+      ]);
+      setDashboard(d);
+      setProjects(p.projects);
+      setDecisions(dec.items);
+      setInbox(own.items);
+    } catch (e) {
+      setOffline(true);
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, [api, settings.token]);
+
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, 15000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!selectedProject || !settings.token) {
+      setProjectDetail(null);
+      return;
+    }
+    api.project(selectedProject).then(setProjectDetail).catch((e) => setError(String(e)));
+  }, [api, selectedProject, settings.token]);
+
+  async function decide(item: DecisionItem, decision: string) {
+    const reason = decision === "approved" ? "Approved from mobile companion" : "Rejected from mobile companion";
+    if (item.kind === "policy") await api.policyDecision(item.id, decision, reason);
+    else if (item.kind === "consultant") await api.consultantDecision(item.id, decision, reason);
+    else setError("Expansion decisions: use the CEO desk for now.");
+    await refresh();
+  }
+
+  async function respond(req: OwnerRequest) {
+    const response = window.prompt(`Response to: ${req.subject}`);
+    if (!response) return;
+    await api.respondOwner(req.id, response);
+    await refresh();
+  }
+
+  function save(s: Settings) {
+    saveSettings(s);
+    setSettings(s);
+  }
+
+  const company = (dashboard?.company ?? {}) as Record<string, unknown>;
+
+  return (
+    <div className="app">
+      <h1>FS-Corporation</h1>
+      {offline && <div className="offline">Cannot reach control service</div>}
+      {error && <p className="error">{error}</p>}
+
+      {tab === "dashboard" && (
+        <section>
+          <p className="muted">CEO companion — reads persisted state only.</p>
+          <div className="card">
+            <div>Policy v{String(company.policy_version ?? "?")}</div>
+            <div>Paused: {String(company.paused ?? false)}</div>
+            <div>Simulated spend: {String(company.simulated_spend_cents ?? 0)}¢</div>
+            <div>Reserved: {String(company.reserved_cents ?? 0)}¢</div>
+            <div>Open owner inbox: {String(dashboard?.owner_inbox_open ?? 0)}</div>
+            <div>Pending decisions: {String((dashboard?.pending_decisions as unknown[])?.length ?? 0)}</div>
+            <div className="actions">
+              <button className="primary" type="button" onClick={() => api.resume().then(refresh)}>Resume</button>
+              <button className="danger" type="button" onClick={() => api.pause().then(refresh)}>Pause</button>
+              <button type="button" onClick={refresh}>Refresh</button>
+            </div>
+          </div>
+          {(dashboard?.department_queues as { name: string; open_count: number }[] | undefined)?.map((d) => (
+            <div key={d.name} className="card muted">{d.name}: {d.open_count} queued</div>
+          ))}
+        </section>
+      )}
+
+      {tab === "projects" && (
+        <section>
+          {!selectedProject ? (
+            <>
+              {projects.map((p) => (
+                <div key={String(p.id)} className="card">
+                  <strong>{String(p.id)}</strong>
+                  <div className="muted">{String(p.brief)}</div>
+                  <div className="muted">Blockers: {(p.blockers as string[])?.join(", ") || "none"}</div>
+                  <div className="actions">
+                    <button type="button" onClick={() => setSelectedProject(String(p.id))}>Details</button>
+                  </div>
+                </div>
+              ))}
+              <div className="actions">
+                <button className="primary" type="button" onClick={async () => {
+                  const id = window.prompt("Project id");
+                  const brief = window.prompt("Brief");
+                  if (id && brief) { await api.enrollProject(id, brief); await refresh(); }
+                }}>Enroll project</button>
+              </div>
+            </>
+          ) : projectDetail && (
+            <div className="card">
+              <button type="button" onClick={() => setSelectedProject(null)}>← Back</button>
+              <h2>{selectedProject}</h2>
+              <p>{String(projectDetail.brief)}</p>
+              <p className="muted">Departments: {(projectDetail.departments as string[])?.join(", ") || "none"}</p>
+              <div className="actions">
+                <button className="primary" type="button" onClick={async () => {
+                  const depts = window.prompt("Departments (comma-separated)", "engineering,product");
+                  const brief = window.prompt("Brief for heads", String(projectDetail.brief));
+                  const criteria = window.prompt("Acceptance criteria", "Deliverable reviewed");
+                  if (!depts || !brief || !criteria) return;
+                  await api.dispatchBrief(selectedProject, brief, depts.split(",").map((s) => s.trim()),
+                    criteria, 500);
+                  await refresh();
+                  setSelectedProject(null);
+                }}>Dispatch to heads</button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "decisions" && (
+        <section>
+          {decisions.map((item) => (
+            <div key={`${item.kind}-${item.id}`} className="card">
+              <div className="muted">{item.kind}</div>
+              <strong>{item.title}</strong>
+              <p className="muted">{item.summary}</p>
+              {(item.kind === "policy" || item.kind === "consultant") && (
+                <div className="actions">
+                  <button className="primary" type="button" onClick={() => decide(item, "approved")}>Approve</button>
+                  <button className="danger" type="button" onClick={() => decide(item, "rejected")}>Reject</button>
+                </div>
+              )}
+            </div>
+          ))}
+          {!decisions.length && <p className="muted">No pending decisions.</p>}
+        </section>
+      )}
+
+      {tab === "inbox" && (
+        <section>
+          {inbox.map((req) => (
+            <div key={req.id} className="card">
+              <div className="muted">{req.kind} · {req.department_id}</div>
+              <strong>{req.subject}</strong>
+              <p>{req.body}</p>
+              <div className="actions">
+                <button className="primary" type="button" onClick={() => respond(req)}>Respond</button>
+              </div>
+            </div>
+          ))}
+          {!inbox.length && <p className="muted">No open owner requests.</p>}
+        </section>
+      )}
+
+      {tab === "settings" && (
+        <section className="card">
+          <label htmlFor="baseUrl">API base URL (Tailscale host)</label>
+          <input id="baseUrl" type="text" value={settings.baseUrl}
+            onChange={(e) => save({ ...settings, baseUrl: e.target.value })} />
+          <label htmlFor="token">Bearer token</label>
+          <input id="token" type="password" value={settings.token}
+            onChange={(e) => save({ ...settings, token: e.target.value })} />
+          <p className="muted">Use the token from `.local/owner.token` on your control host. Connect phone and host on Tailscale.</p>
+          <div className="actions">
+            <button type="button" onClick={refresh}>Test connection</button>
+          </div>
+        </section>
+      )}
+
+      <nav className="tabs" aria-label="Primary">
+        {(["dashboard", "projects", "decisions", "inbox", "settings"] as Tab[]).map((t) => (
+          <button key={t} type="button" className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
+            {t}
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}

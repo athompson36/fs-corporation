@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "name": "FS-Tech AI Company",
-  "working_title": true,
+  "name": "FS-Corporation",
+  "working_title": false,
   "owner": "Andrew Thompson",
   "ceo_mode": "hybrid",
   "human_authority": "human-ceo",

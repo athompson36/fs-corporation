@@ -2,7 +2,7 @@
 
 ## 1. Open the project
 
-Extract the ZIP, move `fs-tech-ai-company` to your development folder, and open `fs-tech-ai-company.code-workspace` in Cursor. Keep the documentation and source together. The starter is independent of your existing project repositories.
+Extract the ZIP, move `fs-corporation` to your development folder, and open `fs-corporation.code-workspace` in Cursor. Keep the documentation and source together. The starter is independent of your existing project repositories.
 
 ## 2. Verify the environment
 
@@ -36,7 +36,7 @@ The next concrete work is **owner-supplied live configuration** for a contained 
 
 Templates in `config/` describe departments, providers, enrolled projects, grants, research watchlists, hardware skills and employee development. Loading product configuration into the service is done with `Company.seed_catalog` / `seed_models` / `seed_hardware_skills` / `seed_development_skills` (M2). Editing JSON templates does not automatically change a running company. To exercise the implemented policy API directly, see [examples/governance.py](examples/governance.py).
 
-The working company name and hybrid CEO mode are defaults. No specific GitHub repository, paid subscription, deployment target, or daily budget has been authorized or connected by this bundle. Gather those values when implementing the relevant integration rather than blocking local development now.
+The company name is **FS-Corporation** and hybrid CEO mode is the default. No specific GitHub repository, paid subscription, deployment target, or daily budget has been authorized or connected by this bundle. Gather those values when implementing the relevant integration rather than blocking local development now.
 
 ## 5. Retain your work
 

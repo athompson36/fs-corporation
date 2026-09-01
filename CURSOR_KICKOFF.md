@@ -1,6 +1,6 @@
 # Paste this into Cursor Agent
 
-You are continuing the FS-Tech AI Company project for Andrew Thompson. Read AGENTS.md, docs/00-project-context.md, docs/18-handoff.md, docs/02-architecture.md and docs/14-roadmap.md before changing code. Review the relevant scoped rules in .cursor/rules.
+You are continuing the FS-Corporation project for Andrew Thompson. Read AGENTS.md, docs/00-project-context.md, docs/18-handoff.md, docs/02-architecture.md and docs/14-roadmap.md before changing code. Review the relevant scoped rules in .cursor/rules.
 
 Goal: extend ChatDev 2.0 into a persistent AI corporation with CEO-set evolving rules; delegable department heads; mixed AI providers/models per department, position and task; controlled work on explicitly enrolled GitHub forks; evidence-based response to real markets and events; and a growing interactive headquarters with facilities and contractor workflows.
 

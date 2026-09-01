@@ -1,0 +1,27 @@
+# Optional local smoke test for the container worker image (not used by systemd).
+# Build from repo root:
+#   docker compose -f deploy/fs-dev/docker-compose.workers.yml build
+#
+# Place envelope.json under ./scratch before running (see company.worker --envelope).
+
+services:
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/fs-dev/Dockerfile.worker
+    image: fs-corporation-worker:local
+    network_mode: none
+    volumes:
+      - worker-scratch:/work
+    command:
+      - python
+      - -m
+      - company.worker
+      - --envelope
+      - /work/envelope.json
+      - --scratch
+      - /work
+
+volumes:
+  worker-scratch:
+    driver: local

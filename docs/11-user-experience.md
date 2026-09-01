@@ -32,8 +32,8 @@ Set company name and owner → choose CEO mode → set root limits → enable in
 
 ## Design direction
 
-FS-Tech can use a restrained cosmic visual identity with a dark background, clear typography and modest color accents. Final branding is not decided. Prioritize practical information density over decorative glass effects. Begin with functional forms and state views before custom room art.
+FS-Corporation can use a restrained cosmic visual identity with a dark background, clear typography and modest color accents. Logo and palette details remain undecided. Prioritize practical information density over decorative glass effects. Begin with functional forms and state views before custom room art.
 
 ## Current status
 
-This bundle has a local HTML CEO desk that reads persisted API state. This document remains the broader UX specification. Do not advertise a live dashboard or headquarters until it reads real persisted data and its main interactions have been tested. Hardware skill gaps should appear as blocked work, not as animated progress.
+This bundle has a local HTML CEO desk and a mobile-first PWA in `companion/` that reads the same persisted API state. Hardware skill gaps appear as blocked work, not as animated progress.

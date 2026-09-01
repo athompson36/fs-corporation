@@ -1,0 +1,47 @@
+# FS-Corporation edge proxy for fs-dev (Debian + Caddy 2)
+#
+# Install:
+#   sudo apt install caddy
+#   sudo cp deploy/fs-dev/Caddyfile /etc/caddy/Caddyfile
+#   # Set FS_CORP_LAN_IP and optional tailnet IP below, then:
+#   sudo systemctl reload caddy
+#
+# API stays on 127.0.0.1:8000; only Caddy listens on LAN/Tailscale HTTPS.
+
+{
+	admin off
+}
+
+(lan_site) {
+	root * /var/lib/fs-corporation/companion/dist
+	encode gzip
+
+	# Server-Sent Events — disable buffering
+	handle /api/v1/events/stream {
+		reverse_proxy 127.0.0.1:8000 {
+			flush_interval -1
+			header_up Connection "keep-alive"
+			header_up Cache-Control "no-cache"
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# SPA static assets + client-side routes (non-API)
+	handle_path /* {
+		root * /var/lib/fs-corporation/companion/dist
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+https://192.168.4.100 {
+	import lan_site
+}
+
+# Uncomment and set your tailnet IP after `tailscale ip -4`:
+# https://100.x.x.x {
+# 	import lan_site
+# }

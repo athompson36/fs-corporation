@@ -123,6 +123,16 @@ CREATE TABLE IF NOT EXISTS worker_runs(
   id TEXT PRIMARY KEY, worker_id TEXT NOT NULL, task_id TEXT NOT NULL,
   runtime TEXT NOT NULL, scratch_root TEXT NOT NULL, status TEXT NOT NULL,
   started_at TEXT NOT NULL, finished_at TEXT);
+CREATE TABLE IF NOT EXISTS owner_requests(
+  id TEXT PRIMARY KEY, project_id TEXT, department_id TEXT NOT NULL,
+  requester TEXT NOT NULL, kind TEXT NOT NULL, subject TEXT NOT NULL,
+  body TEXT NOT NULL, status TEXT NOT NULL, owner_response TEXT,
+  created_at TEXT NOT NULL, responded_at TEXT);
+CREATE TABLE IF NOT EXISTS project_dispatches(
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL, department_id TEXT NOT NULL,
+  work_order_id TEXT NOT NULL, brief TEXT NOT NULL,
+  acceptance_criteria TEXT NOT NULL, budget_cents INTEGER NOT NULL,
+  due_at TEXT, created_at TEXT NOT NULL);
 """
 
 GRANT_REQUIRED = {"actions", "projects", "budget_cents", "per_action_cents", "expires_at", "requires_approval"}

@@ -26,7 +26,7 @@ def demo(c):
 
 
 def main():
-    p=argparse.ArgumentParser(description="Offline AI-company reference core; no network or model spend")
+    p=argparse.ArgumentParser(description="FS-Corporation offline reference core; no network or model spend")
     p.add_argument("command",choices=["demo","status","audit","backup","restore"])
     p.add_argument("--db",default=".local/company.db")
     p.add_argument("--dest",default=".local/company.backup.db")

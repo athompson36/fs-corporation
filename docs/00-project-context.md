@@ -1,6 +1,6 @@
 # Project context — authoritative handoff
 
-Created 2026-09-01 from the visible project discussion. Owner: Andrew Thompson. Parent project: FS-Tech. Working name: FS-Tech AI Company; final branding is undecided.
+Created 2026-09-01 from the visible project discussion. Owner: Andrew Thompson. Project and company name: **FS-Corporation**. Repository: https://github.com/athompson36/fs-corporation
 
 ## User requirements, preserved
 
@@ -30,7 +30,7 @@ Research creates evidence and proposals. External pages cannot amend policy. Dep
 
 ## Unresolved choices with sensible defaults
 
-- Branding: use the working name, avoid premature logo work.
+- Branding: **FS-Corporation** is the project and in-product company name; visual style remains undecided.
 - Headquarters presentation: start with an accessible 2D floor plan, then isometric animation.
 - Deployment: local development first; later support self-hosted services.
 - Models: use mock profiles until exact available IDs, credentials and permitted data classes are configured.
@@ -53,3 +53,5 @@ A deterministic Python/SQLite reference core tests policy revisions, scoped gran
 13. Add a Human Resources department that oversees employee development and training, including certification of completed study. Learners cannot certify themselves. The existing People catalog id is retained. See [21-quality-hr.md](21-quality-hr.md).
 
 14. All employees undergo regular documented training on pertinent skills; HR keeps a reviewable training file; every employee has performance goals, reviews and trending; new employees have configurable attributes and backgrounds. See [22-employee-development.md](22-employee-development.md).
+
+15. Owner can run the corporation from a smartphone: view company and project statistics, approve proposals, dispatch projects to department heads, and respond to team feedback over an authenticated private network. See [24-mobile-companion.md](24-mobile-companion.md).

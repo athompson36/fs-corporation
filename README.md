@@ -1,10 +1,10 @@
-# FS-Tech AI Company — Cursor starter
+# FS-Corporation — Cursor starter
 
 A persistent AI corporation inspired by ChatDev: CEO governance, delegated department heads, mixed-model teams, controlled project forks, market intelligence, and a headquarters that grows with accepted work.
 
-**Deliverable status: v0.3.4 isolated subprocess workers + employee development + QC/HR gates + hardware skill gating + loopback control service.** This is not a finished autonomous company and not a production network API. Live ChatDev, GitHub, market feeds, billed models, and documentation fetch are not connected. The CEO desk is a local HTML projection of persisted state.
+**Deliverable status: v0.3.6 mobile CEO companion PWA + dashboard APIs + isolated workers + loopback control service + fs-dev deployment (systemd + Caddy edge).** This is not a finished autonomous company. Live ChatDev, GitHub, market feeds, billed models, and documentation fetch are not connected.
 
-Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-tech-ai-company.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
+Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-corporation.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
 
 ## Run in under a minute
 
@@ -43,6 +43,8 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 | 14 departments and role prompts | Configuration plus optional catalog seed |
 | CEO desk and 2D headquarters projection | Local HTML/SVG from persisted events; no isometric art |
 | Isolated subprocess workers with gateway allowlist | Implemented locally; container runtime fail-closed |
+| fs-dev production hosting | systemd + Caddy edge (`deploy/fs-dev/`); worker Docker scaffold only |
+| Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented |
 | Live providers inside worker boundary | Not implemented; mock invoke only |
 
 ## Documentation map
@@ -71,5 +73,7 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 - [Quality Control and Human Resources](docs/21-quality-hr.md)
 - [Employee development, training and performance](docs/22-employee-development.md)
 - [Isolated workers and gateway](docs/23-isolated-workers.md)
+- [Mobile CEO companion](docs/24-mobile-companion.md)
+- [fs-dev deployment](docs/25-fs-dev-deployment.md)
 
 This bundle contains original starter code, not a vendored ChatDev checkout. The upstream integration baseline is pinned in [upstream.lock.json](config/upstream.lock.json). Licensing and attribution details are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

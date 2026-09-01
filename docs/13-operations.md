@@ -16,7 +16,11 @@ python3 -m company restore --dest .local/company.backup.db --db .local/restored.
 alembic upgrade head
 ```
 
-The service refuses non-loopback binds. Owner bootstrap writes `.local/owner.token` (mode 600). `.env.example` is a future live-integration template and is not loaded by the core. Alembic revision `0002_hardware_skills` adds skill catalog tables; `0003_quality_control` adds inspection records; `0004_employee_development` adds hire/training/performance tables; restore from backup rather than downgrading.
+By default the control service **refuses non-loopback binds** during local development. For Tailscale-only dev access, start with `--allow-remote` on a tailnet IP (see [24-mobile-companion.md](24-mobile-companion.md)); that shortcut is not the fs-dev production path.
+
+**Production (fs-dev)** keeps the API on **`127.0.0.1:8000`** under systemd. **Caddy** listens on HTTPS (443) at the LAN edge, serves the companion PWA, and reverse-proxies `/api/*` to loopback. UFW must not expose port 8000 on external interfaces. See [25-fs-dev-deployment.md](25-fs-dev-deployment.md).
+
+Owner bootstrap writes `.local/owner.token` (mode 600) in dev; production uses `/etc/fs-corporation/owner.token`. `.env.example` is a future live-integration template and is not loaded by the core. Alembic revision `0002_hardware_skills` adds skill catalog tables; `0003_quality_control` adds inspection records; `0004_employee_development` adds hire/training/performance tables; restore from backup rather than downgrading.
 
 ## Budgets
 

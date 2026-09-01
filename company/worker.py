@@ -157,7 +157,7 @@ class ContainerWorkerRuntime:
         envelope_path = scratch_root / "envelope.json"
         envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
         run_id = company._start_worker_run(worker_id, task_id, self.runtime_name, str(scratch_root))
-        image = "fs-tech-ai-company-worker:local"
+        image = "fs-corporation-worker:local"
         cmd = [
             docker, "run", "--rm", "--network", "none",
             "-v", f"{scratch_root.resolve()}:/work:rw",

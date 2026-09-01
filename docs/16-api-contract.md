@@ -5,6 +5,15 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | Method and route | Purpose | Required authority |
 |---|---|---|
 | GET /company | Current company and pause state | company.read |
+| GET /dashboard | CEO dashboard: stats, projects, decisions, queues, inbox count | company.read |
+| GET /projects | List enrolled projects with summary stats | company.read |
+| GET /projects/{id} | Project detail, tasks, timeline, dispatches | company.read |
+| GET /decisions/inbox | Unified pending policy, consultant, expansion items | company.read |
+| GET /owner-inbox | Owner feedback/escalation requests | company.read |
+| POST /owner-inbox | Create owner request (heads need `owner.escalate`) | owner.escalate |
+| POST /owner-inbox/{id}/respond | CEO response to open request | company.pause |
+| POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
+| GET /events/stream | SSE audit events (cursor query param) | audit.read |
 | POST /company/pause | Stop new dispatch | company.pause |
 | POST /company/resume | Resume dispatch | company.resume |
 | GET /departments | Organization and effective head assignments | organization.read |
@@ -52,7 +61,7 @@ Return operation ID, resource version, status and event correlation ID. Validati
 
 ## Concurrency
 
-Use optimistic resource versions and transaction-level budget reservation. Long work returns 202 with an operation resource. Event consumers resume using persisted cursors; SSE/WebSocket events must pass the same project ACLs as REST reads. Never use an event stream as the only persistence mechanism. The current loopback service persists in SQLite and does not yet emit SSE.
+Use optimistic resource versions and transaction-level budget reservation. Long work returns 202 with an operation resource. Event consumers resume using persisted cursors; SSE/WebSocket events must pass the same project ACLs as REST reads. Never use an event stream as the only persistence mechanism. The current loopback service persists in SQLite and emits SSE at `/api/v1/events/stream`. The mobile PWA polls every 15 seconds as a fallback.
 
 ## Approval binding
 

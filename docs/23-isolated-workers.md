@@ -7,7 +7,7 @@ Workers execute queued mock ChatDev work outside the control-plane process. They
 | Runtime | Status | Notes |
 |---|---|---|
 | `subprocess` | Implemented | Spawned child process; parent pumps a restricted gateway over a pipe |
-| `container` | Fail-closed | Requires Docker and a built `fs-tech-ai-company-worker:local` image |
+| `container` | Fail-closed | Requires Docker and a built `fs-corporation-worker:local` image |
 
 ## Gateway allowlist
 

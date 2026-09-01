@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.4 local status:** Subprocess-isolated workers with a parent-mediated gateway. Container runtime remains fail-closed. Live adapters remain disabled.
+**v0.3.6 local status:** fs-dev deployment runbook (native API + Caddy edge), mobile companion on HTTPS LAN/Tailscale, worker Docker scaffold. Live adapters remain disabled.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials remain unconfigured and do not block local work.
 
@@ -214,6 +214,37 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 
 **Acceptance:** two projects operate concurrently without cross-project data leakage or overspend; interruption/recovery tested; all claims in the capability matrix verified. Establish operational SLOs from measurement.
 
+## M8 — Mobile CEO companion
+
+**Depends on M1/M6. Maps to:** R02, R14, R22.
+
+- [x] Dashboard read API aggregating company, projects, decisions, queues, owner inbox
+- [x] Project list/detail and dispatch-brief to department heads
+- [x] Owner inbox (`owner_requests`) with head escalation and CEO response
+- [x] Unified decisions inbox; reuse existing approve/reject endpoints
+- [x] SSE event stream; PWA polls as fallback
+- [x] Tailscale bind via `--allow-remote` (documented; not public internet)
+- [x] Mobile PWA in `companion/`; thin Expo shell in `companion-native/`
+- [ ] Push notifications (deferred)
+
+**Acceptance:** over Tailscale, owner opens PWA, sees stats, approves a proposal, dispatches a project brief, and responds to an owner request; denial tests still pass.
+
+## M9 — fs-dev deployment
+
+**Depends on M1/M8. Maps to:** R02, R14, production operations.
+
+- [x] Hybrid topology: native systemd control API on loopback, Caddy HTTPS edge, companion static, Docker workers scaffold only
+- [x] NIC plan: `192.168.4.100` phase 1 (Caddy); `192.168.4.101` reserved phase 2 (documented)
+- [x] Phone access via LAN `https://192.168.4.100` and optional Tailscale site block in Caddyfile
+- [x] Security: API `127.0.0.1:8000` only; Caddy terminates TLS; `ufw.rules.example` denies LAN:8000
+- [x] Idempotent `deploy/fs-dev/install.sh`, `fs-corporation-api.service`, Caddyfile, `env.example`
+- [x] Health check `GET /api/v1/health` documented and verifiable on loopback and via Caddy
+- [x] Worker Docker scaffold (`Dockerfile.worker`, `docker-compose.workers.yml`) — not enabled for live dispatch
+- [x] ADR-016; canonical runbook [25-fs-dev-deployment.md](25-fs-dev-deployment.md)
+- [ ] Phase 2: owner live credentials, container worker on `192.168.4.101`, production `runtime: container` dispatch
+
+**Acceptance:** on a Debian host with static `192.168.4.100`, `install.sh` completes; `fs-corporation-api` is active; `curl` to loopback `/api/v1/health` returns 200; phone opens `https://192.168.4.100`, companion loads with same-origin API and owner token; port 8000 is not reachable from LAN; denial tests still pass. Container worker image builds locally; live adapter dispatch remains fail-closed.
+
 ## Suggested first production slice
 
 Do not activate every department. Per [05-organization.md](05-organization.md):
@@ -239,8 +270,8 @@ Initial active catalog already marked: Executive, Engineering, Quality Control, 
 
 ## Owner-supplied configuration (later milestones)
 
-Selected GitHub repository/fork IDs and App installation; exact enabled provider/model IDs and credentials; actual spending caps; approved sources/watchlists; deployment target; desired final company name and visual style. Do not infer these from unrelated user history.
+Selected GitHub repository/fork IDs and App installation; exact enabled provider/model IDs and credentials; actual spending caps; approved sources/watchlists; deployment target; visual style. Do not infer these from unrelated user history.
 
 ## Immediate next implementation task
 
-Owner-supplied live configuration for a contained production slice: GitHub App + disposable repo IDs, one enabled text model inside the worker/gateway boundary, and an approved feed if market response is required. Do not skip sandbox isolation for a quick live demo. Until those values exist, keep adapters disabled and continue local hardening (container worker image, SSE, PostgreSQL when multi-worker is actually needed).
+Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model inside the worker/gateway boundary, and an approved feed if market response is required. Build and exercise the **container worker image** on reserved host **`192.168.4.101`**. Push notifications for owner inbox are optional follow-up.

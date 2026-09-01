@@ -29,6 +29,7 @@ Owner/CEO: chooses objectives, delegates authority, reviews outcomes and overrid
 | R19 | Quality Control | Product acceptance requires a passing inspection by Quality Control of the exact artifact; producer and CEO cannot substitute for QC | 0.3.2 |
 | R20 | Human Resources | HR oversees development and training; HR or CEO certifies study; learners cannot self-certify | 0.3.2 |
 | R21 | Employee development | Hired employees have attributes/backgrounds, recurring documented training, performance goals, reviews and score trends | 0.3.3 |
+| R22 | Mobile CEO companion | Owner views company/project stats and acts on decisions, project dispatch, and team feedback from a smartphone over an authenticated private network | 0.3.5/M8 |
 
 ## Core journeys
 

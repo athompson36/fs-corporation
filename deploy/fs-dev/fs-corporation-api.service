@@ -1,0 +1,21 @@
+[Unit]
+Description=FS-Corporation control API (loopback)
+After=network.target
+
+[Service]
+Type=simple
+User=fs-corp
+Group=fs-corp
+EnvironmentFile=-/etc/fs-corporation/env
+WorkingDirectory=/opt/fs-corporation
+ExecStart=/opt/fs-corporation/.venv/bin/python -m company.service --host 127.0.0.1 --port 8000 --db /var/lib/fs-corporation/company.db --token-file /etc/fs-corporation/owner.token --data-dir /var/lib/fs-corporation
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/fs-corporation
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
