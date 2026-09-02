@@ -249,10 +249,15 @@ install_caddy_site() {
   local caddy_dst=/etc/caddy/Caddyfile
   sed -e "s|/var/lib/fs-corporation/companion/dist|${COMPANION_DIST}|g" \
     "${caddy_src}" > "${caddy_dst}.tmp"
+  caddy validate --config "${caddy_dst}.tmp" --adapter caddyfile
   install -o root -g root -m 644 "${caddy_dst}.tmp" "${caddy_dst}"
   rm -f "${caddy_dst}.tmp"
-  systemctl enable --now caddy
-  systemctl reload caddy || systemctl restart caddy
+  systemctl enable caddy
+  # Never reload: `admin off` disables the API that `caddy reload` posts to, and
+  # a failed reload leaves the unit in "reloading" so later reloads block forever.
+  systemctl stop caddy || systemctl kill -s SIGKILL caddy || true
+  systemctl reset-failed caddy || true
+  systemctl start caddy
 }
 
 print_caddy_instructions() {

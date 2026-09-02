@@ -4,12 +4,24 @@
 #   sudo apt install caddy
 #   sudo cp deploy/fs-dev/Caddyfile /etc/caddy/Caddyfile
 #   # Set FS_CORP_LAN_IP and optional tailnet IP below, then:
-#   sudo systemctl reload caddy
+#   sudo systemctl restart caddy
+#
+# Use restart, not reload: `admin off` disables the admin API that
+# `caddy reload` posts the new config to, so reload can never succeed.
 #
 # API stays on 127.0.0.1:8000; only Caddy listens on LAN/Tailscale HTTPS.
 
 {
 	admin off
+	# The caddy service user cannot sudo, so trusting the local CA fails and
+	# aborts config load. Browsers get a self-signed warning for the IP site.
+	skip_install_trust
+
+	servers {
+		# No HTTP/3: wg0 already holds UDP 443 on fs-dev, and the QUIC
+		# listener failing to bind aborts the whole config load.
+		protocols h1 h2
+	}
 }
 
 (lan_site) {
@@ -30,8 +42,7 @@
 	}
 
 	# SPA static assets + client-side routes (non-API)
-	handle_path /* {
-		root * /var/lib/fs-corporation/companion/dist
+	handle /* {
 		try_files {path} /index.html
 		file_server
 	}
