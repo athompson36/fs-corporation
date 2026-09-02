@@ -164,11 +164,11 @@ build_companion() {
   pushd "${INSTALL_DIR}/companion" >/dev/null
   # Force npm cache onto the install filesystem (ext4). A home on NTFS/fuse breaks cacache rename.
   if [[ ! -d node_modules ]]; then
-    sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm ci --cache "${npm_cache}"
+    sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm_config_cache="${npm_cache}" npm ci
   else
-    sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm install --cache "${npm_cache}"
+    sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm_config_cache="${npm_cache}" npm install
   fi
-  sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm run build --cache "${npm_cache}"
+  sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm_config_cache="${npm_cache}" npm run build
   popd >/dev/null
   mkdir -p "${COMPANION_DIST}"
   rsync -a --delete "${INSTALL_DIR}/companion/dist/" "${COMPANION_DIST}/"

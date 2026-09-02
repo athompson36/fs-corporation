@@ -1,11 +1,13 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute } from "workbox-precaching";
 
-declare let self: ServiceWorkerGlobalScope;
+declare const self: ServiceWorkerGlobalScope & {
+  __WB_MANIFEST: Array<string | { url: string; revision: string | null }>;
+};
 
 precacheAndRoute(self.__WB_MANIFEST);
 
-self.addEventListener("push", (event) => {
+self.addEventListener("push", (event: PushEvent) => {
   let data: Record<string, string> = {};
   try {
     data = event.data ? (event.data.json() as Record<string, string>) : {};
@@ -17,7 +19,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, { body, data }));
 });
 
-self.addEventListener("notificationclick", (event) => {
+self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
   event.waitUntil(self.clients.openWindow("/"));
 });
