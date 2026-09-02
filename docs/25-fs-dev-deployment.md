@@ -193,7 +193,7 @@ docker build -f deploy/fs-dev/Dockerfile.worker -t fs-corporation-worker:local .
 docker compose -f deploy/fs-dev/docker-compose.workers.yml build
 ```
 
-`ContainerWorkerRuntime` remains fail-closed until the owner supplies live model/GitHub credentials and enables adapters. See [23-isolated-workers.md](23-isolated-workers.md).
+`ContainerWorkerRuntime` pumps a scratch-directory gateway (`gw-request.json` / `gw-response.json`) so the image can complete mock work without a control-plane database. Live model/GitHub adapters inside that gateway remain fail-closed until the owner supplies credentials. See [23-isolated-workers.md](23-isolated-workers.md).
 
 ## Upgrades
 

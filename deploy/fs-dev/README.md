@@ -95,7 +95,7 @@ Smoke test with compose (place `envelope.json` in the named volume or bind-mount
 docker compose -f deploy/fs-dev/docker-compose.workers.yml build
 ```
 
-Production dispatch uses `docker run` from `company.worker.ContainerWorkerRuntime`; see `docs/23-isolated-workers.md`.
+Production dispatch uses `docker run` from `company.worker.ContainerWorkerRuntime` and a parent-pumped scratch-directory gateway (`gw-request.json` / `gw-response.json`); see `docs/23-isolated-workers.md`.
 
 ## 8. Upgrades
 

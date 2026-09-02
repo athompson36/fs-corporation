@@ -20,9 +20,15 @@ Fetch and reconcile upstream changes before review. If conflicts occur, create a
 
 ## Effect lifecycle
 
-Prepare changes locally → verify diff and expected target → run tests in a restricted environment → independent review → gateway scope/approval check → push allowed branch → create/update PR → record external IDs and commit hashes → merge only under a distinct merge capability.
+`Company.apply_github_effect` is the local entry point:
 
-Use idempotency records keyed by repository ID, task ID and operation. Before retrying after a timeout, inspect remote state to determine whether the effect already occurred. Do not assume every network failure means no write happened.
+1. Authorize: enrolled repo IDs only, protected-branch and prefix checks, stale-head, workflow-file scope, merge/deploy as separate capabilities.
+2. Record an idempotent `github_effects` row keyed by repository ID, task ID and operation (`status=recorded`).
+3. Attempt `GitHubAdapter.execute`. Until a GitHub App is installed, this raises `NotImplementedError`; the row becomes `live_unavailable` with `remote_id` null. A retry inspects the existing row and does not insert a duplicate.
+
+Prepare changes locally → verify diff and expected target → run tests in a restricted environment → independent review → gateway scope/approval check → `apply_github_effect` → live push/PR only after App credentials exist → record external IDs and commit hashes → merge only under a distinct merge capability.
+
+Do not assume a `live_unavailable` row means a remote write happened. Do not invent a PR number.
 
 ## Webhooks
 
@@ -36,4 +42,4 @@ Cursor opens the same repositories and branches for human review and editing. An
 
 Use a disposable repository with no production secrets. Have the company create a small file change, run checks and open a PR. Demonstrate denial of a protected-branch push, unauthorized repository access, stale-head approval, workflow-file change without scope and cross-project secret access. Test retry after a simulated ambiguous network response.
 
-Live GitHub is not connected by this package. The adapter raises NotImplementedError.
+Live GitHub is not connected by this package. `apply_github_effect` persists `live_unavailable`; the adapter still raises NotImplementedError.

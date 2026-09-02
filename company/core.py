@@ -747,7 +747,7 @@ class Company:
         return True
 
     def record_github_effect(self,project_id,task_id,operation,repo_id,branch):
-        eid=digest({"project_id":project_id,"task_id":task_id,"operation":operation})
+        eid=digest({"repo_id":repo_id,"task_id":task_id,"operation":operation})
         with self.tx():
             existing=self.db.execute("SELECT * FROM github_effects WHERE id=?",(eid,)).fetchone()
             if existing:return dict(existing)
@@ -755,6 +755,28 @@ class Company:
                 (eid,project_id,task_id,operation,repo_id,branch,"recorded",None))
             self._event("github.effect_recorded",{"id":eid,"operation":operation},project_id=project_id)
             return dict(self.db.execute("SELECT * FROM github_effects WHERE id=?",(eid,)).fetchone())
+
+    def apply_github_effect(self,project_id,task_id,operation,repo_id,branch,head_sha=None,expected_sha=None,path=None):
+        """Authorize, record, then attempt a live write. Live GitHub stays fail-closed."""
+        self.authorize_github_effect(project_id,operation,repo_id,branch,
+                                    head_sha=head_sha,expected_sha=expected_sha,path=path)
+        row=self.record_github_effect(project_id,task_id,operation,repo_id,branch)
+        if row["status"]=="live_unavailable":
+            return row
+        from .adapters import GitHubAdapter, WorkOrder
+        order=WorkOrder(
+            task_id,project_id,self.policy()["version"],"github-effect",0,
+            {"operation":operation,"repo_id":repo_id,"branch":branch,
+             "head_sha":head_sha,"expected_sha":expected_sha,"path":path,
+             "worktree":self.worktree_path(project_id,task_id)})
+        try:
+            GitHubAdapter().execute(order)
+        except NotImplementedError:
+            with self.tx():
+                self.db.execute("UPDATE github_effects SET status=? WHERE id=?",("live_unavailable",row["id"]))
+                self._event("github.effect_live_unavailable",{"id":row["id"],"operation":operation},project_id=project_id)
+            return dict(self.db.execute("SELECT * FROM github_effects WHERE id=?",(row["id"],)).fetchone())
+        raise RuntimeError("Live GitHub adapter returned without applying an effect")
 
     def create_impact_brief(self,signal_id,project_id,affected_summary,recommended_action,cost_cents,authority):
         money(cost_cents)
@@ -781,6 +803,48 @@ class Company:
             if not sig:raise ValueError("Signal not found")
             self.db.execute("UPDATE impact_briefs SET status='corrected' WHERE signal_id=?",(signal_id,))
             self._event("intelligence.corrected",{"signal_id":signal_id,"note":note})
+
+    def approve_feed_source(self,actor,source_id,url):
+        """CEO-only enrollment of a live feed. Does not poll or fetch."""
+        from urllib.parse import urlparse
+        self._ceo(actor)
+        if not source_id or not str(source_id).strip():
+            raise ValueError("Source id required")
+        parsed=urlparse(url)
+        if parsed.scheme!="https" or not parsed.netloc:
+            raise ValueError("Feed source needs an HTTPS URL")
+        with self.tx():
+            self.db.execute("INSERT OR REPLACE INTO feed_sources VALUES(?,?,?,?,?)",
+                            (source_id,url,actor,now().isoformat(),"approved"))
+            self._event("feed.source_approved",{"id":source_id,"url":url},actor_id=actor)
+        return dict(self.db.execute("SELECT * FROM feed_sources WHERE id=?",(source_id,)).fetchone())
+
+    def poll_market_feed(self,source_id):
+        """Record a poll attempt for an approved source. Live fetch stays fail-closed."""
+        src=self.db.execute("SELECT * FROM feed_sources WHERE id=? AND status='approved'",(source_id,)).fetchone()
+        if not src:
+            raise PermissionError("Feed source is not approved")
+        pid=digest({"source_id":source_id})
+        with self.tx():
+            existing=self.db.execute("SELECT * FROM feed_polls WHERE id=?",(pid,)).fetchone()
+            if existing:
+                row=dict(existing)
+            else:
+                self.db.execute("INSERT INTO feed_polls VALUES(?,?,?,?)",
+                                (pid,source_id,"recorded",now().isoformat()))
+                self._event("feed.poll_recorded",{"id":pid,"source_id":source_id})
+                row=dict(self.db.execute("SELECT * FROM feed_polls WHERE id=?",(pid,)).fetchone())
+        if row["status"]=="live_unavailable":
+            return row
+        from .adapters import MarketFeedAdapter
+        try:
+            MarketFeedAdapter().poll(source_id)
+        except NotImplementedError:
+            with self.tx():
+                self.db.execute("UPDATE feed_polls SET status=? WHERE id=?",("live_unavailable",pid))
+                self._event("feed.poll_live_unavailable",{"id":pid,"source_id":source_id})
+            return dict(self.db.execute("SELECT * FROM feed_polls WHERE id=?",(pid,)).fetchone())
+        raise RuntimeError("Live feed adapter returned without poll results")
 
     def cost_expansion(self,actor,eid,estimate_cents):
         self._ceo(actor)

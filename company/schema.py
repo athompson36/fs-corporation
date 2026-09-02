@@ -133,6 +133,11 @@ CREATE TABLE IF NOT EXISTS project_dispatches(
   work_order_id TEXT NOT NULL, brief TEXT NOT NULL,
   acceptance_criteria TEXT NOT NULL, budget_cents INTEGER NOT NULL,
   due_at TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS feed_sources(
+  id TEXT PRIMARY KEY, url TEXT NOT NULL, approved_by TEXT NOT NULL,
+  approved_at TEXT NOT NULL, status TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS feed_polls(
+  id TEXT PRIMARY KEY, source_id TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);
 """
 
 GRANT_REQUIRED = {"actions", "projects", "budget_cents", "per_action_cents", "expires_at", "requires_approval"}

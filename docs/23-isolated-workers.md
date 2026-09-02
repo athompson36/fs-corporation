@@ -7,7 +7,7 @@ Workers execute queued mock ChatDev work outside the control-plane process. They
 | Runtime | Status | Notes |
 |---|---|---|
 | `subprocess` | Implemented | Spawned child process; parent pumps a restricted gateway over a pipe |
-| `container` | Fail-closed | Requires Docker and a built `fs-corporation-worker:local` image |
+| `container` | Implemented locally via file gateway | Requires Docker (or a test double) and a built `fs-corporation-worker:local` image; parent pumps `gw-request.json` / `gw-response.json` on the scratch volume |
 
 ## Gateway allowlist
 
@@ -41,4 +41,4 @@ In-process `POST /api/v1/tasks/{task_id}/dispatch` remains available for local t
 
 ## Limits
 
-Subprocess isolation is not a sandbox against a malicious process with host access. Container mode is the production path once an owner-built image exists. Live ChatDev, GitHub, and billed models still require owner credentials inside the gateway boundary.
+Subprocess isolation is not a sandbox against a malicious process with host access. Container mode uses `network_mode: none` and a scratch-directory gateway so the child still cannot open the control-plane database. Production dispatch on `192.168.4.101` still requires an owner-built image. Live ChatDev, GitHub, and billed models still require owner credentials inside the gateway boundary.

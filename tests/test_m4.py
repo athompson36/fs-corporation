@@ -32,6 +32,37 @@ class GitHubPilotTests(unittest.TestCase):
         self.assertEqual(self.c.worktree_path("app", "t1"), "workspaces/app/t1")
         self.assertNotEqual(self.c.worktree_path("app", "t1"), "workspaces/human")
 
+    def test_effect_lifecycle_records_then_fail_closed(self):
+        first = self.c.apply_github_effect("app", "t1", "open_pr", "222", "company/app/t1")
+        self.assertEqual(first["status"], "live_unavailable")
+        self.assertIsNone(first["remote_id"])
+        self.assertEqual(first["repo_id"], "222")
+        self.assertEqual(first["operation"], "open_pr")
+        retry = self.c.apply_github_effect("app", "t1", "open_pr", "222", "company/app/t1")
+        self.assertEqual(first["id"], retry["id"])
+        self.assertEqual(retry["status"], "live_unavailable")
+        count = self.c.db.execute("SELECT COUNT(*) FROM github_effects WHERE task_id='t1'").fetchone()[0]
+        self.assertEqual(count, 1)
+        kinds = [r[0] for r in self.c.db.execute("SELECT kind FROM events WHERE kind LIKE 'github.%'")]
+        self.assertIn("github.effect_recorded", kinds)
+        self.assertIn("github.effect_live_unavailable", kinds)
+
+    def test_effect_lifecycle_denies_before_record(self):
+        with self.assertRaises(PermissionError):
+            self.c.apply_github_effect("app", "t1", "push", "999", "company/app/t1")
+        with self.assertRaises(PermissionError):
+            self.c.apply_github_effect("app", "t1", "push", "222", "company/app/t1",
+                                      head_sha="aaa", expected_sha="bbb")
+        with self.assertRaises(PermissionError):
+            self.c.apply_github_effect("app", "t1", "merge", "222", "company/app/t1")
+        count = self.c.db.execute("SELECT COUNT(*) FROM github_effects").fetchone()[0]
+        self.assertEqual(count, 0)
+
+    def test_effect_lifecycle_direct_adapter_still_disabled(self):
+        from company.adapters import GitHubAdapter, WorkOrder
+        with self.assertRaises(NotImplementedError):
+            GitHubAdapter().execute(WorkOrder("t1", "app", 1, "github-effect", 0, {"operation": "open_pr"}))
+
 
 if __name__ == "__main__":
     unittest.main()

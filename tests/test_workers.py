@@ -37,6 +37,39 @@ class WorkerIsolationTests(unittest.TestCase):
         self.assertEqual(run["runtime"], "subprocess")
         self.assertEqual(run["status"], "completed")
 
+    def test_container_file_gateway_completes_queued_task(self):
+        repo = Path(__file__).resolve().parents[1]
+        fake_docker = Path(self.scratch.name) / "fake-docker"
+        fake_docker.write_text(
+            "#!/usr/bin/env python3\n"
+            "import sys\n"
+            f"sys.path.insert(0, {str(repo)!r})\n"
+            "from pathlib import Path\n"
+            "args = sys.argv[1:]\n"
+            "host = None\n"
+            "for i, a in enumerate(args):\n"
+            "    if a == '-v':\n"
+            "        host = args[i + 1].split(':')[0]\n"
+            "        break\n"
+            "if not host:\n"
+            "    raise SystemExit('fake-docker: missing -v scratch mount')\n"
+            "from company.worker import main\n"
+            "sys.argv = ['company.worker', '--envelope', str(Path(host) / 'envelope.json'), '--scratch', host]\n"
+            "main()\n",
+            encoding="utf-8",
+        )
+        fake_docker.chmod(0o755)
+        self.c.queue_task("head", "app", "draft", 10, "w-container")
+        self.c.claim_lease("worker-1", "w-container")
+        result = ContainerWorkerRuntime().dispatch(
+            self.c, "worker-1", "w-container", Path(self.scratch.name), docker_path=str(fake_docker))
+        self.assertEqual(result["status"], "produced")
+        row = self.c.db.execute("SELECT status FROM queue WHERE task_id='w-container'").fetchone()
+        self.assertEqual(row["status"], "done")
+        run = self.c.db.execute("SELECT * FROM worker_runs WHERE task_id='w-container'").fetchone()
+        self.assertEqual(run["runtime"], "container")
+        self.assertEqual(run["status"], "completed")
+
     def test_worker_gateway_denies_policy_mutation(self):
         conn_recv, conn_send = multiprocessing.Pipe(duplex=True)
         try:

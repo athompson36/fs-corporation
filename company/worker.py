@@ -4,11 +4,14 @@ import json
 import multiprocessing
 import shutil
 import subprocess
-import sys
+import time
 from pathlib import Path
 from company.adapters import MockChatDevAdapter, WorkOrder
 
 ALLOWED_WORKER_OPS = frozenset({"gateway_check", "execute_mock", "store_artifact", "invoke_model"})
+GW_REQUEST = "gw-request.json"
+GW_RESPONSE = "gw-response.json"
+GW_RESULT = "result.json"
 
 
 def _normalize_digest(row):
@@ -40,24 +43,19 @@ def build_worker_envelope(company, worker_id: str, task_id: str, approval=None):
     }
 
 
-def worker_entrypoint(conn, envelope: dict, scratch_root: Path):
-    """Child-side worker loop. Must not import or open Company."""
+def run_isolated_work(envelope: dict, scratch_root: Path, request, text_artifacts=False):
+    """Child-side work. Must not import or open Company."""
     scratch_root = Path(scratch_root)
     scratch_root.mkdir(parents=True, exist_ok=True)
     payload = envelope["payload"]
     task_id = envelope["task_id"]
-
-    def request(op, **kwargs):
-        conn.send({"type": "request", "op": op, **kwargs})
-        return conn.recv()
 
     check = request(
         "gateway_check",
         actor=payload["actor"], project=payload["project"], action=payload["action"],
         cost=payload["cost"], task_id=task_id)
     if not check.get("allow"):
-        conn.send({"type": "error", "reason": check.get("reason", "denied")})
-        return
+        return {"type": "error", "reason": check.get("reason", "denied")}
 
     order = WorkOrder(
         task_id, payload["project"], check["policy_version"],
@@ -66,16 +64,74 @@ def worker_entrypoint(conn, envelope: dict, scratch_root: Path):
     scratch_file = scratch_root / f"{task_id}.txt"
     scratch_file.write_text(adapter_result["final_message"], encoding="utf-8")
 
-    request(
-        "store_artifact",
-        producer=payload["actor"], task_id=task_id, project=payload["project"],
-        content=adapter_result["final_message"].encode(), root=str(scratch_root))
+    artifact = {"producer": payload["actor"], "task_id": task_id, "project": payload["project"],
+                "root": str(scratch_root)}
+    if text_artifacts:
+        artifact["content_text"] = adapter_result["final_message"]
+    else:
+        artifact["content"] = adapter_result["final_message"].encode()
+    request("store_artifact", **artifact)
 
     task = request(
         "execute_mock",
         actor=payload["actor"], project=payload["project"], action=payload["action"],
         cost=payload["cost"], task_id=task_id, approval=envelope.get("approval"))
-    conn.send({"type": "done", "task": task, "adapter": adapter_result})
+    return {"type": "done", "task": task, "adapter": adapter_result}
+
+
+def worker_entrypoint(conn, envelope: dict, scratch_root: Path):
+    """Child-side worker loop over a pipe. Must not import or open Company."""
+    def request(op, **kwargs):
+        conn.send({"type": "request", "op": op, **kwargs})
+        return conn.recv()
+
+    result = run_isolated_work(envelope, scratch_root, request)
+    conn.send(result)
+
+
+def file_gateway_request(scratch_root: Path, op: str, timeout=30, **kwargs):
+    scratch_root = Path(scratch_root)
+    req = scratch_root / GW_REQUEST
+    res = scratch_root / GW_RESPONSE
+    if res.exists():
+        res.unlink()
+    tmp = scratch_root / f"{GW_REQUEST}.tmp"
+    tmp.write_text(json.dumps({"type": "request", "op": op, **kwargs}), encoding="utf-8")
+    tmp.replace(req)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if res.exists():
+            data = json.loads(res.read_text(encoding="utf-8"))
+            res.unlink()
+            if req.exists():
+                req.unlink()
+            return data
+        time.sleep(0.05)
+    raise TimeoutError("Gateway did not respond")
+
+
+def pump_file_gateway(company, scratch_root: Path, approval=None, artifact_root=None, timeout=30):
+    scratch_root = Path(scratch_root)
+    req = scratch_root / GW_REQUEST
+    res = scratch_root / GW_RESPONSE
+    result_path = scratch_root / GW_RESULT
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if req.exists() and not res.exists():
+            try:
+                msg = json.loads(req.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                time.sleep(0.05)
+                continue
+            reply = SubprocessWorkerRuntime.handle_request(
+                company, msg, approval=approval, artifact_root=artifact_root)
+            tmp = scratch_root / f"{GW_RESPONSE}.tmp"
+            tmp.write_text(json.dumps(reply), encoding="utf-8")
+            tmp.replace(res)
+        if result_path.exists():
+            return json.loads(result_path.read_text(encoding="utf-8"))
+        time.sleep(0.05)
+    raise TimeoutError("Worker did not finish")
 
 
 class SubprocessWorkerRuntime:
@@ -98,8 +154,11 @@ class SubprocessWorkerRuntime:
                 cost=msg["cost"], task_id=msg["task_id"], approval=approval or msg.get("approval"))
         if op == "store_artifact":
             root = artifact_root or msg["root"]
+            content = msg.get("content")
+            if content is None:
+                content = msg["content_text"].encode()
             digest_hex = company.store_artifact(
-                msg["producer"], msg["task_id"], msg["project"], msg["content"], root)
+                msg["producer"], msg["task_id"], msg["project"], content, root)
             return {"hash": digest_hex}
         if op == "invoke_model":
             return company.invoke_model(msg["profile_id"], msg["prompt"], msg["registry"])
@@ -142,7 +201,7 @@ class SubprocessWorkerRuntime:
 
 
 class ContainerWorkerRuntime:
-    """Optional Docker-backed runtime. Fail-closed when Docker is unavailable."""
+    """Docker-backed runtime with a scratch-directory gateway. Fail-closed without Docker."""
 
     runtime_name = "container"
 
@@ -166,20 +225,29 @@ class ContainerWorkerRuntime:
             "python", "-m", "company.worker", "--envelope", "/work/envelope.json", "--scratch", "/work",
         ]
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True)
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         except FileNotFoundError as exc:
             company._finish_worker_run(run_id, "failed")
             raise NotImplementedError(
                 "Container worker requires Docker; use SubprocessWorkerRuntime locally. See docs/23-isolated-workers.md") from exc
-        if proc.returncode != 0:
+        try:
+            result = pump_file_gateway(company, scratch_root, approval=approval, artifact_root=scratch_root)
+            stdout, stderr = proc.communicate(timeout=30)
+            if proc.returncode != 0:
+                company._finish_worker_run(run_id, "failed")
+                raise NotImplementedError(
+                    "Container worker image is not built; local subprocess runtime is available. "
+                    f"stderr={(stderr or '').strip()}")
+            company._finish_worker_run(run_id, "completed")
+            company.db.execute("UPDATE queue SET status='done' WHERE task_id=?", (task_id,))
+            company._event("task.worker_completed", {"task_id": task_id, "worker": worker_id, "runtime": self.runtime_name})
+            return result
+        except Exception:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate(timeout=5)
             company._finish_worker_run(run_id, "failed")
-            raise NotImplementedError(
-                "Container worker image is not built; local subprocess runtime is available. "
-                f"stderr={proc.stderr.strip()}")
-        result = json.loads(proc.stdout)
-        company._finish_worker_run(run_id, "completed")
-        company.db.execute("UPDATE queue SET status='done' WHERE task_id=?", (task_id,))
-        return result
+            raise
 
 
 def main():
@@ -189,8 +257,16 @@ def main():
     parser.add_argument("--scratch", required=True)
     args = parser.parse_args()
     envelope = json.loads(Path(args.envelope).read_text())
-    raise NotImplementedError(
-        "Container worker gateway proxy requires a built worker image; use subprocess runtime locally")
+    scratch = Path(args.scratch)
+
+    def request(op, **kwargs):
+        return file_gateway_request(scratch, op, **kwargs)
+
+    result = run_isolated_work(envelope, scratch, request, text_artifacts=True)
+    if result.get("type") == "error":
+        raise PermissionError(result.get("reason", "denied"))
+    (scratch / GW_RESULT).write_text(json.dumps(result["task"]), encoding="utf-8")
+    print(json.dumps(result["task"]))
 
 
 if __name__ == "__main__":

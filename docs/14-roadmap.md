@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.6 local status:** fs-dev deployment runbook (native API + Caddy edge), mobile companion on HTTPS LAN/Tailscale, worker Docker scaffold. Live adapters remain disabled.
+**v0.3.8 local status:** Market feed poll lifecycle (CEO-approved HTTPS source, fail-closed live fetch) and container worker file gateway. GitHub effect lifecycle, fs-dev runbook, and mobile companion remain. Live adapters remain disabled.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials remain unconfigured and do not block local work.
 
@@ -163,7 +163,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 
 - [x] GitHub App enrollment records; store immutable repo IDs (webhooks not wired)
 - [x] Allowed branch prefixes; per-task worktree paths; never overwrite the human workspace
-- [ ] Effect lifecycle live push/PR — local authorize/record only until App credentials exist
+- [x] Effect lifecycle live push/PR — `apply_github_effect` authorizes, records (repo+task+operation), then fail-closed live write until App credentials exist
 - [x] Merge/deploy remain separate capabilities
 - [x] Idempotency: repo + task + operation
 - [x] Live adapter remains `NotImplementedError` until App credentials exist
@@ -174,7 +174,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 
 **Depends on M1/M3. Maps to:** R09. **Blocked on owner-approved source list for live polling.**
 
-- [ ] One selected live feed adapter — not configured
+- [x] One selected live feed adapter — `approve_feed_source` + `poll_market_feed` (fail-closed until an owner-approved live adapter exists)
 - [x] Corrections linked to affected briefs
 - [x] Impact brief with no auto-publish; cost recorded on the brief
 - [x] Page instructions cannot amend policy
@@ -239,7 +239,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Security: API `127.0.0.1:8000` only; Caddy terminates TLS; `ufw.rules.example` denies LAN:8000
 - [x] Idempotent `deploy/fs-dev/install.sh`, `fs-corporation-api.service`, Caddyfile, `env.example`
 - [x] Health check `GET /api/v1/health` documented and verifiable on loopback and via Caddy
-- [x] Worker Docker scaffold (`Dockerfile.worker`, `docker-compose.workers.yml`) — not enabled for live dispatch
+- [x] Worker Docker scaffold (`Dockerfile.worker`, `docker-compose.workers.yml`) with scratch-directory gateway (`python -m company.worker --envelope/--scratch`); live image on `.101` still pending
 - [x] ADR-016; canonical runbook [25-fs-dev-deployment.md](25-fs-dev-deployment.md)
 - [ ] Phase 2: owner live credentials, container worker on `192.168.4.101`, production `runtime: container` dispatch
 
@@ -274,4 +274,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model inside the worker/gateway boundary, and an approved feed if market response is required. Build and exercise the **container worker image** on reserved host **`192.168.4.101`**. Push notifications for owner inbox are optional follow-up.
+Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model inside the worker/gateway boundary, and an approved feed URL if `poll_market_feed` should leave `live_unavailable`. Build `fs-corporation-worker:local` and exercise **container dispatch** on reserved host **`192.168.4.101`**. Push notifications for owner inbox are optional follow-up.
