@@ -6,7 +6,7 @@ Date: 2026-09-01. Version: 0.3.14. State: QR pairing with scoped access levels (
 
 - Origin: `https://github.com/athompson36/fs-corporation.git`.
 - Alembic through `0011_pairing_access_level`.
-- QR pairing (ADR-018): CEO desk level picker, one-time tickets, companion `#fs-pair` auto-redeem, scoped service principals (never root owner token).
+- QR pairing (ADR-018): CEO desk level picker, one-time tickets, companion `#fs-pair` auto-redeem, scoped service principals (never root owner token), paired-device list and revoke.
 - Optional `FS_CORP_PUBLIC_URL`, `FS_CORP_TAILSCALE_AUTHKEY` (redeem only), `FS_CORP_ALLOW_CORS` for dev preview.
 - Prior: cosmic-glass UI, room detail, isometric HQ, SLO catalog, Web Push, GitHub apply, feed poll, container file gateway, companion PWA, fs-dev.
 
@@ -24,7 +24,7 @@ Pairing tests cover level scopes, deny approve/pause for read_only/user, and aut
 
 ## Limitations
 
-Furnished room interiors are deferred. SLOs have no production samples. Live GitHub/model/feed/VAPID and container dispatch on `192.168.4.101` still need owner credentials. PWA cannot join Tailscale kernel VPN; paired-device revocation UI is deferred.
+Furnished room interiors are deferred. SLOs have no production samples. Live GitHub/model/feed/VAPID and container dispatch on `192.168.4.101` still need owner credentials. PWA cannot join Tailscale kernel VPN.
 
 ## Next task
 

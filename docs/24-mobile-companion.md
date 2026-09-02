@@ -96,7 +96,7 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 - Service principals cannot issue new pairing QRs.
 - **fs-dev:** use HTTPS via Caddy on LAN or Tailscale; do not expose port 8000 on the LAN.
 - **Dev:** Tailscale with `--allow-remote` is acceptable; do not use that bind on the public internet.
-- Rotate or revoke compromised device tokens via `register_identity` (revocation UI deferred).
+- Rotate or revoke compromised device tokens from the CEO desk **Paired devices** list or `POST /api/v1/remote-access/revoke/{principal_id}`.
 - Web Push: CEO registers an HTTPS subscription; `notify_push` / new owner-inbox items record `live_unavailable` until VAPID keys are configured. No invented delivery. PWA polling remains the fallback.
 
 ## Native shell (optional)

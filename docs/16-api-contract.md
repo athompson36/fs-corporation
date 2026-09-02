@@ -52,6 +52,7 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | GET /remote-access | VPN/pairing status and `pairing_levels` catalog | company.read |
 | POST /remote-access/pairing | Issue one-time pairing QR (`payload.access_level`: `read_only`, `user`, `admin`) | company.pause (owner only) |
 | POST /remote-access/redeem | Redeem ticket for scoped companion token (no auth) | — |
+| POST /remote-access/revoke/{principal_id} | Revoke a paired companion service principal | company.pause (owner only) |
 | GET /slos | SLO catalog and latest sourced observation (or unmeasured) | company.read |
 | POST /slos/{id}/observations | Record a sourced, windowed measurement | company.pause |
 | POST /consultant-proposals | Submit an evidence-backed proposal | consultant.propose |

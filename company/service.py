@@ -151,6 +151,8 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 </div>
 <div id="pair-qr" class="muted">No active pairing ticket.</div>
 <p id="pair-url" class="muted"></p>
+<h3>Paired devices</h3>
+<ul id="pair-devices" class="muted"></ul>
 </section>
 </main>
 </div>
@@ -216,6 +218,42 @@ async function loadRemoteAccess() {
   if (body.tailnet_ipv4) parts.push('Tailscale ' + body.tailnet_ipv4);
   parts.push(body.auth_key_configured ? 'Tailscale auth key configured' : 'Tailscale auth key not configured');
   status.textContent = parts.join(' · ');
+  renderPairedDevices(body.paired_devices || []);
+}
+function renderPairedDevices(devices) {
+  const list = document.getElementById('pair-devices');
+  list.innerHTML = '';
+  if (!devices.length) {
+    const li = document.createElement('li');
+    li.textContent = 'No active paired devices.';
+    list.appendChild(li);
+    return;
+  }
+  devices.forEach(device => {
+    const li = document.createElement('li');
+    li.textContent = device.label + ' · ' + device.principal_id + ' · since ' + (device.redeemed_at || '?');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.textContent = 'Revoke';
+    btn.addEventListener('click', async () => {
+      if (!window.confirm('Revoke ' + device.principal_id + '?')) return;
+      const res = await fetch('/api/v1/remote-access/revoke/' + encodeURIComponent(device.principal_id), {
+        method: 'POST',
+        headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'revoke-' + device.principal_id},
+        body: JSON.stringify({payload: {}})
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        alert(body.detail || 'Revoke failed');
+        return;
+      }
+      loadRemoteAccess();
+    });
+    li.appendChild(document.createTextNode(' '));
+    li.appendChild(btn);
+    list.appendChild(li);
+  });
 }
 loadRemoteAccess();
 document.getElementById('pair-btn').addEventListener('click', async () => {
@@ -850,7 +888,22 @@ def create_app(company: Company) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "company.read")
         public = os.environ.get("FS_CORP_PUBLIC_URL")
-        return company.remote_access_status(public)
+        status = company.remote_access_status(public)
+        try:
+            company._ceo(ident["principal_id"])
+            status["paired_devices"] = company.list_paired_devices(ident["principal_id"])
+        except PermissionError:
+            status["paired_devices"] = []
+        return status
+
+    @app.post("/api/v1/remote-access/revoke/{principal_id}")
+    def remote_revoke(principal_id: str, body: Command, authorization: str | None = Header(default=None),
+                      idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"principal_id": principal_id}, lambda: (
+            company.revoke_paired_device(ident["principal_id"], principal_id), 200))
 
     @app.post("/api/v1/remote-access/pairing")
     def remote_pairing(request: Request, body: Command, authorization: str | None = Header(default=None),

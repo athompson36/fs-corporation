@@ -169,6 +169,48 @@ class PairingTests(unittest.TestCase):
         self.assertEqual(redeemed.json()["access_level"], "read_only")
         self.assertNotIn("policy.approve", redeemed.json()["scopes"])
 
+    def test_owner_lists_and_revokes_paired_device(self):
+        data = self._issue_and_redeem("user")
+        principal = data["principal_id"]
+        listed = self.client.get("/api/v1/remote-access", headers={"Authorization": "Bearer owner-token"})
+        self.assertEqual(listed.status_code, 200)
+        devices = listed.json()["paired_devices"]
+        self.assertTrue(any(d["principal_id"] == principal for d in devices))
+        self.assertIsNotNone(self.c.identity_for_token(data["token"]))
+        revoked = self.client.post(
+            f"/api/v1/remote-access/revoke/{principal}",
+            json={"payload": {}},
+            headers={"Authorization": "Bearer owner-token", "Idempotency-Key": "revoke-1"},
+        )
+        self.assertEqual(revoked.status_code, 200)
+        self.assertIsNone(self.c.identity_for_token(data["token"]))
+        listed2 = self.client.get("/api/v1/remote-access", headers={"Authorization": "Bearer owner-token"})
+        self.assertFalse(any(d["principal_id"] == principal for d in listed2.json()["paired_devices"]))
+
+    def test_non_owner_cannot_revoke_paired_device(self):
+        data = self._issue_and_redeem("read_only")
+        self.c.register_identity("head-svc", "service", "head-token", ["company.read"])
+        denied = self.client.post(
+            f"/api/v1/remote-access/revoke/{data['principal_id']}",
+            json={"payload": {}},
+            headers={"Authorization": "Bearer head-token", "Idempotency-Key": "revoke-no"},
+        )
+        self.assertEqual(denied.status_code, 403)
+
+    def test_cannot_revoke_owner_or_unknown_principal(self):
+        bad = self.client.post(
+            "/api/v1/remote-access/revoke/human-ceo",
+            json={"payload": {}},
+            headers={"Authorization": "Bearer owner-token", "Idempotency-Key": "revoke-owner"},
+        )
+        self.assertEqual(bad.status_code, 422)
+        missing = self.client.post(
+            "/api/v1/remote-access/revoke/companion-admin-missing",
+            json={"payload": {}},
+            headers={"Authorization": "Bearer owner-token", "Idempotency-Key": "revoke-missing"},
+        )
+        self.assertEqual(missing.status_code, 422)
+
 
 if __name__ == "__main__":
     unittest.main()

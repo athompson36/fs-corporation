@@ -1729,6 +1729,51 @@ class Company:
             result["tailscale_auth_key"] = key
         return result
 
+    def list_paired_devices(self, actor):
+        self._ceo(actor)
+        rows = self.db.execute(
+            """SELECT id, companion_principal, access_level, redeemed_at, created_by
+               FROM pairing_tickets
+               WHERE status='redeemed' AND companion_principal IS NOT NULL
+               ORDER BY redeemed_at DESC""").fetchall()
+        devices = []
+        for row in rows:
+            principal = row["companion_principal"]
+            ident = self.db.execute(
+                "SELECT principal_id, kind, created_at, scopes FROM identities WHERE principal_id=?",
+                (principal,)).fetchone()
+            if not ident:
+                continue
+            level = row["access_level"] if "access_level" in row.keys() else "admin"
+            try:
+                label = pairing_level(level)["label"]
+            except ValueError:
+                label = level
+            devices.append({
+                "principal_id": principal,
+                "ticket_id": row["id"],
+                "access_level": level,
+                "label": label,
+                "redeemed_at": row["redeemed_at"],
+                "issued_by": row["created_by"],
+                "active": True,
+            })
+        return devices
+
+    def revoke_paired_device(self, actor, principal_id):
+        self._ceo(actor)
+        if not principal_id or not str(principal_id).startswith("companion-"):
+            raise ValueError("Not a paired companion principal")
+        row = self.db.execute("SELECT * FROM identities WHERE principal_id=?", (principal_id,)).fetchone()
+        if not row:
+            raise LookupError("Paired device not found")
+        if row["kind"] != "service":
+            raise PermissionError("Only companion service principals may be revoked here")
+        with self.tx():
+            self.db.execute("DELETE FROM identities WHERE principal_id=?", (principal_id,))
+            self._event("pairing.revoked", {"principal_id": principal_id}, actor_id=actor)
+        return {"principal_id": principal_id, "status": "revoked"}
+
     def restore(self,src):
         src=Path(src)
         if not src.is_file():raise ValueError("Backup file not found")
