@@ -90,23 +90,33 @@ ssh -o BatchMode=yes "$HOST" "cat > /Data/fs-corporation/run-install.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
 # sudo bash /Data/fs-corporation/run-install.sh
-export FS_CORP_INSTALL_DIR=/Data/fs-corporation/app
+bash /Data/fs-corporation/fix_fs_dev_apt.sh
+# The app tree must stay on ext4: venv creation and npm both fail on NTFS.
+export FS_CORP_INSTALL_DIR=/opt/fs-corporation
 export FS_CORP_DATA_DIR=/Data/fs-corporation/data
 export FS_CORP_DB=/Data/fs-corporation/data/company.db
 export FS_CORP_COMPANION_DIST=/Data/fs-corporation/data/companion/dist
 export FS_CORP_TOKEN_FILE=/etc/fs-corporation/owner.token
 export FS_CORP_WORKER_SCRATCH=/Data/fs-corporation/data/worker-scratch
+if id fs-corp &>/dev/null; then
+  usermod -d /opt/fs-corporation fs-corp || true
+fi
+rm -rf /Data/fs-corporation/app/.npm /Data/fs-corporation/app/.npm-cache || true
 cd /Data/fs-corporation/repo
 bash deploy/fs-dev/install.sh
 install -o root -g fs-corp -m 640 /Data/fs-corporation/env.prepared /etc/fs-corporation/env
 if [[ -f /Data/fs-corporation/secrets-staging/secrets.env ]]; then
   install -o root -g fs-corp -m 640 /Data/fs-corporation/secrets-staging/secrets.env /etc/fs-corporation/secrets.env
 fi
+# 640 root:fs-corp, not 600: the API runs as fs-corp and reads these key files.
 for f in github-app.pem vapid-public.pem vapid-private.pem; do
   if [[ -f /Data/fs-corporation/secrets-staging/\$f ]]; then
-    install -o root -g fs-corp -m 600 \"/Data/fs-corporation/secrets-staging/\$f\" \"/etc/fs-corporation/\$f\"
+    install -o root -g fs-corp -m 640 \"/Data/fs-corporation/secrets-staging/\$f\" \"/etc/fs-corporation/\$f\"
   fi
 done
+# /Data is NTFS mounted 0777 and re-exported over SMB, so anything left in the
+# staging directory is readable by every local user and every share client.
+shred -u /Data/fs-corporation/secrets-staging/* 2>/dev/null || rm -f /Data/fs-corporation/secrets-staging/*
 mkdir -p /media/andrew/Data/fs-corporation
 if ! findmnt /media/andrew/Data/fs-corporation >/dev/null 2>&1; then
   mount --bind /Data/fs-corporation /media/andrew/Data/fs-corporation
@@ -114,16 +124,19 @@ fi
 if ! grep -q '/media/andrew/Data/fs-corporation' /etc/fstab; then
   echo '/Data/fs-corporation /media/andrew/Data/fs-corporation none bind 0 0' >> /etc/fstab
 fi
-chown -R fs-corp:fs-corp /Data/fs-corporation/data
+chown -R fs-corp:fs-corp /Data/fs-corporation/data 2>/dev/null || true
 systemctl restart fs-corporation-api
 echo
-echo Owner token:
-cat /etc/fs-corporation/owner.token
-echo
-curl -sS -o /dev/null -w 'loopback health: %{http_code}\\n' http://127.0.0.1:8000/api/v1/health || true
+echo 'Owner token file: /etc/fs-corporation/owner.token'
+for _ in \$(seq 1 20); do
+  code=\$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo 000)
+  [[ \"\$code\" == 200 ]] && break
+  sleep 1
+done
+echo \"loopback health: \$code\"
 curl -k -sS -o /dev/null -w 'https edge: %{http_code}\\n' https://192.168.4.100/ || true
 EOS
-chmod +x /Data/fs-corporation/run-install.sh"
+chmod 700 /Data/fs-corporation/run-install.sh"
 
 cat <<EOF
 
