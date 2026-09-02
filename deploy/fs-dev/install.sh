@@ -263,11 +263,11 @@ install_caddy_site() {
 print_caddy_instructions() {
   cat <<EOF
 
-Caddy (manual step — edit site addresses first):
-  sudo cp ${INSTALL_DIR}/deploy/fs-dev/Caddyfile /etc/caddy/Caddyfile
-  # Set LAN IP (and optional Tailscale IP) in the Caddyfile, then:
-  sudo systemctl enable --now caddy
-  sudo systemctl reload caddy
+Caddy is installed and started above. To change site addresses later, edit
+/etc/caddy/Caddyfile (LAN IP, optional Tailscale IP) and then:
+  sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+  sudo systemctl restart caddy
+Use restart, not reload: 'admin off' disables the API that reload posts to.
 
 UFW (review deploy/fs-dev/ufw.rules.example before enabling).
 
