@@ -87,6 +87,10 @@ class _LockedConnection:
         with self._lock:
             return self._conn.executescript(*args, **kwargs)
 
+    def backup(self, target, *args, **kwargs):
+        with self._lock:
+            return self._conn.backup(target, *args, **kwargs)
+
     def close(self):
         with self._lock:
             self._conn.close()
@@ -1951,7 +1955,8 @@ class Company:
         if not src.is_file():raise ValueError("Backup file not found")
         incoming=sqlite3.connect(str(src))
         try:
-            incoming.backup(self.db)
+            with self.db.lock:
+                incoming.backup(self.db._conn)
         finally:
             incoming.close()
         return self.status()
