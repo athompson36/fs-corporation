@@ -47,14 +47,46 @@ ensure_user() {
 
 ensure_packages() {
   log "Installing OS packages (python3.12, venv, build deps, node, docker)"
-  apt-get update -qq
+  repair_apt_sources
+  if ! apt-get update -qq; then
+    log "WARNING: apt-get update reported errors; will install from available indexes"
+  fi
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3.12 python3.12-venv python3-pip \
     git curl ca-certificates rsync openssl \
     nodejs npm \
     caddy \
     ufw \
-    docker.io
+    docker.io || {
+      log "WARNING: apt-get install incomplete — checking required tools"
+      command -v python3.12 >/dev/null
+      command -v docker >/dev/null
+      command -v node >/dev/null || command -v nodejs >/dev/null
+    }
+}
+
+repair_apt_sources() {
+  # docker.sources sometimes stores unexpanded shell for Suites (breaks apt update)
+  local ds=/etc/apt/sources.list.d/docker.sources
+  if [[ -f "${ds}" ]] && grep -q '\$(' "${ds}"; then
+    local codename
+    # shellcheck disable=SC1091
+    codename="$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")"
+    log "Repairing ${ds} Suites → ${codename}"
+    sed -i "s|^Suites:.*|Suites: ${codename}|" "${ds}"
+  fi
+  # Prefer one Docker apt source; both .list and .sources cause confusion
+  if [[ -f /etc/apt/sources.list.d/docker.sources && -f /etc/apt/sources.list.d/docker.list ]]; then
+    log "Disabling duplicate docker.list (keeping docker.sources)"
+    mv -f /etc/apt/sources.list.d/docker.list /etc/apt/sources.list.d/docker.list.disabled
+  fi
+  # Empty GitHub CLI keyring breaks apt update
+  local gh_list=/etc/apt/sources.list.d/github-cli.list
+  local gh_key=/usr/share/keyrings/githubcli-archive-keyring.gpg
+  if [[ -f "${gh_list}" ]] && [[ ! -s "${gh_key}" ]]; then
+    log "Disabling github-cli.list (empty keyring at ${gh_key})"
+    mv -f "${gh_list}" "${gh_list}.disabled"
+  fi
 }
 
 sync_install_tree() {
