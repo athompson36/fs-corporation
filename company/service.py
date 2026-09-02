@@ -653,7 +653,10 @@ def create_app(company: Company) -> FastAPI:
     def push_list(authorization: str | None = Header(default=None)):
         ident = principal(authorization)
         scoped(ident, "company.read")
-        return {"subscriptions": company.list_push_subscriptions(ident["principal_id"])}
+        try:
+            return {"subscriptions": company.list_push_subscriptions(ident["principal_id"])}
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     @app.post("/api/v1/push/subscriptions")
     def push_register(body: Command, authorization: str | None = Header(default=None),

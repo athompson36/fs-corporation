@@ -13,6 +13,7 @@ import secrets
 import shutil
 import sqlite3
 import subprocess
+import threading
 import uuid
 from .schema import (
     COMPANION_SCOPES, GRANT_OPTIONAL, GRANT_REQUIRED, MAX_DELEGATION_DEPTH,
@@ -39,14 +40,67 @@ def money(value):
     return value
 
 
+class _MaterializedCursor:
+    """Rows fetched under the company lock so callers can iterate safely."""
+
+    def __init__(self, rows, description, lastrowid, rowcount):
+        self._rows = list(rows)
+        self.description = description
+        self.lastrowid = lastrowid
+        self.rowcount = rowcount
+        self._i = 0
+
+    def fetchone(self):
+        if self._i >= len(self._rows):
+            return None
+        row = self._rows[self._i]
+        self._i += 1
+        return row
+
+    def fetchall(self):
+        rest = self._rows[self._i:]
+        self._i = len(self._rows)
+        return rest
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+
+class _LockedConnection:
+    """Serialize all use of one sqlite3 connection across FastAPI worker threads."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self._lock = threading.RLock()
+
+    @property
+    def lock(self):
+        return self._lock
+
+    def execute(self, *args, **kwargs):
+        with self._lock:
+            cur = self._conn.execute(*args, **kwargs)
+            rows = cur.fetchall()
+            return _MaterializedCursor(rows, cur.description, cur.lastrowid, cur.rowcount)
+
+    def executescript(self, *args, **kwargs):
+        with self._lock:
+            return self._conn.executescript(*args, **kwargs)
+
+    def close(self):
+        with self._lock:
+            self._conn.close()
+
+
 class Company:
     def __init__(self, path=":memory:", ceo="human-ceo"):
         self.db_path = str(path)
-        self.db = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
-        self.db.row_factory = sqlite3.Row
-        self.db.execute("PRAGMA foreign_keys=ON")
-        self.db.execute("PRAGMA busy_timeout=5000")
-        apply_schema(self.db)
+        raw = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
+        raw.row_factory = sqlite3.Row
+        raw.execute("PRAGMA foreign_keys=ON")
+        raw.execute("PRAGMA busy_timeout=5000")
+        self.db = _LockedConnection(raw)
+        apply_schema(raw)
         with self.tx():
             row=self.db.execute("SELECT value FROM settings WHERE key='ceo'").fetchone()
             if row and row[0] != ceo:
@@ -64,13 +118,16 @@ class Company:
 
     @contextmanager
     def tx(self):
-        self.db.execute("BEGIN IMMEDIATE")
-        try:
-            yield
-            self.db.execute("COMMIT")
-        except BaseException:
-            self.db.execute("ROLLBACK")
-            raise
+        # Hold the connection lock for the whole transaction so concurrent
+        # FastAPI threadpool requests cannot interleave statements.
+        with self.db.lock:
+            self.db._conn.execute("BEGIN IMMEDIATE")
+            try:
+                yield
+                self.db._conn.execute("COMMIT")
+            except BaseException:
+                self.db._conn.execute("ROLLBACK")
+                raise
 
     def _event(self,kind,body,actor_id=None,correlation_id=None,project_id=None):
         row=self.db.execute("SELECT hash FROM events ORDER BY seq DESC LIMIT 1").fetchone()
@@ -161,7 +218,9 @@ class Company:
             self._event("policy.approved",{"id":pid,"version":body["version"],"actor":actor})
 
     def pause(self,actor,paused=True):
-        self._ceo(actor)
+        if actor != self.ceo and not self.db.execute(
+                "SELECT 1 FROM identities WHERE principal_id=? AND kind='service'", (actor,)).fetchone():
+            raise PermissionError("CEO authority required")
         with self.tx():
             self.db.execute("UPDATE settings SET value=? WHERE key='paused'",("true" if paused else "false",))
             self._event("company.paused" if paused else "company.resumed",{"actor":actor})
@@ -436,8 +495,11 @@ class Company:
 
     def require_scope(self,identity,scope):
         if not identity:raise PermissionError("Unauthenticated")
-        scopes=json.loads(identity["scopes"])
         if identity["kind"]=="owner":return
+        raw=identity.get("scopes")
+        if raw is None:
+            raise PermissionError("Identity scopes missing")
+        scopes=json.loads(raw) if isinstance(raw,str) else list(raw)
         if scope not in scopes:raise PermissionError("Missing scope")
 
     def reject_policy(self,actor,pid,reason):
@@ -1531,9 +1593,11 @@ class Company:
         return row
 
     def register_push_subscription(self, actor, endpoint, keys=None):
-        """CEO-only Web Push enrollment. Does not send."""
+        """Web Push enrollment for the CEO or a paired companion principal."""
         from urllib.parse import urlparse
-        self._ceo(actor)
+        if actor != self.ceo and not self.db.execute(
+                "SELECT 1 FROM identities WHERE principal_id=? AND kind='service'", (actor,)).fetchone():
+            raise PermissionError("CEO or paired companion required")
         parsed = urlparse(endpoint)
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError("Push endpoint needs an HTTPS URL")
@@ -1545,21 +1609,29 @@ class Company:
         return dict(self.db.execute("SELECT * FROM push_subscriptions WHERE id=?", (sid,)).fetchone())
 
     def revoke_push_subscription(self, actor, subscription_id):
-        self._ceo(actor)
+        row = self.db.execute("SELECT * FROM push_subscriptions WHERE id=?", (subscription_id,)).fetchone()
+        if not row:
+            raise ValueError("Push subscription not found")
+        if actor != self.ceo and row["principal_id"] != actor:
+            raise PermissionError("Cannot revoke another principal's push subscription")
         with self.tx():
-            row = self.db.execute("SELECT * FROM push_subscriptions WHERE id=?", (subscription_id,)).fetchone()
-            if not row:
-                raise ValueError("Push subscription not found")
             self.db.execute("UPDATE push_subscriptions SET status='revoked' WHERE id=?", (subscription_id,))
             self._event("push.subscription_revoked", {"id": subscription_id}, actor_id=actor)
         return dict(self.db.execute("SELECT * FROM push_subscriptions WHERE id=?", (subscription_id,)).fetchone())
 
     def list_push_subscriptions(self, actor):
-        """CEO-only list of active push subscriptions (no key material)."""
-        self._ceo(actor)
-        rows = self.db.execute(
-            "SELECT id, principal_id, endpoint, created_at, status FROM push_subscriptions "
-            "WHERE status='active' ORDER BY created_at DESC")
+        """Active push subscriptions visible to this principal (no key material)."""
+        if actor == self.ceo:
+            rows = self.db.execute(
+                "SELECT id, principal_id, endpoint, created_at, status FROM push_subscriptions "
+                "WHERE status='active' ORDER BY created_at DESC")
+        else:
+            if not self.db.execute(
+                    "SELECT 1 FROM identities WHERE principal_id=? AND kind='service'", (actor,)).fetchone():
+                raise PermissionError("CEO or paired companion required")
+            rows = self.db.execute(
+                "SELECT id, principal_id, endpoint, created_at, status FROM push_subscriptions "
+                "WHERE status='active' AND principal_id=? ORDER BY created_at DESC", (actor,))
         return [dict(row) for row in rows]
 
     def notify_push(self, kind, subject, payload=None):

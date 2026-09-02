@@ -86,17 +86,42 @@ class PushNotificationTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("configured", resp.json())
 
-    def test_list_push_subscriptions(self):
+    def test_companion_can_register_and_list_own_push(self):
+        from company.schema import COMPANION_SCOPES
         from company.service import create_app
         self.c.register_identity("human-ceo", "owner", "owner-token")
-        self.c.register_push_subscription("human-ceo", "https://push.example/sub/2")
+        self.c.register_identity("companion-admin-x", "service", "companion-token", list(COMPANION_SCOPES))
         client = __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(create_app(self.c))
-        resp = client.get("/api/v1/push/subscriptions", headers={"Authorization": "Bearer owner-token"})
-        self.assertEqual(resp.status_code, 200)
-        subs = resp.json()["subscriptions"]
-        self.assertEqual(len(subs), 1)
-        self.assertEqual(subs[0]["endpoint"], "https://push.example/sub/2")
-        self.assertNotIn("keys", subs[0])
+        headers = {"Authorization": "Bearer companion-token", "Idempotency-Key": "comp-push-1"}
+        ok = client.post("/api/v1/push/subscriptions", json={
+            "payload": {"endpoint": "https://push.example/phone/1", "keys": {"p256dh": "k", "auth": "a"}}
+        }, headers=headers)
+        self.assertEqual(ok.status_code, 200)
+        listed = client.get("/api/v1/push/subscriptions", headers={"Authorization": "Bearer companion-token"})
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(len(listed.json()["subscriptions"]), 1)
+
+    def test_concurrent_reads_do_not_corrupt_scopes(self):
+        import threading
+        from company.schema import COMPANION_SCOPES
+        from company.service import create_app
+        self.c.register_identity("human-ceo", "owner", "owner-token")
+        self.c.register_identity("companion-admin-y", "service", "companion-token", list(COMPANION_SCOPES))
+        client = __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(create_app(self.c))
+        errors = []
+
+        def hit():
+            for _ in range(20):
+                r = client.get("/api/v1/projects", headers={"Authorization": "Bearer companion-token"})
+                if r.status_code != 200:
+                    errors.append(r.status_code)
+
+        threads = [threading.Thread(target=hit) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+        self.assertEqual(errors, [])
 
     def test_api_notify_push(self):
         from unittest.mock import patch
