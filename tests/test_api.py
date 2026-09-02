@@ -105,6 +105,10 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertIn("prefers-reduced-motion", page.text)
         self.assertIn("CEO desk", page.text)
+        self.assertIn('data-theme="cosmic-glass"', page.text)
+        self.assertIn("--midnight:", page.text)
+        self.assertIn('id="sidebar"', page.text)
+        self.assertIn('id="metric-projects"', page.text)
         self.assertIn('id="iso"', page.text)
         self.assertIn("isometric projection of provisioned rooms", page.text)
         self.assertIn("iso-rise", page.text)
@@ -136,6 +140,7 @@ class ApiTests(unittest.TestCase):
         self.assertIn('href="#departments"', page.text)
         self.assertIn('href="#budget"', page.text)
         self.assertIn('href="#activity"', page.text)
+        self.assertIn('href="#intelligence"', page.text)
         self.assertIn("/api/v1/headquarters/rooms/", page.text)
 
 

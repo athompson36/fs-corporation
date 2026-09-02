@@ -59,3 +59,8 @@ class LearningAdapter:
 class PushNotificationAdapter:
     def send(self, subscription: dict, payload: dict) -> dict:
         raise NotImplementedError("Live web push requires VAPID keys; see docs/24-mobile-companion.md")
+
+class TailscaleAdapter:
+    def join(self, payload: dict) -> dict:
+        raise NotImplementedError(
+            "Live Tailscale node join requires FS_CORP_TAILSCALE_AUTHKEY on the host; see docs/24-mobile-companion.md")

@@ -147,6 +147,10 @@ CREATE TABLE IF NOT EXISTS push_deliveries(
 CREATE TABLE IF NOT EXISTS slo_observations(
   id TEXT PRIMARY KEY, slo_id TEXT NOT NULL, value REAL NOT NULL, source TEXT NOT NULL,
   window_start TEXT NOT NULL, window_end TEXT NOT NULL, recorded_at TEXT NOT NULL, recorded_by TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS pairing_tickets(
+  id TEXT PRIMARY KEY, ticket_hash TEXT NOT NULL, created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL, expires_at TEXT NOT NULL, status TEXT NOT NULL,
+  redeemed_at TEXT, companion_principal TEXT, access_level TEXT NOT NULL DEFAULT 'admin');
 """
 
 SLO_DEFINITIONS = (
@@ -161,6 +165,36 @@ GRANT_OPTIONAL = {"approval_rights"}
 POLICY_REQUIRED = {"version", "company_budget_cents", "grants"}
 MAX_DELEGATION_DEPTH = 2
 KNOWN_ACTIONS = {"draft", "review", "prepare_pr", "provision_room", "inspect_room"}
+COMPANION_SCOPES = (
+    "company.read", "company.pause", "company.resume",
+    "policy.approve", "consultant.decide", "consultant.read",
+    "project.enroll", "audit.read", "organization.read", "owner.escalate",
+)
+PAIRING_READ_ONLY_SCOPES = (
+    "company.read", "audit.read", "consultant.read", "organization.read",
+)
+PAIRING_USER_SCOPES = PAIRING_READ_ONLY_SCOPES + ("owner.escalate",)
+PAIRING_LEVELS = (
+    {"id": "read_only", "label": "Read only", "scopes": PAIRING_READ_ONLY_SCOPES,
+     "summary": "Dashboard and lists only. No approve, pause, enroll, or respond."},
+    {"id": "user", "label": "User", "scopes": PAIRING_USER_SCOPES,
+     "summary": "Read access plus owner-inbox escalations. No CEO actions."},
+    {"id": "admin", "label": "Admin / CEO mobile", "scopes": COMPANION_SCOPES,
+     "summary": "Full companion: approve, pause, enroll, dispatch, inbox respond."},
+)
+PAIRING_LEVEL_IDS = {level["id"] for level in PAIRING_LEVELS}
+
+
+def pairing_level(level_id):
+    for level in PAIRING_LEVELS:
+        if level["id"] == level_id:
+            return level
+    raise ValueError("Unknown pairing access level")
+
+
+def pairing_levels_catalog():
+    return [{"id": l["id"], "label": l["label"], "scopes": list(l["scopes"]), "summary": l["summary"]}
+            for l in PAIRING_LEVELS]
 
 
 def apply_schema(db):

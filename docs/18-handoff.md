@@ -1,21 +1,30 @@
 # Current handoff
 
-Date: 2026-09-01. Version: 0.3.12. State: loopback control service, room detail from persisted expansion work, isometric HQ projection, sourced SLO catalog, fail-closed Web Push, GitHub/feed/container lifecycles, mobile companion, fs-dev runbook. Live adapters remain disabled.
+Date: 2026-09-01. Version: 0.3.14. State: QR pairing with scoped access levels (read only / user / admin), Tailscale handoff on redeem, companion auto-redeem and scope-gated UI, cosmic-glass desk/companion, room detail, isometric HQ, sourced SLO catalog, fail-closed Web Push, GitHub/feed/container lifecycles, fs-dev runbook. Live adapters remain disabled.
 
 ## Delivered
 
 - Origin: `https://github.com/athompson36/fs-corporation.git`.
-- Alembic through `0009_slo_observations`.
-- `GET /api/v1/headquarters/rooms/{id}` and CEO desk room selection show persisted tasks, staff, deliverables, simulated costs and related decisions. Empty staff/deliverable lists stay empty. No occupancy count.
-- Prior: isometric HQ SVG, SLO catalog, Web Push, GitHub apply, feed poll, container file gateway, companion PWA, fs-dev.
+- Alembic through `0011_pairing_access_level`.
+- QR pairing (ADR-018): CEO desk level picker, one-time tickets, companion `#fs-pair` auto-redeem, scoped service principals (never root owner token).
+- Optional `FS_CORP_PUBLIC_URL`, `FS_CORP_TAILSCALE_AUTHKEY` (redeem only), `FS_CORP_ALLOW_CORS` for dev preview.
+- Prior: cosmic-glass UI, room detail, isometric HQ, SLO catalog, Web Push, GitHub apply, feed poll, container file gateway, companion PWA, fs-dev.
 
 ## Verification
 
-**90 unit tests** pass in `.venv` after `pip install -e .`, including `tests/test_m6.py` room-detail tests and `tests/test_api.py` desk nav checks. `python3 scripts/check_bundle.py` passes.
+Run in `.venv` after `pip install -e .`:
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 scripts/check_bundle.py
+cd companion && npm run build
+```
+
+Pairing tests cover level scopes, deny approve/pause for read_only/user, and auth key only on redeem.
 
 ## Limitations
 
-Custom room art and logo/palette remain undecided. SLOs have no production samples. Live GitHub/model/feed/VAPID and container dispatch on `192.168.4.101` still need owner credentials.
+Furnished room interiors are deferred. SLOs have no production samples. Live GitHub/model/feed/VAPID and container dispatch on `192.168.4.101` still need owner credentials. PWA cannot join Tailscale kernel VPN; paired-device revocation UI is deferred.
 
 ## Next task
 

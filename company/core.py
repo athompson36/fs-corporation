@@ -7,10 +7,18 @@ from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 import hashlib
 import json
+import os
 from pathlib import Path
+import secrets
+import shutil
 import sqlite3
+import subprocess
 import uuid
-from .schema import GRANT_OPTIONAL, GRANT_REQUIRED, MAX_DELEGATION_DEPTH, POLICY_REQUIRED, SLO_DEFINITIONS, apply_schema
+from .schema import (
+    COMPANION_SCOPES, GRANT_OPTIONAL, GRANT_REQUIRED, MAX_DELEGATION_DEPTH,
+    PAIRING_LEVEL_IDS, POLICY_REQUIRED, SLO_DEFINITIONS, apply_schema,
+    pairing_level, pairing_levels_catalog,
+)
 
 
 def now():
@@ -1612,6 +1620,114 @@ class Company:
                              now().isoformat(), actor))
             self._event("slo.observed", {"id": oid, "slo_id": slo_id, "source": source.strip()}, actor_id=actor)
         return dict(self.db.execute("SELECT * FROM slo_observations WHERE id=?", (oid,)).fetchone()) | {"status": "observed"}
+
+    def _hash_pairing(self, ticket):
+        return hashlib.sha256(("fs-corporation-pairing:" + ticket).encode()).hexdigest()
+
+    def probe_tailscale(self):
+        exe = shutil.which("tailscale")
+        if not exe:
+            return {"cli": "live_unavailable", "ipv4": None}
+        try:
+            out = subprocess.run([exe, "ip", "-4"], capture_output=True, text=True, timeout=2, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            return {"cli": "live_unavailable", "ipv4": None}
+        ip = (out.stdout or "").strip().split()
+        if out.returncode == 0 and ip:
+            return {"cli": "advertised", "ipv4": ip[0]}
+        return {"cli": "live_unavailable", "ipv4": None}
+
+    def remote_access_status(self, public_url=None):
+        env_url = (os.environ.get("FS_CORP_PUBLIC_URL") or "").strip().rstrip("/")
+        public = (public_url or env_url or "").strip().rstrip("/")
+        probe = self.probe_tailscale()
+        key = os.environ.get("FS_CORP_TAILSCALE_AUTHKEY") or ""
+        recommended = env_url or public
+        if not recommended and probe["ipv4"]:
+            recommended = f"http://{probe['ipv4']}:8000"
+        return {
+            "vpn": "tailscale",
+            "public_url": public or None,
+            "recommended_url": recommended,
+            "tailnet_ipv4": probe["ipv4"],
+            "tailscale_cli": probe["cli"],
+            "auth_key_configured": bool(key.strip()),
+            "pairing_levels": pairing_levels_catalog(),
+        }
+
+    def create_pairing_ticket(self, actor, public_url, access_level="admin", minutes=15):
+        self._ceo(actor)
+        if access_level not in PAIRING_LEVEL_IDS:
+            raise ValueError("Unknown pairing access level")
+        level = pairing_level(access_level)
+        ticket = secrets.token_urlsafe(24)
+        tid = digest({"pair": ticket})[:24]
+        exp = (now() + timedelta(minutes=minutes)).isoformat()
+        remote = self.remote_access_status(public_url)
+        base = remote["recommended_url"] or public_url or ""
+        pair_url = f"{base.rstrip('/')}/#fs-pair={ticket}"
+        import segno
+        qr_svg = segno.make(pair_url, error="m").svg_inline(scale=4)
+        with self.tx():
+            self.db.execute(
+                "INSERT INTO pairing_tickets VALUES(?,?,?,?,?,?,NULL,NULL,?)",
+                (tid, self._hash_pairing(ticket), actor, now().isoformat(), exp, "issued", access_level))
+            self._event("pairing.issued",
+                          {"id": tid, "expires_at": exp, "access_level": access_level}, actor_id=actor)
+        return {
+            "id": tid,
+            "ticket": ticket,
+            "pair_url": pair_url,
+            "expires_at": exp,
+            "access_level": access_level,
+            "label": level["label"],
+            "qr_svg": qr_svg,
+            "remote": remote,
+            "contains_owner_token": False,
+        }
+
+    def redeem_pairing_ticket(self, ticket):
+        if not ticket or not str(ticket).strip():
+            raise LookupError("Pairing ticket not found")
+        row = self.db.execute(
+            "SELECT * FROM pairing_tickets WHERE ticket_hash=?",
+            (self._hash_pairing(ticket.strip()),)).fetchone()
+        if not row:
+            raise LookupError("Pairing ticket not found")
+        if row["status"] != "issued":
+            raise ValueError("Pairing ticket already used")
+        if datetime.fromisoformat(row["expires_at"]) <= now():
+            raise ValueError("Pairing ticket expired")
+        access_level = row["access_level"] if "access_level" in row.keys() else "admin"
+        level = pairing_level(access_level)
+        scopes = list(level["scopes"])
+        token = secrets.token_urlsafe(32)
+        principal = f"companion-{access_level}-{row['id'][:8]}"
+        self.register_identity(principal, "service", token, scopes)
+        with self.tx():
+            self.db.execute(
+                "UPDATE pairing_tickets SET status='redeemed', redeemed_at=?, companion_principal=? WHERE id=?",
+                (now().isoformat(), principal, row["id"]))
+            self._event("pairing.redeemed",
+                          {"id": row["id"], "principal_id": principal, "access_level": access_level},
+                          actor_id=principal)
+        remote = self.remote_access_status()
+        key = (os.environ.get("FS_CORP_TAILSCALE_AUTHKEY") or "").strip()
+        result = {
+            "token": token,
+            "principal_id": principal,
+            "base_url": remote["recommended_url"],
+            "access_level": access_level,
+            "label": level["label"],
+            "scopes": scopes,
+            "vpn": {
+                "provider": "tailscale",
+                "status": "configured" if key else "live_unavailable",
+            },
+        }
+        if key:
+            result["tailscale_auth_key"] = key
+        return result
 
     def restore(self,src):
         src=Path(src)

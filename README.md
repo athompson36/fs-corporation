@@ -2,7 +2,7 @@
 
 A persistent AI corporation inspired by ChatDev: CEO governance, delegated department heads, mixed-model teams, controlled project forks, market intelligence, and a headquarters that grows with accepted work.
 
-**Deliverable status: v0.3.12 room detail + isometric HQ + sourced SLO catalog + fail-closed Web Push + feed/GitHub/container lifecycles + mobile companion + fs-dev deployment.** This is not a finished autonomous company. Live ChatDev, GitHub, market feeds, billed models, push delivery, and documentation fetch are not connected.
+**Deliverable status: v0.3.13 cosmic-glass desk/companion + room detail + isometric HQ + sourced SLO catalog + fail-closed Web Push + feed/GitHub/container lifecycles + fs-dev deployment.** This is not a finished autonomous company. Live ChatDev, GitHub, market feeds, billed models, push delivery, and documentation fetch are not connected.
 
 Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-corporation.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
 
@@ -41,7 +41,7 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 | Master Consultant | Heuristic scan, durable CEO decisions, revision/work-order handoff |
 | ChatDev, GitHub and market integration interfaces | Live adapters disabled; GitHub `apply_github_effect` and feed `poll_market_feed` record `live_unavailable`; denial tests exist |
 | 14 departments and role prompts | Configuration plus optional catalog seed |
-| CEO desk and headquarters projection | Local HTML/SVG 2D plan plus isometric tiles; selecting a room opens persisted tasks/staff/deliverables; reduced motion respected |
+| CEO desk and headquarters projection | Cosmic-glass HTML/SVG desk; 2D + isometric tiles; room selection opens persisted work; companion shares the same tokens |
 | Isolated subprocess workers with gateway allowlist | Implemented locally; container runtime uses a scratch-directory gateway |
 | fs-dev production hosting | systemd + Caddy edge (`deploy/fs-dev/`); worker Docker scaffold only |
 | Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented; Web Push subscriptions recorded, live send fail-closed |

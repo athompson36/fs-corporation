@@ -4,17 +4,39 @@ import {
   DecisionItem,
   OwnerRequest,
   loadSettings,
+  redeemPairing,
   saveSettings,
   type Settings,
 } from "./api/client";
+import {
+  canApprove,
+  canEnroll,
+  canEscalate,
+  canPause,
+  canRespondInbox,
+  canResume,
+} from "./scopes";
 
 type Tab = "dashboard" | "projects" | "decisions" | "inbox" | "settings";
+
+function pairingTicketFromHash(): string | null {
+  const m = window.location.hash.match(/^#fs-pair=(.+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function clearPairingHash() {
+  if (window.location.hash.startsWith("#fs-pair=")) {
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }
+}
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [tab, setTab] = useState<Tab>("dashboard");
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const [pairing, setPairing] = useState(false);
+  const [manualTicket, setManualTicket] = useState("");
   const [dashboard, setDashboard] = useState<Record<string, unknown> | null>(null);
   const [projects, setProjects] = useState<Record<string, unknown>[]>([]);
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
@@ -22,11 +44,48 @@ export default function App() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [projectDetail, setProjectDetail] = useState<Record<string, unknown> | null>(null);
 
+  const scopes = settings.scopes;
   const api = useMemo(() => new ApiClient(settings), [settings]);
+
+  const applyPairing = useCallback(async (ticket: string, baseUrl?: string) => {
+    setPairing(true);
+    setError(null);
+    try {
+      const origin = baseUrl || window.location.origin || settings.baseUrl || defaultApiBaseFromWindow();
+      const data = await redeemPairing(origin, ticket);
+      const next: Settings = {
+        baseUrl: data.base_url || origin,
+        token: data.token,
+        access_level: data.access_level,
+        label: data.label,
+        scopes: data.scopes,
+      };
+      saveSettings(next);
+      setSettings(next);
+      clearPairingHash();
+      if (data.tailscale_auth_key) {
+        setError(
+          "Paired. Install the Tailscale app and sign in, then open this page again on the tailnet. "
+          + "Native shell may consume the auth key automatically in a future release.",
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPairing(false);
+    }
+  }, [settings.baseUrl]);
+
+  useEffect(() => {
+    const ticket = pairingTicketFromHash();
+    if (ticket) {
+      applyPairing(ticket);
+    }
+  }, [applyPairing]);
 
   const refresh = useCallback(async () => {
     if (!settings.token) {
-      setError("Set your bearer token in Settings.");
+      setError(null);
       return;
     }
     setError(null);
@@ -49,10 +108,11 @@ export default function App() {
   }, [api, settings.token]);
 
   useEffect(() => {
+    if (!settings.token) return;
     refresh();
     const id = setInterval(refresh, 15000);
     return () => clearInterval(id);
-  }, [refresh]);
+  }, [refresh, settings.token]);
 
   useEffect(() => {
     if (!selectedProject || !settings.token) {
@@ -77,22 +137,78 @@ export default function App() {
     await refresh();
   }
 
+  async function escalate() {
+    const departmentId = window.prompt("Department id", "engineering");
+    const subject = window.prompt("Subject");
+    const body = window.prompt("Message");
+    if (!departmentId || !subject || !body) return;
+    await api.escalateOwner(departmentId, "escalation", subject, body);
+    await refresh();
+  }
+
   function save(s: Settings) {
     saveSettings(s);
     setSettings(s);
   }
 
   const company = (dashboard?.company ?? {}) as Record<string, unknown>;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const accessBadge = settings.access_level === "read_only"
+    ? "Read only"
+    : settings.label || (settings.access_level ? settings.access_level : null);
+
+  if (!settings.token) {
+    return (
+      <div className="app" data-theme="cosmic-glass">
+        <h1>FS-Corporation</h1>
+        <section className="card">
+          <p className="lede">Scan the pairing QR from the CEO desk to connect this device.</p>
+          {pairing && <p className="muted">Redeeming pairing ticket…</p>}
+          {error && <p className="error">{error}</p>}
+          <label htmlFor="manual-ticket">Or paste pairing ticket (dev)</label>
+          <input
+            id="manual-ticket"
+            type="text"
+            value={manualTicket}
+            onChange={(e) => setManualTicket(e.target.value)}
+            placeholder="ticket from desk (not shown in QR)"
+          />
+          <label htmlFor="pair-base">API base URL</label>
+          <input
+            id="pair-base"
+            type="text"
+            value={settings.baseUrl}
+            onChange={(e) => save({ ...settings, baseUrl: e.target.value })}
+          />
+          <div className="actions">
+            <button
+              className="primary"
+              type="button"
+              disabled={pairing || !manualTicket.trim()}
+              onClick={() => applyPairing(manualTicket.trim(), settings.baseUrl)}
+            >
+              Pair device
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
-    <div className="app">
-      <h1>FS-Corporation</h1>
+    <div className="app" data-theme="cosmic-glass">
+      <h1>FS-Corporation {accessBadge && <span className="tag tag-proposal">{accessBadge}</span>}</h1>
       {offline && <div className="offline">Cannot reach control service</div>}
       {error && <p className="error">{error}</p>}
 
       {tab === "dashboard" && (
         <section>
-          <p className="muted">CEO companion — reads persisted state only.</p>
+          <p className="lede">CEO companion — reads persisted state only.</p>
+          <div className="metrics">
+            <div className="card metric"><h2>Projects</h2><div className="value">{pad(projects.length)}</div></div>
+            <div className="card metric"><h2>Decisions</h2><div className="value">{pad(decisions.length)}</div></div>
+            <div className="card metric"><h2>Inbox</h2><div className="value">{pad(Number(dashboard?.owner_inbox_open ?? inbox.length))}</div></div>
+          </div>
           <div className="card">
             <div>Policy v{String(company.policy_version ?? "?")}</div>
             <div>Paused: {String(company.paused ?? false)}</div>
@@ -101,8 +217,12 @@ export default function App() {
             <div>Open owner inbox: {String(dashboard?.owner_inbox_open ?? 0)}</div>
             <div>Pending decisions: {String((dashboard?.pending_decisions as unknown[])?.length ?? 0)}</div>
             <div className="actions">
-              <button className="primary" type="button" onClick={() => api.resume().then(refresh)}>Resume</button>
-              <button className="danger" type="button" onClick={() => api.pause().then(refresh)}>Pause</button>
+              {canResume(scopes) && (
+                <button className="primary" type="button" onClick={() => api.resume().then(refresh)}>Resume</button>
+              )}
+              {canPause(scopes) && (
+                <button className="danger" type="button" onClick={() => api.pause().then(refresh)}>Pause</button>
+              )}
               <button type="button" onClick={refresh}>Refresh</button>
             </div>
           </div>
@@ -126,13 +246,15 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              <div className="actions">
-                <button className="primary" type="button" onClick={async () => {
-                  const id = window.prompt("Project id");
-                  const brief = window.prompt("Brief");
-                  if (id && brief) { await api.enrollProject(id, brief); await refresh(); }
-                }}>Enroll project</button>
-              </div>
+              {canEnroll(scopes) && (
+                <div className="actions">
+                  <button className="primary" type="button" onClick={async () => {
+                    const id = window.prompt("Project id");
+                    const brief = window.prompt("Brief");
+                    if (id && brief) { await api.enrollProject(id, brief); await refresh(); }
+                  }}>Enroll project</button>
+                </div>
+              )}
             </>
           ) : projectDetail && (
             <div className="card">
@@ -140,18 +262,20 @@ export default function App() {
               <h2>{selectedProject}</h2>
               <p>{String(projectDetail.brief)}</p>
               <p className="muted">Departments: {(projectDetail.departments as string[])?.join(", ") || "none"}</p>
-              <div className="actions">
-                <button className="primary" type="button" onClick={async () => {
-                  const depts = window.prompt("Departments (comma-separated)", "engineering,product");
-                  const brief = window.prompt("Brief for heads", String(projectDetail.brief));
-                  const criteria = window.prompt("Acceptance criteria", "Deliverable reviewed");
-                  if (!depts || !brief || !criteria) return;
-                  await api.dispatchBrief(selectedProject, brief, depts.split(",").map((s) => s.trim()),
-                    criteria, 500);
-                  await refresh();
-                  setSelectedProject(null);
-                }}>Dispatch to heads</button>
-              </div>
+              {canEnroll(scopes) && (
+                <div className="actions">
+                  <button className="primary" type="button" onClick={async () => {
+                    const depts = window.prompt("Departments (comma-separated)", "engineering,product");
+                    const brief = window.prompt("Brief for heads", String(projectDetail.brief));
+                    const criteria = window.prompt("Acceptance criteria", "Deliverable reviewed");
+                    if (!depts || !brief || !criteria) return;
+                    await api.dispatchBrief(selectedProject, brief, depts.split(",").map((s) => s.trim()),
+                      criteria, 500);
+                    await refresh();
+                    setSelectedProject(null);
+                  }}>Dispatch to heads</button>
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -161,12 +285,12 @@ export default function App() {
         <section>
           {decisions.map((item) => (
             <div key={`${item.kind}-${item.id}`} className="card">
-              <div className="muted">{item.kind}</div>
+              <div className={item.kind === "consultant" ? "tag tag-proposal" : "tag tag-warning"}>{item.kind}</div>
               <strong>{item.title}</strong>
               <p className="muted">{item.summary}</p>
-              {(item.kind === "policy" || item.kind === "consultant") && (
+              {canApprove(scopes) && (item.kind === "policy" || item.kind === "consultant") && (
                 <div className="actions">
-                  <button className="primary" type="button" onClick={() => decide(item, "approved")}>Approve</button>
+                  <button className="approve" type="button" onClick={() => decide(item, "approved")}>Approve</button>
                   <button className="danger" type="button" onClick={() => decide(item, "rejected")}>Reject</button>
                 </div>
               )}
@@ -178,14 +302,21 @@ export default function App() {
 
       {tab === "inbox" && (
         <section>
+          {canEscalate(scopes) && (
+            <div className="actions" style={{ marginBottom: "0.75rem" }}>
+              <button className="primary" type="button" onClick={escalate}>New escalation</button>
+            </div>
+          )}
           {inbox.map((req) => (
             <div key={req.id} className="card">
               <div className="muted">{req.kind} · {req.department_id}</div>
               <strong>{req.subject}</strong>
               <p>{req.body}</p>
-              <div className="actions">
-                <button className="primary" type="button" onClick={() => respond(req)}>Respond</button>
-              </div>
+              {canRespondInbox(scopes) && (
+                <div className="actions">
+                  <button className="primary" type="button" onClick={() => respond(req)}>Respond</button>
+                </div>
+              )}
             </div>
           ))}
           {!inbox.length && <p className="muted">No open owner requests.</p>}
@@ -194,27 +325,44 @@ export default function App() {
 
       {tab === "settings" && (
         <section className="card">
-          <label htmlFor="baseUrl">API base URL (Tailscale host)</label>
+          <label htmlFor="baseUrl">API base URL</label>
           <input id="baseUrl" type="text" value={settings.baseUrl}
             onChange={(e) => save({ ...settings, baseUrl: e.target.value })} />
           <label htmlFor="token">Bearer token</label>
           <input id="token" type="password" value={settings.token}
             onChange={(e) => save({ ...settings, token: e.target.value })} />
-          <p className="muted">Use the token from `.local/owner.token` on your control host. Connect phone and host on Tailscale.</p>
+          {settings.scopes?.length ? (
+            <p className="muted">Scopes: {settings.scopes.join(", ")}</p>
+          ) : null}
+          <p className="muted">Pair a new device from the CEO desk QR, or clear token below and scan again.</p>
           <p className="muted">Push notifications: the API records HTTPS subscriptions and fail-closes live send until VAPID keys are configured. The PWA still polls every 15s.</p>
           <div className="actions">
             <button type="button" onClick={refresh}>Test connection</button>
+            <button type="button" onClick={() => save({ baseUrl: settings.baseUrl, token: "" })}>Clear token</button>
           </div>
         </section>
       )}
 
       <nav className="tabs" aria-label="Primary">
-        {(["dashboard", "projects", "decisions", "inbox", "settings"] as Tab[]).map((t) => (
+        {([
+          ["dashboard", "Home"],
+          ["projects", "Projects"],
+          ["decisions", "Decisions"],
+          ["inbox", "Inbox"],
+          ["settings", "Settings"],
+        ] as [Tab, string][]).map(([t, label]) => (
           <button key={t} type="button" className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
-            {t}
+            {label}
           </button>
         ))}
       </nav>
     </div>
   );
+}
+
+function defaultApiBaseFromWindow(): string {
+  if (typeof window !== "undefined" && window.location.origin && window.location.origin !== "null") {
+    return window.location.origin;
+  }
+  return "http://127.0.0.1:8000";
 }

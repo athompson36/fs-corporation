@@ -30,7 +30,7 @@ Research creates evidence and proposals. External pages cannot amend policy. Dep
 
 ## Unresolved choices with sensible defaults
 
-- Branding: **FS-Corporation** is the project and in-product company name; visual style remains undecided.
+- Branding: **FS-Corporation** is the project and in-product company name. Visual system is cosmic restraint: midnight, cosmic blue, ultraviolet, aurora, soft white, subtle glass. Furnished custom room art is still deferred.
 - Headquarters presentation: start with an accessible 2D floor plan, then isometric animation.
 - Deployment: local development first; later support self-hosted services.
 - Models: use mock profiles until exact available IDs, credentials and permitted data classes are configured.

@@ -18,6 +18,8 @@
 | ADR-014 | 2026-09-01 | Subprocess workers with parent-mediated gateway | Workers run in a spawned process without DB credentials; only gateway_check, store_artifact, execute_mock, and mock invoke_model are allowed; container runtime stays fail-closed until a worker image exists. |
 | ADR-015 | 2026-09-01 | Mobile CEO companion over Tailscale | Dashboard/read APIs, owner inbox, project dispatch-brief, SSE stream, and a mobile PWA; control service may bind to tailnet IP with --allow-remote; phone is not a trust boundary. |
 | ADR-016 | 2026-09-01 | Native control plane + Caddy edge on owned Debian host; Docker for workers only | fs-dev phase 1: systemd runs API on 127.0.0.1:8000; Caddy terminates TLS on 192.168.4.100 and serves companion + /api proxy; ufw denies LAN:8000. Container workers and 192.168.4.101 are phase 2. |
+| ADR-017 | 2026-09-01 | Cosmic-restraint visual system | Owner-selected palette and glass chrome for desk + companion. Metrics and HQ tiles bind only to persisted API state. Furnished room art stays deferred. |
+| ADR-018 | 2026-09-01 | QR pairing with scoped access levels | CEO desk issues one-time tickets with `read_only`, `user`, or `admin` levels. Redeem creates service principals with explicit scopes — never root owner token or `*`. `FS_CORP_PUBLIC_URL` shapes pair URLs; optional `FS_CORP_TAILSCALE_AUTHKEY` returns only on redeem. PWA cannot join kernel VPN; native shell may consume auth key later. |
 
 ### ADR-010 detail
 
@@ -110,5 +112,19 @@
 - Public internet exposure without VPN: contradicts loopback-first security posture.
 
 **Consequences.** `deploy/fs-dev/` ships `install.sh`, systemd unit, Caddyfile, ufw example, and worker Dockerfile/compose (scaffold). Runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md). Live adapter dispatch and worker host on `.101` remain owner-configuration work (phase 2).
+
+### ADR-018 detail
+
+**Context.** M8 mobile companion needed frictionless phone onboarding without embedding the root owner bearer token in QR codes or URLs. Owners also need to delegate read-only or user-level mobile access separate from full CEO mobile actions.
+
+**Decision.** CEO desk issues one-time pairing tickets stored with an `access_level` (`read_only`, `user`, `admin`). QR encodes only `pair_url` with `#fs-pair={ticket}`. Redeem creates a **service principal** with level-specific scopes; `admin` maps to `COMPANION_SCOPES`, never `kind: owner`. Optional `FS_CORP_TAILSCALE_AUTHKEY` is returned **only** on redeem. `FS_CORP_PUBLIC_URL` sets the recommended origin for pair URLs on fs-dev.
+
+**Alternatives considered.**
+
+- Put owner token in QR: rejected — phone compromise would equal root authority.
+- Client-selected level on redeem: rejected — level is bound at issue time in the database.
+- Server-side Tailscale join for phones: rejected — kernel VPN join is device-local; PWA cannot join; native shell may consume auth key in phase 2.
+
+**Consequences.** Alembic `0010_pairing_tickets`, `0011_pairing_access_level`. Routes `GET/POST /api/v1/remote-access*`. Companion auto-redeems hash on load and scope-gates UI. Dev preview may set `FS_CORP_ALLOW_CORS=1` for loopback companion on `:4173`.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

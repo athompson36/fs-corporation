@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.12 local status:** Room selection opens persisted tasks, staff, deliverables and decisions. Isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, fs-dev runbook, and mobile companion remain. Live adapters remain disabled.
+**v0.3.13 local status:** Cosmic-glass desk and companion chrome. Room detail, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, and fs-dev remain. Live adapters remain disabled.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials remain unconfigured and do not block local work.
 
@@ -194,7 +194,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Accessible 2D floor plan + list navigation; reduced motion
 - [x] Facilities: costed proposal → approve → contractor provision → independent inspection → `room.built`
 - [x] Growth credit once per unique accepted project; replay/retry cannot farm credits
-- [x] Art/isometric animation — CEO desk isometric SVG from the same `headquarters()` rooms; rise animation respects `prefers-reduced-motion`; no invented occupancy; custom room art still undecided
+- [x] Art/isometric animation — CEO desk isometric SVG from the same `headquarters()` rooms; rise animation respects `prefers-reduced-motion`; no invented occupancy; cosmic-glass chrome adopted; furnished room art still deferred
 - [x] Room detail — `GET /api/v1/headquarters/rooms/{id}` returns persisted tasks, staff, deliverables, simulated costs and related decisions; desk list/tiles open that panel; missing rooms fail closed
 - [x] Consultant inbox: findings, evidence, approve/reject/revise (API + desk list)
 
@@ -227,8 +227,9 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Tailscale bind via `--allow-remote` (documented; not public internet)
 - [x] Mobile PWA in `companion/`; thin Expo shell in `companion-native/`
 - [x] Push notifications — `register_push_subscription` / `notify_push` (HTTPS only; live send `live_unavailable` until VAPID keys exist); owner-inbox create attempts delivery
+- [x] QR pairing with access levels (`read_only`, `user`, `admin`); desk issues QR; companion auto-redeems `#fs-pair`; optional Tailscale auth key on redeem
 
-**Acceptance:** over Tailscale, owner opens PWA, sees stats, approves a proposal, dispatches a project brief, and responds to an owner request; denial tests still pass.
+**Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
 ## M9 — fs-dev deployment
 
@@ -271,8 +272,8 @@ Initial active catalog already marked: Executive, Engineering, Quality Control, 
 
 ## Owner-supplied configuration (later milestones)
 
-Selected GitHub repository/fork IDs and App installation; exact enabled provider/model IDs and credentials; actual spending caps; approved sources/watchlists; deployment target; visual style. Do not infer these from unrelated user history.
+Selected GitHub repository/fork IDs and App installation; exact enabled provider/model IDs and credentials; actual spending caps; approved sources/watchlists; deployment target. Visual system is cosmic restraint; furnished room art remains deferred. Do not infer remaining values from unrelated user history.
 
 ## Immediate next implementation task
 
-Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model, an approved feed URL, optional VAPID keys, and sourced SLO samples from production load. Build `fs-corporation-worker:local` and exercise **container dispatch** on reserved host **`192.168.4.101`**. Custom HQ room art remains undecided.
+Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model, an approved feed URL, optional VAPID keys, and sourced SLO samples from production load. Build `fs-corporation-worker:local` and exercise **container dispatch** on reserved host **`192.168.4.101`**. Furnished HQ room art remains deferred.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import tempfile
 from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -22,62 +23,137 @@ DESK_HTML = """<!DOCTYPE html>
 <meta charset="utf-8"/>
 <title>FS-Corporation — CEO desk</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="theme-color" content="#070b14"/>
 <style>
-:root { color-scheme: dark; }
-body { font-family: system-ui, sans-serif; background:#111; color:#eee; margin:0; }
-main { max-width: 52rem; margin: 0 auto; padding: 1rem; }
-nav a { color:#9cf; margin-right:1rem; }
-section { border:1px solid #444; padding:1rem; margin:1rem 0; }
-.muted { color:#bbb; }
-button.room { background:none; border:0; color:#9cf; cursor:pointer; padding:0; font:inherit; text-align:left; }
-#iso, #floor { width:100%; max-height:16rem; }
-#iso [data-room-id], #floor [data-room-id] { cursor:pointer; }
-#iso { width:100%; max-height:16rem; }
+:root {
+  color-scheme: dark;
+  --midnight: #070b14;
+  --midnight-elev: #0c1220;
+  --glass: rgba(16, 24, 40, 0.62);
+  --glass-border: rgba(120, 170, 255, 0.22);
+  --cosmic: #3b82f6;
+  --cosmic-deep: #1d4ed8;
+  --ultraviolet: #8b5cf6;
+  --aurora: #34d399;
+  --soft: #e8eef8;
+  --muted: #9aa8c0;
+  --warning: #f5b942;
+}
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; background: radial-gradient(1200px 600px at 10% -10%, #12203a 0%, var(--midnight) 55%); color: var(--soft); margin: 0; }
+.shell { display: grid; grid-template-columns: 13rem 1fr; min-height: 100vh; }
+.rail { background: var(--midnight-elev); border-right: 1px solid var(--glass-border); padding: 1.1rem 0.9rem; position: sticky; top: 0; height: 100vh; }
+.brand { font-weight: 700; letter-spacing: 0.04em; margin: 0 0 1rem; color: var(--soft); }
+.rail nav { display: flex; flex-direction: column; gap: 0.25rem; }
+.rail a { color: var(--soft); text-decoration: none; padding: 0.45rem 0.65rem; border-radius: 0.65rem; font-size: 0.92rem; }
+.rail a:hover, .rail a:focus-visible { background: rgba(59,130,246,0.16); box-shadow: inset 0 0 0 1px var(--cosmic); }
+.workspace { padding: 1.25rem 1.5rem 2rem; }
+.lede { color: var(--muted); margin: 0 0 1rem; }
+.metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 0.75rem; margin-bottom: 0.75rem; }
+.metric .value { font-size: 1.8rem; font-weight: 700; letter-spacing: 0.04em; }
+.desk-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 0.75rem; }
+.glass { background: var(--glass); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 1rem; padding: 1rem; margin: 0 0 0.75rem; box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 12px 40px rgba(0,0,0,0.28); }
+h1, h2, h3 { margin: 0 0 0.5rem; }
+h1 { font-size: 1.7rem; }
+h2 { font-size: 1.05rem; }
+.muted { color: var(--muted); }
+.row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0 0 0.6rem; }
+.chip { border: 1px solid var(--glass-border); background: rgba(8,12,22,0.5); color: var(--soft); border-radius: 999px; padding: 0.2rem 0.65rem; font-size: 0.8rem; }
+.chip.active { border-color: var(--cosmic); background: rgba(59,130,246,0.18); }
+.tag { display: inline-block; border-radius: 999px; padding: 0.1rem 0.5rem; font-size: 0.75rem; }
+.tag-success { color: var(--aurora); border: 1px solid rgba(52,211,153,0.4); }
+.tag-proposal { color: #d8c4ff; border: 1px solid rgba(139,92,246,0.45); }
+.tag-warning { color: var(--warning); border: 1px solid rgba(245,185,66,0.4); }
+button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer; padding: 0; font: inherit; text-align: left; }
+#iso, #floor { width: 100%; max-height: 16rem; }
+#iso [data-room-id], #floor [data-room-id] { cursor: pointer; }
 .iso-rise { transform-box: fill-box; transform-origin: center bottom; animation: iso-rise 0.7s ease-out; }
 @keyframes iso-rise { from { transform: translateY(8px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@media (max-width: 840px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { position: static; height: auto; display: block; }
+  .rail nav { flex-direction: row; flex-wrap: wrap; }
+  .metrics, .desk-grid { grid-template-columns: 1fr; }
+}
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
 </style>
 </head>
-<body>
-<main>
+<body data-theme="cosmic-glass">
+<div class="shell">
+<aside class="rail" id="sidebar">
+<p class="brand">FS-Corporation</p>
 <nav aria-label="Primary">
 <a href="#desk">CEO desk</a>
 <a href="#hq">Headquarters</a>
 <a href="#projects">Projects</a>
 <a href="#departments">Departments</a>
 <a href="#people">People</a>
+<a href="#intelligence">Intelligence</a>
 <a href="#decisions">Decisions</a>
 <a href="#budget">Budget</a>
 <a href="#activity">Activity</a>
 <a href="#consultant">Consultant</a>
 </nav>
+</aside>
+<main class="workspace">
+<header>
 <h1 id="desk">CEO desk</h1>
-<p class="muted">Reads persisted company state. Occupancy is not running-model count.</p>
-<section id="status"><h2>Status</h2><pre id="status-json">Loading…</pre></section>
-<section id="decisions"><h2>Decisions inbox</h2><ul id="proposal-list"></ul></section>
-<section id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul></section>
-<section id="projects"><h2>Projects</h2><ul id="project-list"></ul></section>
-<section id="departments"><h2>Departments</h2><ul id="department-list"></ul></section>
-<section id="people"><h2>People</h2><ul id="people-list"></ul></section>
-<section id="budget"><h2>Budget</h2>
+<p class="lede">A clear view of persisted company state. Occupancy is not running-model count.</p>
+</header>
+<div class="metrics">
+<section class="glass metric" id="metric-projects-card"><h2>Projects</h2><div class="value" id="metric-projects">00</div></section>
+<section class="glass metric" id="metric-decisions-card"><h2>Pending decisions</h2><div class="value" id="metric-decisions">00</div></section>
+<section class="glass metric" id="metric-departments-card"><h2>Departments</h2><div class="value" id="metric-departments">00</div></section>
+</div>
+<div class="desk-grid">
+<section class="glass" id="hq">
+<h2>Headquarters</h2>
+<p class="muted">Geometric tiles from expansion events only. Empty HQ draws no invented rooms.</p>
+<div class="row" role="group" aria-label="Headquarters view">
+<button type="button" class="chip active" data-hq-view="iso">Isometric</button>
+<button type="button" class="chip" data-hq-view="plan">Plan</button>
+<button type="button" class="chip" data-hq-view="list">List</button>
+</div>
+<svg id="iso" viewBox="0 0 220 140" role="img" aria-label="isometric projection of provisioned rooms"></svg>
+<svg id="floor" viewBox="0 0 200 80" role="img" aria-label="2D floor plan of provisioned rooms" hidden></svg>
+<ul id="room-list" hidden></ul>
+</section>
+<div>
+<section class="glass" id="decisions"><h2>Decisions inbox</h2><ul id="proposal-list"></ul></section>
+<section class="glass" id="room-detail" hidden>
+<h2>Room</h2>
+<p id="room-purpose" class="muted"></p>
+<ul id="room-facts"></ul>
+</section>
+</div>
+</div>
+<section class="glass" id="status"><h2>Status</h2><pre id="status-json">Loading…</pre></section>
+<section class="glass" id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul></section>
+<section class="glass" id="projects"><h2>Projects</h2><ul id="project-list"></ul></section>
+<section class="glass" id="departments"><h2>Departments</h2><ul id="department-list"></ul></section>
+<section class="glass" id="people"><h2>People</h2><ul id="people-list"></ul></section>
+<section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Sourced signal events only.</p><ul id="intelligence-list"></ul></section>
+<section class="glass" id="budget"><h2>Budget</h2>
 <p class="muted">Simulated credits, not billed cost.</p>
 <pre id="budget-json">Loading…</pre>
 </section>
-<section id="activity"><h2>Activity</h2><ul id="activity-list"></ul></section>
-<section id="hq"><h2>Headquarters</h2>
-<p>List navigation of rooms from expansion events. Occupancy is not running-model count.</p>
-<ul id="room-list"></ul>
-<svg id="floor" viewBox="0 0 200 80" role="img" aria-label="2D floor plan of provisioned rooms"></svg>
-<svg id="iso" viewBox="0 0 220 140" role="img" aria-label="isometric projection of provisioned rooms"></svg>
-<div id="room-detail" hidden>
-<h3>Room</h3>
-<p id="room-purpose" class="muted"></p>
-<ul id="room-facts"></ul>
+<section class="glass" id="activity"><h2>Activity</h2><ul id="activity-list"></ul></section>
+<section class="glass" id="pairing">
+<h2>Phone pairing</h2>
+<p class="muted">Issues a one-time QR. The companion redeems it for a scoped device token — never the root owner token. Tailscale join material is returned only on redeem when FS_CORP_TAILSCALE_AUTHKEY is set on the host.</p>
+<div class="row" id="pair-levels" role="group" aria-label="Access level"></div>
+<p id="pair-level-summary" class="muted"></p>
+<p id="pair-remote-status" class="muted"></p>
+<div class="row">
+<button type="button" class="chip" id="pair-btn">Create pairing QR</button>
 </div>
+<div id="pair-qr" class="muted">No active pairing ticket.</div>
+<p id="pair-url" class="muted"></p>
 </section>
 </main>
+</div>
 <script>
 const headers = {Authorization: 'Bearer ' + (localStorage.getItem('ownerToken')||'')};
 function fill(id, items, text) {
@@ -93,6 +169,74 @@ function listed(items, fn) {
   const arr = items || [];
   return arr.length ? arr.map(fn).join(', ') : 'none';
 }
+function pad(n) { return String(n).padStart(2, '0'); }
+function setHqView(mode) {
+  document.getElementById('iso').hidden = mode !== 'iso';
+  document.getElementById('floor').hidden = mode !== 'plan';
+  document.getElementById('room-list').hidden = mode !== 'list';
+  document.querySelectorAll('[data-hq-view]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-hq-view') === mode);
+  });
+}
+document.querySelectorAll('[data-hq-view]').forEach(btn => {
+  btn.addEventListener('click', () => setHqView(btn.getAttribute('data-hq-view')));
+});
+let pairAccessLevel = 'admin';
+let pairingLevels = [];
+function renderPairLevels() {
+  const row = document.getElementById('pair-levels');
+  const summary = document.getElementById('pair-level-summary');
+  row.innerHTML = '';
+  pairingLevels.forEach(level => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip' + (level.id === pairAccessLevel ? ' active' : '');
+    btn.textContent = level.label;
+    btn.addEventListener('click', () => {
+      pairAccessLevel = level.id;
+      renderPairLevels();
+    });
+    row.appendChild(btn);
+  });
+  const active = pairingLevels.find(l => l.id === pairAccessLevel);
+  summary.textContent = active ? active.summary + ' Scopes: ' + (active.scopes || []).join(', ') : '';
+}
+async function loadRemoteAccess() {
+  const res = await fetch('/api/v1/remote-access', {headers});
+  if (!res.ok) return;
+  const body = await res.json();
+  pairingLevels = body.pairing_levels || [];
+  if (pairingLevels.length && !pairingLevels.some(l => l.id === pairAccessLevel)) {
+    pairAccessLevel = pairingLevels[pairingLevels.length - 1].id;
+  }
+  renderPairLevels();
+  const status = document.getElementById('pair-remote-status');
+  const parts = [];
+  if (body.recommended_url) parts.push('URL ' + body.recommended_url);
+  if (body.tailnet_ipv4) parts.push('Tailscale ' + body.tailnet_ipv4);
+  parts.push(body.auth_key_configured ? 'Tailscale auth key configured' : 'Tailscale auth key not configured');
+  status.textContent = parts.join(' · ');
+}
+loadRemoteAccess();
+document.getElementById('pair-btn').addEventListener('click', async () => {
+  const res = await fetch('/api/v1/remote-access/pairing', {
+    method: 'POST',
+    headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'pair-' + Date.now()},
+    body: JSON.stringify({payload: {access_level: pairAccessLevel}})
+  });
+  const body = await res.json();
+  const box = document.getElementById('pair-qr');
+  const url = document.getElementById('pair-url');
+  if (!res.ok) {
+    box.textContent = body.detail || 'Pairing failed';
+    url.textContent = '';
+    return;
+  }
+  const result = body.result || body;
+  box.innerHTML = result.qr_svg || '';
+  const level = result.label || pairAccessLevel;
+  url.textContent = (result.pair_url || '') + ' · ' + level + ' · expires ' + (result.expires_at || '');
+});
 async function openRoom(roomId) {
   const panel = document.getElementById('room-detail');
   const facts = document.getElementById('room-facts');
@@ -154,9 +298,13 @@ async function load() {
   const people = await fetch('/api/v1/hr/development', {headers});
   const peoplej = await people.json();
   fill('people-list', peoplej.employees || peoplej.assignments || [], p => (p.display_name || p.employee_id || p.id) + ' — ' + (p.position_id || p.status || ''));
+  fill('intelligence-list', (ej.items||[]).filter(item => String(item.kind).startsWith('signal')), item => item.kind + ' @ ' + item.at);
   const dash = await fetch('/api/v1/dashboard', {headers});
   const dashj = await dash.json();
   const company = dashj.company || {};
+  document.getElementById('metric-projects').textContent = pad((pj.projects||[]).length);
+  document.getElementById('metric-decisions').textContent = pad((ij.items||[]).length);
+  document.getElementById('metric-departments').textContent = pad((dj.departments||[]).length);
   document.getElementById('budget-json').textContent = JSON.stringify({
     simulated_spend_cents: company.simulated_spend_cents,
     reserved_cents: company.reserved_cents,
@@ -173,8 +321,8 @@ async function load() {
     const r = ns('rect');
     r.setAttribute('x', x); r.setAttribute('y', y);
     r.setAttribute('width', 40); r.setAttribute('height', 28);
-    r.setAttribute('fill', room.status === 'built' ? '#356' : '#333');
-    r.setAttribute('stroke', '#888');
+    r.setAttribute('fill', room.status === 'built' ? '#1d4ed8' : '#1a2233');
+    r.setAttribute('stroke', room.status === 'built' ? '#3b82f6' : '#8b5cf6');
     r.setAttribute('data-room-id', room.id);
     r.addEventListener('click', () => openRoom(room.id));
     svg.appendChild(r);
@@ -193,14 +341,14 @@ async function load() {
     g.addEventListener('click', () => openRoom(room.id));
     const top = ns('polygon');
     top.setAttribute('points', [ix,iy-h, ix+24,iy-h+12, ix,iy-h+24, ix-24,iy-h+12].join(' '));
-    top.setAttribute('fill', built ? '#468' : '#2a2a2a');
-    top.setAttribute('stroke', '#888');
+    top.setAttribute('fill', built ? '#3b82f6' : '#2a2040');
+    top.setAttribute('stroke', built ? '#93c5fd' : '#8b5cf6');
     const left = ns('polygon');
     left.setAttribute('points', [ix-24,iy-h+12, ix,iy-h+24, ix,iy+24, ix-24,iy+12].join(' '));
-    left.setAttribute('fill', built ? '#245' : '#222');
+    left.setAttribute('fill', built ? '#1e3a8a' : '#1a1630');
     const right = ns('polygon');
     right.setAttribute('points', [ix+24,iy-h+12, ix,iy-h+24, ix,iy+24, ix+24,iy+12].join(' '));
-    right.setAttribute('fill', built ? '#357' : '#1a1a1a');
+    right.setAttribute('fill', built ? '#1d4ed8' : '#161225');
     const label = ns('text');
     label.setAttribute('x', ix-10); label.setAttribute('y', iy-h+16);
     label.setAttribute('fill', '#eee'); label.setAttribute('font-size', '6');
@@ -228,6 +376,15 @@ def _json(data, code=200):
 def create_app(company: Company) -> FastAPI:
     app = FastAPI(title="FS-Corporation", version=__version__)
     app.state.company = company
+    if os.environ.get("FS_CORP_ALLOW_CORS") == "1":
+        from fastapi.middleware.cors import CORSMiddleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["http://127.0.0.1:4173", "http://localhost:4173"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
     desk = ConsultantDesk(company)
 
     def principal(authorization: str | None = Header(default=None)):
@@ -687,6 +844,34 @@ def create_app(company: Company) -> FastAPI:
             company.record_slo_observation(
                 ident["principal_id"], slo_id, payload["value"], payload["source"],
                 payload["window_start"], payload["window_end"]), 200))
+
+    @app.get("/api/v1/remote-access")
+    def remote_access(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        public = os.environ.get("FS_CORP_PUBLIC_URL")
+        return company.remote_access_status(public)
+
+    @app.post("/api/v1/remote-access/pairing")
+    def remote_pairing(request: Request, body: Command, authorization: str | None = Header(default=None),
+                       idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        public = (os.environ.get("FS_CORP_PUBLIC_URL") or str(request.base_url)).rstrip("/")
+        access_level = (payload.get("access_level") or "admin").strip()
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_pairing_ticket(ident["principal_id"], public, access_level=access_level), 200))
+
+    @app.post("/api/v1/remote-access/redeem")
+    def remote_redeem(body: Command):
+        ticket = (body.payload or {}).get("ticket")
+        try:
+            return company.redeem_pairing_ticket(ticket)
+        except LookupError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/api/v1/headquarters")
     def hq(authorization: str | None = Header(default=None)):

@@ -1,4 +1,10 @@
-export type Settings = { baseUrl: string; token: string };
+export type Settings = {
+  baseUrl: string;
+  token: string;
+  access_level?: string;
+  label?: string;
+  scopes?: string[];
+};
 
 const SETTINGS_KEY = "fs-corp-companion-settings";
 
@@ -75,6 +81,20 @@ export class ApiClient {
     return this.get<{ items: OwnerRequest[] }>(`/api/v1/owner-inbox${q}`);
   }
 
+  escalateOwner(
+    departmentId: string,
+    kind: string,
+    subject: string,
+    body: string,
+    projectId?: string,
+  ) {
+    return this.post(
+      "/api/v1/owner-inbox",
+      { department_id: departmentId, kind, subject, body, project_id: projectId },
+      `escalate-${Date.now()}`,
+    );
+  }
+
   respondOwner(id: string, response: string) {
     return this.post(`/api/v1/owner-inbox/${id}/respond`, { response }, `respond-${id}`);
   }
@@ -104,6 +124,28 @@ export class ApiClient {
   resume() {
     return this.post("/api/v1/company/resume", {}, "resume");
   }
+}
+
+export type PairingRedeem = {
+  token: string;
+  principal_id: string;
+  base_url: string;
+  access_level: string;
+  label: string;
+  scopes: string[];
+  tailscale_auth_key?: string;
+  vpn: { provider: string; status: string };
+};
+
+export async function redeemPairing(baseUrl: string, ticket: string): Promise<PairingRedeem> {
+  const root = baseUrl.replace(/\/$/, "");
+  const r = await fetch(`${root}/api/v1/remote-access/redeem`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ payload: { ticket } }),
+  });
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
 }
 
 export type DecisionItem = {

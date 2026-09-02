@@ -1,79 +1,132 @@
 :root {
   color-scheme: dark;
+  --midnight: #070b14;
+  --midnight-elev: #0c1220;
+  --glass: rgba(16, 24, 40, 0.62);
+  --glass-border: rgba(120, 170, 255, 0.22);
+  --cosmic: #3b82f6;
+  --aurora: #34d399;
+  --ultraviolet: #8b5cf6;
+  --soft: #e8eef8;
+  --muted: #9aa8c0;
+  --warning: #f5b942;
   font-family: system-ui, -apple-system, sans-serif;
-  background: #111;
-  color: #eee;
+  background: radial-gradient(900px 480px at 20% -20%, #12203a 0%, var(--midnight) 50%);
+  color: var(--soft);
   line-height: 1.4;
 }
 
 * { box-sizing: border-box; }
 
-body { margin: 0; }
+body { margin: 0; min-height: 100dvh; }
 
-.app { max-width: 32rem; margin: 0 auto; padding: 0.75rem 1rem 5rem; }
+.app { max-width: 32rem; margin: 0 auto; padding: 0.85rem 1rem 5.5rem; }
+
+h1 { font-size: 1.35rem; margin: 0.35rem 0 0.25rem; }
+h2 { font-size: 0.95rem; margin: 0 0 0.35rem; }
+
+.lede, .muted { color: var(--muted); font-size: 0.85rem; }
+
+.metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.metric .value { font-size: 1.45rem; font-weight: 700; letter-spacing: 0.04em; }
+
+.card {
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+  padding: 0.85rem;
+  margin: 0.55rem 0;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.error { color: #f8a8a8; }
+.offline {
+  background: rgba(245, 185, 66, 0.12);
+  border: 1px solid rgba(245, 185, 66, 0.35);
+  color: var(--warning);
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  border-radius: 0.75rem;
+}
+
+.actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+
+.actions button, .actions input, textarea,
+input[type="text"], input[type="password"] {
+  font: inherit;
+  border-radius: 0.7rem;
+  border: 1px solid var(--glass-border);
+  background: rgba(8, 12, 22, 0.65);
+  color: var(--soft);
+  padding: 0.5rem 0.7rem;
+}
+
+.actions button.primary {
+  background: var(--cosmic);
+  border-color: var(--cosmic);
+  color: #fff;
+}
+
+.actions button.approve {
+  background: transparent;
+  border-color: rgba(52, 211, 153, 0.55);
+  color: var(--aurora);
+}
+
+.actions button.danger {
+  background: rgba(8, 12, 22, 0.7);
+  border-color: var(--glass-border);
+  color: var(--soft);
+}
+
+.tag {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.tag-success { color: var(--aurora); border: 1px solid rgba(52, 211, 153, 0.4); }
+.tag-proposal { color: #d8c4ff; border: 1px solid rgba(139, 92, 246, 0.45); }
+.tag-warning { color: var(--warning); border: 1px solid rgba(245, 185, 66, 0.4); }
 
 nav.tabs {
   display: flex;
-  gap: 0.25rem;
-  overflow-x: auto;
-  position: sticky;
-  top: 0;
-  background: #111;
-  padding: 0.5rem 0;
-  z-index: 1;
+  gap: 0.3rem;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.45rem 0.6rem calc(0.45rem + env(safe-area-inset-bottom));
+  background: rgba(7, 11, 20, 0.92);
+  border-top: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px);
+  z-index: 2;
 }
 
 nav.tabs button {
   flex: 1;
-  min-width: 4.5rem;
-  border: 1px solid #444;
-  background: #1a1a1a;
-  color: #eee;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  font-size: 0.8rem;
+  min-width: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.45rem 0.2rem;
+  border-radius: 0.7rem;
+  font-size: 0.72rem;
 }
 
-nav.tabs button.active { border-color: #69c; background: #223; }
-
-h1 { font-size: 1.25rem; margin: 0.5rem 0; }
-
-.card {
-  border: 1px solid #444;
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  margin: 0.5rem 0;
+nav.tabs button.active {
+  color: var(--soft);
+  border-color: var(--cosmic);
+  background: rgba(59, 130, 246, 0.16);
 }
-
-.muted { color: #aaa; font-size: 0.85rem; }
-
-.error { color: #f88; }
-
-.actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
-
-.actions button, .actions input, textarea {
-  font: inherit;
-  border-radius: 0.4rem;
-  border: 1px solid #555;
-  background: #222;
-  color: #eee;
-  padding: 0.45rem 0.6rem;
-}
-
-.actions button.primary { background: #264; border-color: #486; }
-.actions button.danger { background: #522; border-color: #844; }
-
-.offline { background: #522; padding: 0.5rem; text-align: center; font-size: 0.85rem; }
 
 label { display: block; margin: 0.5rem 0 0.25rem; font-size: 0.85rem; }
-
-input[type="text"], input[type="password"], textarea {
-  width: 100%;
-  padding: 0.5rem;
-  border-radius: 0.4rem;
-  border: 1px solid #555;
-  background: #1a1a1a;
-  color: #eee;
-}
-
+input[type="text"], input[type="password"], textarea { width: 100%; }
 textarea { min-height: 4rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

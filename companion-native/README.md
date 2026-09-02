@@ -22,3 +22,4 @@ The app loads the built PWA from that URL in a WebView, or open the PWA directly
 
 - Shared TypeScript API client extracted from `companion/src/api/client.ts`
 - Live Web Push (VAPID) when owner keys exist; subscriptions already persist via `POST /api/v1/push/subscriptions`
+- Tailscale mobile SDK: consume `tailscale_auth_key` from `POST /api/v1/remote-access/redeem` after QR pairing (fail-closed until implemented; PWA cannot join kernel VPN)
