@@ -1,25 +1,25 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.20. State: Live integrations on Docker dev; companion PWA registers Web Push when VAPID is configured.
+Date: 2026-09-02. Version: 0.3.21. State: Push delivery verify script, subscription list API, fs-dev secrets export helper.
 
 ## Delivered
 
-- **v0.3.19** (`9472aef`): `run_all_verifications.sh`, clearer model errors, host-side config path resolution.
-- **Companion push (v0.3.20):** `application_server_key` on `GET /api/v1/push/status`, service worker push handler, auto-registration from Settings when owner token is set.
+- **v0.3.20** (`36e9efa`): Companion Web Push auto-registration + `application_server_key`.
+- **v0.3.21:** `GET /api/v1/push/subscriptions`, `scripts/verify_push_delivery.py`, `scripts/export_fs_dev_secrets.sh` for Debian host migration.
 
 ## Verification
 
 ```bash
 ./scripts/run_all_verifications.sh
-cd companion && npm run build
-# Companion dev (API CORS on 5173 when FS_CORP_ALLOW_CORS=1):
-# VITE_API_BASE=http://localhost:8013 npm run dev
+docker compose exec api python scripts/verify_push_delivery.py
+./scripts/export_fs_dev_secrets.sh   # owner: prepare fs-dev secrets.env
+cd companion && VITE_API_BASE=http://localhost:8013 npm run dev
 ```
 
 ## Next task
 
-1. **Owner:** run `install.sh` on Debian fs-dev host (`192.168.4.100`); copy secrets to `/etc/fs-corporation/secrets.env`.
-2. **Engineering:** end-to-end push test in browser with companion on HTTPS (LAN Caddy) or localhost.
+1. **Owner:** Debian fs-dev at `192.168.4.100` — `sudo deploy/fs-dev/install.sh`, copy secrets from `export_fs_dev_secrets.sh`, test companion at `https://192.168.4.100`.
+2. **Engineering:** live browser push on HTTPS (requires Caddy + companion build on host).
 3. Furnished HQ room art remains deferred.
 
-See [../deploy/dev/README.md](../deploy/dev/README.md).
+See [../deploy/fs-dev/README.md](../deploy/fs-dev/README.md).

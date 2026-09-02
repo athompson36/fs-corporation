@@ -117,6 +117,12 @@ export class ApiClient {
     }, `dispatch-${projectId}`);
   }
 
+  pushSubscriptions() {
+    return this.get<{ subscriptions: { id: string; endpoint: string; created_at: string; status: string }[] }>(
+      "/api/v1/push/subscriptions",
+    );
+  }
+
   pause() {
     return this.post("/api/v1/company/pause", {}, "pause");
   }

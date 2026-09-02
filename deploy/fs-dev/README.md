@@ -31,6 +31,12 @@ sudo chown root:fs-corp /etc/fs-corporation/env   # after fs-corp user exists
 
 Edit `/etc/fs-corporation/env` if paths or IPs differ from defaults.
 
+**Migrate secrets from your Mac dev machine:**
+
+```bash
+./scripts/export_fs_dev_secrets.sh   # prints secrets.env lines + scp hints
+```
+
 ## 2. Automated install (recommended)
 
 From the **repository root** on the target host:

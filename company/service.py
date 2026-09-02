@@ -622,6 +622,12 @@ def create_app(company: Company) -> FastAPI:
             ident["principal_id"], payload["department_id"], payload["kind"],
             payload["subject"], payload["body"], payload.get("project_id")), 200))
 
+    @app.get("/api/v1/push/subscriptions")
+    def push_list(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"subscriptions": company.list_push_subscriptions(ident["principal_id"])}
+
     @app.post("/api/v1/push/subscriptions")
     def push_register(body: Command, authorization: str | None = Header(default=None),
                       idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):

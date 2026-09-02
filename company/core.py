@@ -1520,6 +1520,14 @@ class Company:
             self._event("push.subscription_revoked", {"id": subscription_id}, actor_id=actor)
         return dict(self.db.execute("SELECT * FROM push_subscriptions WHERE id=?", (subscription_id,)).fetchone())
 
+    def list_push_subscriptions(self, actor):
+        """CEO-only list of active push subscriptions (no key material)."""
+        self._ceo(actor)
+        rows = self.db.execute(
+            "SELECT id, principal_id, endpoint, created_at, status FROM push_subscriptions "
+            "WHERE status='active' ORDER BY created_at DESC")
+        return [dict(row) for row in rows]
+
     def notify_push(self, kind, subject, payload=None):
         """Record a delivery attempt for each active subscription; live send when VAPID is configured."""
         if not subject or not str(subject).strip():

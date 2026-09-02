@@ -15,6 +15,7 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | POST /push/subscriptions | Register an HTTPS Web Push endpoint | company.pause |
 | POST /push/subscriptions/{id}/revoke | Revoke a push subscription | company.pause |
 | GET /push/status | VAPID configuration summary (public key when set) | company.read |
+| GET /push/subscriptions | List active CEO push subscriptions | company.read |
 | GET /workers/status | Container worker Docker/scratch readiness | company.read |
 | POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
 | GET /events/stream | SSE audit events (cursor query param) | audit.read |

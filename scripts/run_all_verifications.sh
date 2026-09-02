@@ -38,6 +38,7 @@ step "Verify integrations (in container)"
 run docker compose exec -T api python scripts/verify_model_provider.py
 run docker compose exec -T api python scripts/verify_github_app.py
 run docker compose exec -T api python scripts/verify_vapid.py
+run docker compose exec -T api python scripts/verify_push_delivery.py
 run docker compose exec -T api python scripts/verify_fs_dev_workers.py
 
 step "Live model smoke (OpenAI + Anthropic)"

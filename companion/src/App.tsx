@@ -45,6 +45,7 @@ export default function App() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [projectDetail, setProjectDetail] = useState<Record<string, unknown> | null>(null);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
+  const [pushSubscriptions, setPushSubscriptions] = useState<{ id: string; endpoint: string }[]>([]);
 
   const scopes = settings.scopes;
   const api = useMemo(() => new ApiClient(settings), [settings]);
@@ -125,6 +126,9 @@ export default function App() {
     ensureWebPushRegistration(api)
       .then((msg) => setPushStatus(msg))
       .catch((e) => setPushStatus(e instanceof Error ? e.message : String(e)));
+    api.pushSubscriptions()
+      .then((r) => setPushSubscriptions(r.subscriptions.map((s) => ({ id: s.id, endpoint: s.endpoint }))))
+      .catch(() => setPushSubscriptions([]));
   }, [api, settings.token, scopes]);
 
   useEffect(() => {
@@ -349,6 +353,9 @@ export default function App() {
           ) : null}
           <p className="muted">Pair a new device from the CEO desk QR, or clear token below and scan again.</p>
           {pushStatus ? <p className="muted">{pushStatus}</p> : null}
+          {pushSubscriptions.length ? (
+            <p className="muted">{pushSubscriptions.length} active push subscription(s) registered.</p>
+          ) : null}
           <p className="muted">Push uses the owner bearer token (CEO-only on the API). Paired devices without pause scope keep polling.</p>
           <div className="actions">
             <button type="button" onClick={refresh}>Test connection</button>
