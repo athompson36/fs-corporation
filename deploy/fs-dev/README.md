@@ -1,5 +1,7 @@
 # fs-dev production hosting (M9)
 
+**Linux only (Debian 12+).** Do not run `install.sh` on macOS or Windows — use [`deploy/dev/README.md`](../dev/README.md) and `docker compose` for local development on your Mac.
+
 Runbook for a single Debian host that runs the FS-Corporation control API on loopback, serves the mobile companion PWA behind Caddy on HTTPS, and optionally builds the isolated Docker worker image.
 
 ## Topology

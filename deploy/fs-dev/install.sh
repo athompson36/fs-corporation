@@ -20,6 +20,22 @@ require_root() {
   fi
 }
 
+require_linux() {
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    cat >&2 <<'EOF'
+fs-dev install.sh is for Debian/Ubuntu production hosts only.
+
+On macOS or Windows, use Docker dev instead:
+  cd /path/to/fs-corporation
+  docker compose up --build -d
+  docker compose exec api cat /data/owner.token
+
+See deploy/dev/README.md — not deploy/fs-dev/install.sh.
+EOF
+    exit 1
+  fi
+}
+
 ensure_user() {
   if ! id -u "${SERVICE_USER}" &>/dev/null; then
     log "Creating system user ${SERVICE_USER}"
@@ -176,6 +192,7 @@ EOF
 
 main() {
   require_root
+  require_linux
   ensure_user
   ensure_packages
   sync_install_tree
