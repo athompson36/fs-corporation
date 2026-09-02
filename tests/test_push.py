@@ -66,7 +66,25 @@ class PushNotificationTests(unittest.TestCase):
     def test_adapter_still_disabled(self):
         with self.assertRaises(NotImplementedError):
             PushNotificationAdapter().send(
-                {"endpoint": "https://push.example/sub/1"}, {"title": "x"})
+                {"endpoint": "https://push.example/sub/1", "keys": {}}, {"title": "x"})
+
+    def test_notify_applied_when_send_succeeds(self):
+        from unittest.mock import patch
+        self.c.register_push_subscription(
+            "human-ceo", "https://push.example/sub/1", {"p256dh": "k", "auth": "a"})
+        with patch("company.push_vapid.send_push", return_value={"status": "applied", "http_status": 201}):
+            result = self.c.notify_push("owner_inbox", "Approved", {"request_id": "r2"})
+        self.assertEqual(result["deliveries"][0]["status"], "applied")
+        kinds = [r[0] for r in self.c.db.execute("SELECT kind FROM events WHERE kind LIKE 'push.%'")]
+        self.assertIn("push.delivery_applied", kinds)
+
+    def test_push_status_endpoint(self):
+        from company.service import create_app
+        self.c.register_identity("human-ceo", "owner", "owner-token")
+        client = __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(create_app(self.c))
+        resp = client.get("/api/v1/push/status", headers={"Authorization": "Bearer owner-token"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("configured", resp.json())
 
 
 if __name__ == "__main__":

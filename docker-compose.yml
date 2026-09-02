@@ -29,6 +29,8 @@ services:
     volumes:
       - fs-corp-data:/data
       - ./secrets/github-app.pem:/run/secrets/github-app.pem:ro
+      - ./secrets/vapid-public.pem:/run/secrets/vapid-public.pem:ro
+      - ./secrets/vapid-private.pem:/run/secrets/vapid-private.pem:ro
       - ./scripts:/src/scripts:ro
       - ./company:/src/company:ro
       - ./.local/worker-scratch:/worker-scratch

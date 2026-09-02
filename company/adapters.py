@@ -138,7 +138,8 @@ class LearningAdapter:
 
 class PushNotificationAdapter:
     def send(self, subscription: dict, payload: dict) -> dict:
-        raise NotImplementedError("Live web push requires VAPID keys; see docs/24-mobile-companion.md")
+        from .push_vapid import send_push
+        return send_push(subscription, payload)
 
 class TailscaleAdapter:
     def join(self, payload: dict) -> dict:

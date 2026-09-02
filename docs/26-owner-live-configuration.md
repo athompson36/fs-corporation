@@ -95,7 +95,7 @@ Today `invoke_model` uses `mock` offline, OpenAI-compatible `/chat/completions` 
 
 | Integration | Credentials | Code status |
 |---|---|---|
-| Web Push | VAPID public/private + contact email | `PushNotificationAdapter` fail-closed |
+| Web Push | VAPID public/private + contact email | Live when keys set; `scripts/verify_vapid.py` |
 | Image model | `IMAGE_PROVIDER_API_KEY` | Profile placeholder only |
 | Learning fetch | Approved HTTPS URLs + egress allowlist | `LearningAdapter` fail-closed |
 | ChatDev live | Pinned checkout + workflow YAML + model in worker | `ChatDevAdapter` fail-closed |

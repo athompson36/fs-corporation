@@ -935,6 +935,13 @@ def create_app(company: Company) -> FastAPI:
         return run(ident, idempotency_key, payload | {"source_id": source_id}, lambda: (
             company.poll_market_feed(source_id, actor=ident["principal_id"]), 200))
 
+    @app.get("/api/v1/push/status")
+    def push_status(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        from company.push_vapid import status_summary
+        return status_summary()
+
     @app.get("/api/v1/remote-access")
     def remote_access(authorization: str | None = Header(default=None)):
         ident = principal(authorization)

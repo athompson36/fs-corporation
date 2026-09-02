@@ -87,7 +87,7 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 - `POST /api/v1/remote-access/pairing` — owner issues QR (`payload.access_level`)
 - `POST /api/v1/remote-access/redeem` — companion redeems ticket (no auth)
 - `GET /api/v1/events/stream` (SSE; PWA polls every 15s as fallback)
-- `POST /api/v1/push/subscriptions`, `POST /api/v1/push/subscriptions/{id}/revoke` (HTTPS endpoint recorded; live send fail-closed until VAPID keys exist)
+- `POST /api/v1/push/subscriptions`, `POST /api/v1/push/subscriptions/{id}/revoke`, `GET /api/v1/push/status`
 
 ## Security
 
@@ -97,7 +97,7 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 - **fs-dev:** use HTTPS via Caddy on LAN or Tailscale; do not expose port 8000 on the LAN.
 - **Dev:** Tailscale with `--allow-remote` is acceptable; do not use that bind on the public internet.
 - Rotate or revoke compromised device tokens from the CEO desk **Paired devices** list or `POST /api/v1/remote-access/revoke/{principal_id}`.
-- Web Push: CEO registers an HTTPS subscription; `notify_push` / new owner-inbox items record `live_unavailable` until VAPID keys are configured. No invented delivery. PWA polling remains the fallback.
+- Web Push: CEO registers an HTTPS subscription; with VAPID keys configured, `notify_push` delivers live via `pywebpush` and records `applied` or `failed`. Without keys, deliveries stay `live_unavailable`. PWA polling remains the fallback.
 
 ## Native shell (optional)
 

@@ -226,7 +226,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] SSE event stream; PWA polls as fallback
 - [x] Tailscale bind via `--allow-remote` (documented; not public internet)
 - [x] Mobile PWA in `companion/`; thin Expo shell in `companion-native/`
-- [x] Push notifications — `register_push_subscription` / `notify_push` (HTTPS only; live send `live_unavailable` until VAPID keys exist); owner-inbox create attempts delivery
+- [x] Push notifications — `register_push_subscription` / `notify_push` (HTTPS only; live VAPID send when keys configured); owner-inbox create attempts delivery
 - [x] QR pairing with access levels (`read_only`, `user`, `admin`); desk issues QR; companion auto-redeems `#fs-pair`; optional Tailscale auth key on redeem
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
@@ -276,4 +276,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-GitHub pilot is live. **Feed HTTP API** and **model verification** are wired. Next: **container dispatch** with `docker compose --profile workers build` on worker NIC `192.168.4.101`, then Web Push when VAPID keys exist. Commit/push v0.3.15 when ready.
+GitHub pilot is live. **Feed HTTP API**, **model verification**, **container dispatch**, and **Web Push (VAPID)** adapters are wired. Next: **fs-dev** worker NIC `192.168.4.101` production path.

@@ -87,6 +87,16 @@ curl -H "Authorization: Bearer $(docker compose exec -T api cat /data/owner.toke
 
 Set `MODEL_PROVIDER_API_KEY` and/or `ANTHROPIC_API_KEY` in `.env`. Optional: `MODEL_PROVIDER_BASE_URL` for OpenAI-compatible endpoints (Ollama, etc.).
 
+### Verify Web Push (VAPID)
+
+```bash
+python3 scripts/generate_vapid_keys.py   # paste output into .env (gitignored)
+docker compose up -d --force-recreate
+docker compose exec api python scripts/verify_vapid.py
+curl -H "Authorization: Bearer $(docker compose exec -T api cat /data/owner.token)" \
+  http://localhost:8013/api/v1/push/status
+```
+
 ### Market feed pilot
 
 CEO-approve a feed, then poll (ingests RSS/Atom items as signals):

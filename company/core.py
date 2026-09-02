@@ -1518,7 +1518,7 @@ class Company:
         return dict(self.db.execute("SELECT * FROM push_subscriptions WHERE id=?", (subscription_id,)).fetchone())
 
     def notify_push(self, kind, subject, payload=None):
-        """Record a delivery attempt for each active subscription. Live send stays fail-closed."""
+        """Record a delivery attempt for each active subscription; live send when VAPID is configured."""
         if not subject or not str(subject).strip():
             raise ValueError("Subject required")
         payload = payload or {}
@@ -1541,7 +1541,18 @@ class Company:
                     self._event("push.delivery_live_unavailable", {"id": did, "kind": kind})
                 deliveries.append(dict(self.db.execute("SELECT * FROM push_deliveries WHERE id=?", (did,)).fetchone()))
                 continue
-            raise RuntimeError("Live push adapter returned without sending")
+            except Exception as exc:
+                with self.tx():
+                    self.db.execute("INSERT INTO push_deliveries VALUES(?,?,?,?,?,?)",
+                                    (did, sub["id"], kind, subject, "failed", now().isoformat()))
+                    self._event("push.delivery_failed", {"id": did, "kind": kind, "error": str(exc)})
+                deliveries.append(dict(self.db.execute("SELECT * FROM push_deliveries WHERE id=?", (did,)).fetchone()))
+                continue
+            with self.tx():
+                self.db.execute("INSERT INTO push_deliveries VALUES(?,?,?,?,?,?)",
+                                (did, sub["id"], kind, subject, "applied", now().isoformat()))
+                self._event("push.delivery_applied", {"id": did, "kind": kind})
+            deliveries.append(dict(self.db.execute("SELECT * FROM push_deliveries WHERE id=?", (did,)).fetchone()))
         return {"deliveries": deliveries}
 
     def owner_inbox(self, status=None):
