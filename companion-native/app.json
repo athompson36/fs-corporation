@@ -2,11 +2,17 @@
   "expo": {
     "name": "FS-Corporation",
     "slug": "fs-corporation-companion",
-    "version": "0.3.5",
+    "version": "0.3.7",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "splash": { "backgroundColor": "#111111" },
-    "ios": { "supportsTablet": true, "bundleIdentifier": "com.fscorporation.companion" },
+    "splash": { "backgroundColor": "#0b1020" },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fscorporation.companion",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["tailscale"]
+      }
+    },
     "android": { "package": "com.fscorporation.companion" }
   }
 }

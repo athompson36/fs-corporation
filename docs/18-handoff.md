@@ -1,26 +1,31 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.26. State: **fs-dev live; gateway egress via `.101` for `fs-corp`.**
+Date: 2026-09-02. Version: 0.3.27. State: **Tailscale join + iOS native VPN handoff.**
 
 ## Delivered
 
-- M9 phase 1 + container default + VAPID contact.
-- `FS_CORP_GATEWAY_EGRESS=worker_nic`: policy routing table 101 for UID `fs-corp`
-  (source `192.168.4.101` / `eno2`). Workers remain `--network none`.
-- `/api/v1/workers/status` → `gateway_egress.{mode,egress_active,egress_source_ip}`.
+- `deploy/fs-dev/tailscale-join.sh` installs/joins Tailscale; Caddy serves tailnet IP.
+- Auth key staged via `secrets.env` (never in QR). Redeem returns `companion_url` + `ios_handoff`.
+- `companion-native`: paste pair URL → redeem → clipboard auth key → open Tailscale → poll → WebView.
 
-## Next task
+## Owner steps (iOS)
 
-1. Optional: dedicated worker host (separate machine) if same-host egress is not enough.
-2. Owner live credential hardening / pilot exercise beyond current secrets path.
-3. Furnished HQ room art remains deferred.
+1. Deploy/install (auth key already in local `.env`).
+2. On home Wi‑Fi: desk QR → paste URL into native app → **Pair & join VPN**.
+3. In Tailscale: **Use an auth key** → Paste (key already copied).
+4. Return to app; companion loads on Tailscale HTTPS.
+
+## Next
+
+- Android handoff, or TailscaleKit userspace (true in-app VPN) if one-paste is not enough.
+- Dedicated worker host (deferred).
+- Furnished HQ room art remains deferred.
 
 ```bash
 ./scripts/deploy_to_fs_dev.sh
 ssh andrew@192.168.4.100 'sudo bash ~/fs-corporation-deploy/run-install.sh'
-# expect gateway_egress.egress_active=true
-curl -sS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/api/v1/workers/status
-sudo -u fs-corp ip -4 route get 1.1.1.1   # should show dev eno2 src 192.168.4.101
+# expect: tailscale ip -4 prints 100.x; remote-access shows auth_key_configured
+cd companion-native && npm install && npx expo start --ios
 ```
 
-See [../deploy/fs-dev/README.md](../deploy/fs-dev/README.md) and [superpowers/specs/2026-09-02-gateway-egress-design.md](superpowers/specs/2026-09-02-gateway-egress-design.md).
+See [superpowers/specs/2026-09-02-tailscale-ios-pairing-design.md](superpowers/specs/2026-09-02-tailscale-ios-pairing-design.md).

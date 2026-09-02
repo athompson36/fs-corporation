@@ -231,6 +231,18 @@ configure_gateway_egress() {
   bash "${script}" status || true
 }
 
+configure_tailscale() {
+  local script="${INSTALL_DIR}/deploy/fs-dev/tailscale-join.sh"
+  local secrets="${CONFIG_DIR}/secrets.env"
+  chmod +x "${script}"
+  if [[ -n "${FS_CORP_TAILSCALE_AUTHKEY:-}" ]] || grep -q '^FS_CORP_TAILSCALE_AUTHKEY=.' "${secrets}" 2>/dev/null; then
+    log "Joining Tailscale (auth key present; value not logged)"
+    bash "${script}" || log "WARNING: tailscale-join failed — continue; fix and re-run script"
+  else
+    log "No FS_CORP_TAILSCALE_AUTHKEY; skipping Tailscale join"
+  fi
+}
+
 ensure_docker_access() {
   log "Docker group access for ${SERVICE_USER}"
   groupadd -f docker
@@ -338,6 +350,9 @@ main() {
   bootstrap_company
   install_systemd
   install_caddy_site
+  # Tailscale after Caddy so patch_caddy can restart a valid unit; secrets may
+  # land after install.sh in run-install — that path re-invokes the join script.
+  configure_tailscale
   print_caddy_instructions
   log "fs-dev install complete"
 }

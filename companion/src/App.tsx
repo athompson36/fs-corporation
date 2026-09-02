@@ -68,8 +68,8 @@ export default function App() {
       clearPairingHash();
       if (data.tailscale_auth_key) {
         setError(
-          "Paired. Install the Tailscale app and sign in, then open this page again on the tailnet. "
-          + "Native shell may consume the auth key automatically in a future release.",
+          "Paired. Auth key received — use the iOS native companion to copy it into Tailscale "
+          + "(Use an auth key), or paste it manually in the Tailscale app, then open the companion on the tailnet.",
         );
       }
     } catch (e) {

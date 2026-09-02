@@ -103,7 +103,10 @@ class PairingTests(unittest.TestCase):
         redeemed = self.c.redeem_pairing_ticket(issued["ticket"])
         self.assertEqual(redeemed["tailscale_auth_key"], "tskey-auth-test-only")
         self.assertEqual(redeemed["vpn"]["status"], "configured")
+        self.assertEqual(redeemed["vpn"]["ios_handoff"], "clipboard_open_app")
         self.assertEqual(redeemed["access_level"], "read_only")
+        self.assertIn("companion_url", redeemed)
+        self.assertNotIn("tskey-auth-test-only", issued["pair_url"])
 
     def test_unknown_access_level_rejected(self):
         r = self.client.post(

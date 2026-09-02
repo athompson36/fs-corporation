@@ -1,25 +1,26 @@
-# FS-Corporation native shell (optional)
+# FS-Corporation native shell (iOS)
 
-Thin Expo wrapper for installing the CEO companion PWA on iOS/Android home screens.
+Expo app that pairs via CEO desk QR URL, hands off Tailscale auth (clipboard + open Tailscale app), then loads the companion PWA in a WebView.
 
-## Status
+## Platform limit
 
-Scaffold only. The PWA in [`companion/`](../companion/) is the primary mobile client for v0.3.5.
+iOS does not allow third-party apps to silently inject a Tailscale auth key. After redeem we **copy the key** and open Tailscale; you paste once via **Use an auth key**.
 
-## Quick start
+## Setup
 
 ```bash
 cd companion-native
 npm install
-npx expo start
+npx expo start --ios
 ```
 
-Set `EXPO_PUBLIC_API_URL` in `.env` to your Tailscale control host (e.g. `http://100.x.x.x:8000`).
+On a physical iPhone (same LAN as fs-dev for first pair):
 
-The app loads the built PWA from that URL in a WebView, or open the PWA directly in Safari/Chrome and use **Add to Home Screen**.
+1. CEO desk → Create pairing QR.
+2. Paste the pair URL into the native app → **Pair & join VPN**.
+3. Tailscale opens → profile → (…) → **Use an auth key** → Paste.
+4. Return to the app; it polls the Tailscale companion URL, then opens the WebView.
 
-## Future
+## Server
 
-- Shared TypeScript API client extracted from `companion/src/api/client.ts`
-- Live Web Push (VAPID) when owner keys exist; subscriptions already persist via `POST /api/v1/push/subscriptions`
-- Tailscale mobile SDK: consume `tailscale_auth_key` from `POST /api/v1/remote-access/redeem` after QR pairing (fail-closed until implemented; PWA cannot join kernel VPN)
+`deploy/fs-dev/tailscale-join.sh` joins fs-dev and enables Caddy on the tailnet IP. Auth key lives in `/etc/fs-corporation/secrets.env` only (never in the QR).

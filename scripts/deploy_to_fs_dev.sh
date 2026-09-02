@@ -76,7 +76,7 @@ for line in (root / ".env").read_text().splitlines():
     k, _, v = line.partition("=")
     env[k.strip()] = v.strip().strip("'\"")
 lines = []
-for k in ("GITHUB_APP_ID", "GITHUB_INSTALLATION_ID", "MODEL_PROVIDER_API_KEY", "ANTHROPIC_API_KEY"):
+for k in ("GITHUB_APP_ID", "GITHUB_INSTALLATION_ID", "MODEL_PROVIDER_API_KEY", "ANTHROPIC_API_KEY", "FS_CORP_TAILSCALE_AUTHKEY"):
     if env.get(k):
         lines.append(f"{k}={env[k]}")
 if (root / "secrets/github-app.pem").is_file():
@@ -124,6 +124,8 @@ fi
 export FS_CORP_WORKER_NIC_IP=192.168.4.101
 export FS_CORP_GATEWAY_EGRESS=worker_nic
 bash /opt/fs-corporation/deploy/fs-dev/gateway-egress.sh apply
+# Join Tailscale after secrets.env is in place (auth key never logged).
+bash /opt/fs-corporation/deploy/fs-dev/tailscale-join.sh || echo 'WARNING: tailscale-join failed'
 # 640 root:fs-corp, not 600: the API runs as fs-corp and reads these key files.
 for f in github-app.pem vapid-public.pem vapid-private.pem; do
   if [[ -f $STAGE/\$f ]]; then

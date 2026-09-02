@@ -278,4 +278,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M9 phase 1 + same-host phase 2 (container default + `.101` gateway egress) are live on fs-dev.** Container is the default worker runtime when Docker/image/scratch are ready; API outbound can use policy routing via `192.168.4.101` when `FS_CORP_GATEWAY_EGRESS=worker_nic`. Workers stay `network_mode=none`. Next: optional dedicated worker host, or owner live credential hardening. Furnished HQ room art remains deferred.
+**M9 + Tailscale iOS handoff:** fs-dev can join Tailscale from `FS_CORP_TAILSCALE_AUTHKEY`; native iOS companion copies the redeem auth key and opens Tailscale for one-paste join. Workers stay `network_mode=none` with optional `.101` API egress. Next: Android handoff or TailscaleKit; dedicated worker host optional. Furnished HQ room art remains deferred.

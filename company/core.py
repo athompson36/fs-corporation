@@ -1813,6 +1813,15 @@ class Company:
             return {"cli": "advertised", "ipv4": ip[0]}
         return {"cli": "live_unavailable", "ipv4": None}
 
+    def companion_https_url(self):
+        """Prefer Tailscale HTTPS when the node has a tailnet IPv4."""
+        env_ip = (os.environ.get("FS_CORP_TAILSCALE_IP") or "").strip()
+        probe = self.probe_tailscale()
+        ip = env_ip or probe.get("ipv4")
+        if ip:
+            return f"https://{ip}"
+        return None
+
     def remote_access_status(self, public_url=None):
         env_url = (os.environ.get("FS_CORP_PUBLIC_URL") or "").strip().rstrip("/")
         public = (public_url or env_url or "").strip().rstrip("/")
@@ -1820,12 +1829,14 @@ class Company:
         key = os.environ.get("FS_CORP_TAILSCALE_AUTHKEY") or ""
         recommended = env_url or public
         if not recommended and probe["ipv4"]:
-            recommended = f"http://{probe['ipv4']}:8000"
+            recommended = f"https://{probe['ipv4']}"
+        companion = self.companion_https_url()
         return {
             "vpn": "tailscale",
             "public_url": public or None,
             "recommended_url": recommended,
-            "tailnet_ipv4": probe["ipv4"],
+            "companion_url": companion or recommended,
+            "tailnet_ipv4": probe["ipv4"] or (os.environ.get("FS_CORP_TAILSCALE_IP") or "").strip() or None,
             "tailscale_cli": probe["cli"],
             "auth_key_configured": bool(key.strip()),
             "pairing_levels": pairing_levels_catalog(),
@@ -1840,6 +1851,7 @@ class Company:
         tid = digest({"pair": ticket})[:24]
         exp = (now() + timedelta(minutes=minutes)).isoformat()
         remote = self.remote_access_status(public_url)
+        # QR must be redeemable on LAN Wi‑Fi before the phone has joined Tailscale.
         base = remote["recommended_url"] or public_url or ""
         pair_url = f"{base.rstrip('/')}/#fs-pair={ticket}"
         import segno
@@ -1889,16 +1901,20 @@ class Company:
                           actor_id=principal)
         remote = self.remote_access_status()
         key = (os.environ.get("FS_CORP_TAILSCALE_AUTHKEY") or "").strip()
+        lan_base = remote["recommended_url"]
+        companion = remote.get("companion_url") or lan_base
         result = {
             "token": token,
             "principal_id": principal,
-            "base_url": remote["recommended_url"],
+            "base_url": lan_base,
+            "companion_url": companion,
             "access_level": access_level,
             "label": level["label"],
             "scopes": scopes,
             "vpn": {
                 "provider": "tailscale",
                 "status": "configured" if key else "live_unavailable",
+                "ios_handoff": "clipboard_open_app" if key else None,
             },
         }
         if key:
