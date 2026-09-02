@@ -128,7 +128,11 @@ run_migrations() {
   chown "${SERVICE_USER}:${SERVICE_USER}" "$(dirname "${DB_PATH}")"
   local ini_override
   ini_override="$(mktemp)"
-  sed "s|^sqlalchemy.url = .*|sqlalchemy.url = sqlite:///${DB_PATH}|" \
+  # Absolute script_location: alembic resolves a relative path from CWD, and
+  # run-install.sh may cd into a mode-700 home deploy tree that fs-corp cannot read.
+  sed \
+    -e "s|^sqlalchemy.url = .*|sqlalchemy.url = sqlite:///${DB_PATH}|" \
+    -e "s|^script_location = .*|script_location = ${INSTALL_DIR}/alembic|" \
     "${INSTALL_DIR}/alembic.ini" > "${ini_override}"
   chown "${SERVICE_USER}:${SERVICE_USER}" "${ini_override}"
   sudo -u "${SERVICE_USER}" "${INSTALL_DIR}/.venv/bin/alembic" -c "${ini_override}" upgrade head
