@@ -162,13 +162,24 @@ build_companion() {
   mkdir -p "${npm_cache}"
   chown -R "${SERVICE_USER}:${SERVICE_USER}" "${INSTALL_DIR}/companion" "${npm_cache}"
   pushd "${INSTALL_DIR}/companion" >/dev/null
+  # An interrupted earlier install can leave packages half-extracted (missing .mjs/.d.ts).
+  # npm install will not repair those, so always start from a clean tree.
+  rm -rf node_modules
   # Force npm cache onto the install filesystem (ext4). A home on NTFS/fuse breaks cacache rename.
-  if [[ ! -d node_modules ]]; then
-    sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm_config_cache="${npm_cache}" npm ci
+  local npm_env=(env HOME="${INSTALL_DIR}" npm_config_cache="${npm_cache}" npm_config_audit=false npm_config_fund=false)
+  if [[ -f package-lock.json ]]; then
+    sudo -u "${SERVICE_USER}" "${npm_env[@]}" npm ci
   else
-    sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm_config_cache="${npm_cache}" npm install
+    sudo -u "${SERVICE_USER}" "${npm_env[@]}" npm install
   fi
-  sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm_config_cache="${npm_cache}" npm run build
+  if [[ ! -f node_modules/workbox-precaching/index.mjs ]]; then
+    log "npm tree still incomplete; clearing cache ${npm_cache} and retrying"
+    rm -rf node_modules "${npm_cache}"
+    mkdir -p "${npm_cache}"
+    chown "${SERVICE_USER}:${SERVICE_USER}" "${npm_cache}"
+    sudo -u "${SERVICE_USER}" "${npm_env[@]}" npm install
+  fi
+  sudo -u "${SERVICE_USER}" "${npm_env[@]}" npm run build
   popd >/dev/null
   mkdir -p "${COMPANION_DIST}"
   rsync -a --delete "${INSTALL_DIR}/companion/dist/" "${COMPANION_DIST}/"
