@@ -57,6 +57,28 @@ def status_summary() -> dict:
     return out
 
 
+def _vapid_private_for_webpush():
+    """Return a pywebpush-compatible private key (path or Vapid instance).
+
+    Passing PEM *contents* as a string makes pywebpush try to parse them as a
+    raw key and fail with an ASN.1 error. Prefer a filesystem path, otherwise
+    load PEM via py_vapid.
+    """
+    path = (os.environ.get("VAPID_PRIVATE_KEY_FILE") or "").strip()
+    if path:
+        expanded = Path(path).expanduser()
+        if expanded.is_file():
+            from py_vapid import Vapid01
+            return Vapid01.from_file(str(expanded))
+    raw = (os.environ.get("VAPID_PRIVATE_KEY") or "").strip()
+    if not raw:
+        return None
+    if "-----BEGIN" in raw:
+        from py_vapid import Vapid01
+        return Vapid01.from_pem(raw.encode())
+    return raw
+
+
 def send_push(subscription: dict, payload: dict) -> dict:
     if not vapid_configured():
         raise NotImplementedError("Live web push requires VAPID keys; see docs/24-mobile-companion.md")
@@ -64,9 +86,11 @@ def send_push(subscription: dict, payload: dict) -> dict:
     keys = subscription.get("keys") or {}
     if not endpoint or not str(endpoint).startswith("https://"):
         raise ValueError("Push subscription needs an HTTPS endpoint")
+    private_key = _vapid_private_for_webpush()
+    if private_key is None:
+        raise NotImplementedError("Live web push requires VAPID keys; see docs/24-mobile-companion.md")
     from pywebpush import WebPushException, webpush
 
-    private_key = _read_key("VAPID_PRIVATE_KEY", "VAPID_PRIVATE_KEY_FILE")
     body = json.dumps({"subject": payload.get("subject") or payload.get("title"), **payload})
     try:
         response = webpush(

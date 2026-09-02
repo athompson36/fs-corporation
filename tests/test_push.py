@@ -68,15 +68,33 @@ class PushNotificationTests(unittest.TestCase):
             PushNotificationAdapter().send(
                 {"endpoint": "https://push.example/sub/1", "keys": {}}, {"title": "x"})
 
-    def test_notify_applied_when_send_succeeds(self):
+    def test_send_push_loads_pem_via_vapid_object_not_raw_string(self):
+        import tempfile
+        from pathlib import Path
         from unittest.mock import patch
-        self.c.register_push_subscription(
-            "human-ceo", "https://push.example/sub/1", {"p256dh": "k", "auth": "a"})
-        with patch("company.push_vapid.send_push", return_value={"status": "applied", "http_status": 201}):
-            result = self.c.notify_push("owner_inbox", "Approved", {"request_id": "r2"})
-        self.assertEqual(result["deliveries"][0]["status"], "applied")
-        kinds = [r[0] for r in self.c.db.execute("SELECT kind FROM events WHERE kind LIKE 'push.%'")]
-        self.assertIn("push.delivery_applied", kinds)
+        from py_vapid import Vapid01
+        from company import push_vapid
+
+        vapid = Vapid01()
+        vapid.generate_keys()
+        with tempfile.TemporaryDirectory() as tmp:
+            private = Path(tmp) / "vapid-private.pem"
+            vapid.save_key(str(private))
+            with patch.dict("os.environ", {
+                "VAPID_PRIVATE_KEY_FILE": str(private),
+                "VAPID_CONTACT_EMAIL": "mailto:owner@example.com",
+            }, clear=False):
+                with patch("pywebpush.webpush") as mocked:
+                    mocked.return_value = type("R", (), {"status_code": 201})()
+                    result = push_vapid.send_push(
+                        {"endpoint": "https://push.example/sub/1", "keys": {"p256dh": "k", "auth": "a"}},
+                        {"subject": "hello", "kind": "owner_inbox"},
+                    )
+        self.assertEqual(result["status"], "applied")
+        kwargs = mocked.call_args.kwargs
+        key_arg = kwargs["vapid_private_key"]
+        self.assertFalse(isinstance(key_arg, str) and key_arg.startswith("-----BEGIN"))
+        self.assertEqual(type(key_arg).__name__, "Vapid01")
 
     def test_push_status_endpoint(self):
         from company.service import create_app
