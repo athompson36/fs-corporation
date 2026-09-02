@@ -136,14 +136,18 @@ run_migrations() {
 ensure_dirs() {
   log "Data and config directories"
   mkdir -p "${DATA_DIR}" "${CONFIG_DIR}" "$(dirname "${COMPANION_DIST}")" "${DATA_DIR}/worker-scratch"
-  chown "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}"
-  chmod 750 "${DATA_DIR}"
-  chmod 750 "${DATA_DIR}/worker-scratch"
+  chown "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}" 2>/dev/null || true
+  chmod 750 "${DATA_DIR}" 2>/dev/null || true
+  chmod 750 "${DATA_DIR}/worker-scratch" 2>/dev/null || true
+  # Config stays root:fs-corp so the service can read; token is written as root.
+  chown root:"${SERVICE_USER}" "${CONFIG_DIR}"
   chmod 750 "${CONFIG_DIR}"
-  if [[ ! -f "${TOKEN_FILE}" ]]; then
+  if [[ ! -s "${TOKEN_FILE}" ]]; then
     log "Creating owner token file ${TOKEN_FILE} (store securely; rotate if leaked)"
-    install -o "${SERVICE_USER}" -g "${SERVICE_USER}" -m 600 /dev/null "${TOKEN_FILE}"
-    openssl rand -hex 32 | sudo -u "${SERVICE_USER}" tee "${TOKEN_FILE}" >/dev/null
+    umask 077
+    openssl rand -hex 32 > "${TOKEN_FILE}"
+    chown "${SERVICE_USER}:${SERVICE_USER}" "${TOKEN_FILE}"
+    chmod 600 "${TOKEN_FILE}"
   else
     chown "${SERVICE_USER}:${SERVICE_USER}" "${TOKEN_FILE}"
     chmod 600 "${TOKEN_FILE}"
