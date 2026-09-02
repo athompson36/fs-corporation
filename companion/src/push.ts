@@ -17,21 +17,45 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return out;
 }
 
+function isIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function isStandaloneDisplay(): boolean {
+  if (typeof window === "undefined") return false;
+  const media = window.matchMedia("(display-mode: standalone)").matches;
+  const legacy = Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+  return media || legacy;
+}
+
 /** Register Web Push when VAPID is live and this browser supports it. Returns a user-facing status line. */
-export async function ensureWebPushRegistration(api: ApiClient): Promise<string | null> {
+export async function ensureWebPushRegistration(api: ApiClient): Promise<string> {
+  if (isIos() && !isStandaloneDisplay()) {
+    return "On iPhone/iPad: Safari Share → Add to Home Screen, then open the home-screen icon (Safari tabs cannot receive Web Push).";
+  }
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    return "Push not supported in this browser; polling every 15s.";
+    return "Push not supported in this browser; companion will keep polling every 15s.";
   }
   let status: PushStatus;
   try {
     status = await api.get<PushStatus>("/api/v1/push/status");
-  } catch {
-    return null;
+  } catch (e) {
+    return `Could not read push status: ${e instanceof Error ? e.message : String(e)}`;
   }
   if (!status.configured || !status.application_server_key) {
     return "VAPID not configured on server; polling every 15s.";
   }
-  const reg = await navigator.serviceWorker.ready;
+  if (!status.live) {
+    return "VAPID keys present but not live; check contact email / private key on the host.";
+  }
+  let reg: ServiceWorkerRegistration;
+  try {
+    reg = await navigator.serviceWorker.ready;
+  } catch (e) {
+    return `Service worker not ready: ${e instanceof Error ? e.message : String(e)}`;
+  }
   const existing = await reg.pushManager.getSubscription();
   const endpoint = existing?.endpoint;
   if (endpoint && localStorage.getItem(PUSH_REGISTERED_KEY) === endpoint) {
@@ -39,21 +63,32 @@ export async function ensureWebPushRegistration(api: ApiClient): Promise<string 
   }
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
-    return "Notification permission denied; polling every 15s.";
+    return "Notification permission denied or dismissed; polling every 15s. Re-enable in system Settings if needed.";
   }
-  const subscription = existing ?? (await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(status.application_server_key) as BufferSource,
-  }));
+  let subscription = existing;
+  if (!subscription) {
+    try {
+      subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(status.application_server_key) as BufferSource,
+      });
+    } catch (e) {
+      return `Push subscribe failed: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
   const json = subscription.toJSON();
   if (!json.endpoint || !json.keys) {
     return "Could not read push subscription; polling every 15s.";
   }
-  await api.post(
-    "/api/v1/push/subscriptions",
-    { endpoint: json.endpoint, keys: json.keys },
-    `push-${json.endpoint}`,
-  );
+  try {
+    await api.post(
+      "/api/v1/push/subscriptions",
+      { endpoint: json.endpoint, keys: json.keys },
+      `push-${json.endpoint}`,
+    );
+  } catch (e) {
+    return `Server rejected push registration: ${e instanceof Error ? e.message : String(e)}`;
+  }
   localStorage.setItem(PUSH_REGISTERED_KEY, json.endpoint);
   return "Push notifications enabled.";
 }

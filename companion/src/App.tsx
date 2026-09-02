@@ -120,7 +120,11 @@ export default function App() {
   useEffect(() => {
     const manualOwnerToken = Boolean(settings.token) && !scopes?.length;
     if (!settings.token || (!canPause(scopes) && !manualOwnerToken)) {
-      setPushStatus(null);
+      setPushStatus(
+        settings.token
+          ? "This pairing level cannot register push (needs company.pause). Re-pair as Admin / CEO mobile."
+          : null,
+      );
       return;
     }
     ensureWebPushRegistration(api)
@@ -351,14 +355,32 @@ export default function App() {
           {settings.scopes?.length ? (
             <p className="muted">Scopes: {settings.scopes.join(", ")}</p>
           ) : null}
-          <p className="muted">Pair a new device from the CEO desk QR, or clear token below and scan again.</p>
-          {pushStatus ? <p className="muted">{pushStatus}</p> : null}
+          <p className="muted">Pair a new device from the CEO desk QR at /desk, or clear token below and scan again.</p>
+          {pushStatus ? <p className="muted">{pushStatus}</p> : (
+            <p className="muted">Push status unknown — tap Enable push.</p>
+          )}
           {pushSubscriptions.length ? (
             <p className="muted">{pushSubscriptions.length} active push subscription(s) registered.</p>
-          ) : null}
-          <p className="muted">Push uses the owner bearer token (CEO-only on the API). Paired devices without pause scope keep polling.</p>
+          ) : (
+            <p className="muted">No push subscription yet. On iPhone you must open the home-screen app icon, not a Safari tab.</p>
+          )}
           <div className="actions">
             <button type="button" onClick={refresh}>Test connection</button>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const msg = await ensureWebPushRegistration(api);
+                  setPushStatus(msg);
+                  const r = await api.pushSubscriptions();
+                  setPushSubscriptions(r.subscriptions.map((s) => ({ id: s.id, endpoint: s.endpoint })));
+                } catch (e) {
+                  setPushStatus(e instanceof Error ? e.message : String(e));
+                }
+              }}
+            >
+              Enable push
+            </button>
             {pushSubscriptions.length ? (
               <button
                 type="button"

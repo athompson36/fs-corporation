@@ -97,7 +97,13 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 - **fs-dev:** use HTTPS via Caddy on LAN or Tailscale; do not expose port 8000 on the LAN.
 - **Dev:** Tailscale with `--allow-remote` is acceptable; do not use that bind on the public internet.
 - Rotate or revoke compromised device tokens from the CEO desk **Paired devices** list or `POST /api/v1/remote-access/revoke/{principal_id}`.
-- Web Push: CEO registers an HTTPS subscription; with VAPID keys configured, `notify_push` delivers live via `pywebpush` and records `applied` or `failed`. The companion PWA auto-registers when the owner token is set (`GET /api/v1/push/status` exposes `application_server_key`). Without keys, deliveries stay `live_unavailable`. PWA polling remains the fallback.
+- Web Push: paired **admin** companions and the CEO can register an HTTPS subscription.
+  With VAPID keys configured, `notify_push` delivers live via `pywebpush` and records
+  `applied` or `failed`. The companion PWA auto-registers when `company.pause` is in
+  scope (`GET /api/v1/push/status` exposes `application_server_key`). Without keys,
+  deliveries stay `live_unavailable`. PWA polling remains the fallback.
+- **iOS:** Web Push only works from a home-screen PWA (Share → Add to Home Screen),
+  not from a Safari tab. Accept the local CA warning for `https://192.168.4.100` first.
 
 ## Native shell (optional)
 
