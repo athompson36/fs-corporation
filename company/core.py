@@ -400,6 +400,40 @@ class Company:
         row=self.db.execute("SELECT * FROM identities WHERE token_hash=?",(self._hash_token(token),)).fetchone()
         return dict(row) if row else None
 
+    def rotate_owner_token(self, current_token, new_token=None, principal_id="human-ceo"):
+        """Replace the owner bearer token. Returns the new plaintext token.
+
+        Updates the identity hash transactionally. The caller must persist the
+        new plaintext to the token file; this method never writes the filesystem.
+        """
+        import secrets
+        if not current_token or not isinstance(current_token, str):
+            raise ValueError("Current token required")
+        ident = self.identity_for_token(current_token)
+        if not ident or ident["kind"] != "owner":
+            raise PermissionError("Current owner token is invalid")
+        if ident["principal_id"] != principal_id:
+            raise PermissionError("Root owner cannot be replaced by an agent")
+        if new_token is None:
+            new_token = secrets.token_urlsafe(32)
+        if not new_token or not isinstance(new_token, str):
+            raise ValueError("New token required")
+        if new_token == current_token:
+            raise ValueError("New token must differ from the current token")
+        if self.identity_for_token(new_token):
+            raise ValueError("New token is already registered")
+        with self.tx():
+            self.db.execute(
+                "UPDATE identities SET token_hash=? WHERE principal_id=? AND kind='owner'",
+                (self._hash_token(new_token), principal_id),
+            )
+            self._event(
+                "identity.owner_token_rotated",
+                {"principal_id": principal_id},
+                actor_id=principal_id,
+            )
+        return new_token
+
     def require_scope(self,identity,scope):
         if not identity:raise PermissionError("Unauthenticated")
         scopes=json.loads(identity["scopes"])

@@ -152,12 +152,32 @@ ssh -o BatchMode=yes "$HOST" "cat > $DEPLOY_ROOT/nopasswd.sudoers <<EOS
 # this rule at /Data: that mount is 0777 and re-exported over SMB, which would
 # let any share client execute arbitrary code as root.
 $REMOTE_USER ALL=(ALL) NOPASSWD: /bin/bash $DEPLOY_ROOT/run-install.sh
+$REMOTE_USER ALL=(ALL) NOPASSWD: /bin/bash $DEPLOY_ROOT/rotate-owner-token.sh
 $REMOTE_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart fs-corporation-api
 $REMOTE_USER ALL=(ALL) NOPASSWD: /bin/systemctl status fs-corporation-api
 $REMOTE_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart caddy
 $REMOTE_USER ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u fs-corporation-api *
 EOS
 chmod 600 $DEPLOY_ROOT/nopasswd.sudoers"
+
+echo "==> Write rotate-owner-token.sh on host"
+ssh -o BatchMode=yes "$HOST" "cat > $DEPLOY_ROOT/rotate-owner-token.sh <<'EOS'
+#!/usr/bin/env bash
+set -euo pipefail
+# sudo bash $DEPLOY_ROOT/rotate-owner-token.sh
+# Rotates /etc/fs-corporation/owner.token and writes a mode-600 copy for andrew.
+COPY=$DEPLOY_ROOT/owner.token.rotated
+/opt/fs-corporation/.venv/bin/python /opt/fs-corporation/scripts/rotate_owner_token.py \\
+  --db /Data/fs-corporation/data/company.db \\
+  --token-file /etc/fs-corporation/owner.token \\
+  --write-token-copy \"\$COPY\"
+chown andrew:andrew \"\$COPY\"
+chmod 600 \"\$COPY\"
+systemctl restart fs-corporation-api
+echo \"New token copy (mode 600): \$COPY\"
+echo \"Shred that file after you have stored the token somewhere safe.\"
+EOS
+chmod 700 $DEPLOY_ROOT/rotate-owner-token.sh"
 
 cat <<EOF
 
