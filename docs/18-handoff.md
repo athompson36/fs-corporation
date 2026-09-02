@@ -1,30 +1,29 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.23. State: **fs-dev live end-to-end** — companion paired, Web Push subscribed, test notify recorded.
+Date: 2026-09-02. Version: 0.3.23. State: **fs-dev live end-to-end including Apple Web Push `applied`.**
 
 ## Delivered
 
-- fs-dev install (ext4 app tree, data on `/Data`, Caddy HTTPS, workers).
-- Owner bootstrap/rotation; deploy tree at `~/fs-corporation-deploy`.
-- CEO desk at `https://192.168.4.100/desk`; companion PWA at `/`.
+- fs-dev install (ext4 app tree, `/Data` runtime, Caddy HTTPS, workers, desk `/desk`).
+- Owner bootstrap/rotation; deploy at `~/fs-corporation-deploy`.
 - SQLite request serialization; companion push registration for paired admin devices.
-- iOS A2HS guidance + Enable push control.
+- VAPID PEM loaded via `py_vapid` (raw PEM string broke Apple delivery).
 
 ## Verified on fs-dev (2026-09-02)
 
 | Check | Result |
 | --- | --- |
 | API + HTTPS edge | 200 |
-| Phone companion poll | 200 |
-| Active push subscription (Apple) | 1 |
-| First test notify | `failed` (VAPID PEM passed as raw string) |
-| VAPID loader fix deployed | awaiting second phone test |
+| Phone companion paired + polling | 200 |
+| Apple push subscription | active |
+| Host `notify_push` after VAPID fix | **`applied`** (`Host push verify …`) |
+| Container dispatch | produced |
 
 ## Next task
 
-1. On the phone Settings → **Send test push** again (new subject). Delivery should
-   become `applied` and an OS notification should appear.
-2. Optional: set a real `VAPID_CONTACT_EMAIL` in `.env` (still placeholder).
+1. Confirm the phone showed the OS notification for `Host push verify …` (and/or tap
+   **Send test push** once more from Settings).
+2. Optional: set a real `VAPID_CONTACT_EMAIL` in `.env` (still `mailto:owner@example.com`).
 3. Furnished HQ room art remains deferred.
 
 ```bash
