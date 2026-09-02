@@ -1,6 +1,6 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.23. State: **fs-dev live end-to-end including Apple Web Push `applied`.**
+Date: 2026-09-02. Version: 0.3.24. State: **fs-dev live end-to-end including Apple Web Push `applied`.**
 
 ## Delivered
 
@@ -8,6 +8,7 @@ Date: 2026-09-02. Version: 0.3.23. State: **fs-dev live end-to-end including App
 - Owner bootstrap/rotation; deploy at `~/fs-corporation-deploy`.
 - SQLite request serialization; companion push registration for paired admin devices.
 - VAPID PEM loaded via `py_vapid` (raw PEM string broke Apple delivery).
+- Companion **Send test push** now reports `applied` / `failed` from delivery records (no more false “sent”).
 
 ## Verified on fs-dev (2026-09-02)
 
@@ -16,14 +17,13 @@ Date: 2026-09-02. Version: 0.3.23. State: **fs-dev live end-to-end including App
 | API + HTTPS edge | 200 |
 | Phone companion paired + polling | 200 |
 | Apple push subscription | active |
-| Host `notify_push` after VAPID fix | **`applied`** (`Host push verify …`) |
+| Host `notify_push` | **`applied`** |
 | Container dispatch | produced |
 
 ## Next task
 
-1. Confirm the phone showed the OS notification for `Host push verify …` (and/or tap
-   **Send test push** once more from Settings).
-2. Optional: set a real `VAPID_CONTACT_EMAIL` in `.env` (still `mailto:owner@example.com`).
+1. Optional: set a real `VAPID_CONTACT_EMAIL` in `.env` and redeploy secrets.
+2. **M9 phase 2:** container worker traffic on `192.168.4.101` / default production `runtime: container`.
 3. Furnished HQ room art remains deferred.
 
 ```bash

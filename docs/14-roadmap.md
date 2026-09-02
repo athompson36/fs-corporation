@@ -243,7 +243,8 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Health check `GET /api/v1/health` documented and verifiable on loopback and via Caddy
 - [x] Worker Docker scaffold (`Dockerfile.worker`, `docker-compose.workers.yml`) with scratch-directory gateway (`python -m company.worker --envelope/--scratch`); live image on `.101` still pending
 - [x] ADR-016; canonical runbook [25-fs-dev-deployment.md](25-fs-dev-deployment.md)
-- [ ] Phase 2: owner live credentials, container worker on `192.168.4.101`, production `runtime: container` dispatch
+- [x] Phase 1 acceptance on physical fs-dev (`192.168.4.100`): install, API, Caddy, companion, pairing, Apple Web Push `applied`
+- [ ] Phase 2: owner live credentials hardening, container worker traffic on `192.168.4.101`, default production `runtime: container` dispatch
 
 **Acceptance:** on a Debian host with static `192.168.4.100`, `install.sh` completes; `fs-corporation-api` is active; `curl` to loopback `/api/v1/health` returns 200; phone opens `https://192.168.4.100`, companion loads with same-origin API and owner token; port 8000 is not reachable from LAN; denial tests still pass. Container worker image builds locally; live adapter dispatch remains fail-closed.
 
@@ -276,4 +277,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-GitHub pilot is live. **Feed HTTP API**, **model verification**, **container dispatch**, **Web Push (VAPID + test notify)**, **local HTTPS edge**, and **fs-dev worker install path** are wired. Next: owner exercises push on `https://localhost:8443`, then runs `install.sh` on physical fs-dev host `192.168.4.100`.
+**M9 phase 1 is live on fs-dev** (API, Caddy, companion, pairing, container dispatch exercise, Apple Web Push `applied`). Next unblocked product work: M9 phase 2 (worker NIC `.101` / default container runtime), or optional owner config (`VAPID_CONTACT_EMAIL`, live model/GitHub caps). Furnished HQ room art remains deferred.

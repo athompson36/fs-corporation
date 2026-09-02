@@ -127,7 +127,10 @@ export class ApiClient {
   }
 
   pushNotify(subject: string) {
-    return this.post(
+    return this.post<{
+      result?: { deliveries?: { id: string; status: string; subject?: string }[] };
+      deliveries?: { id: string; status: string; subject?: string }[];
+    }>(
       "/api/v1/push/notify",
       { kind: "owner_inbox", subject, test: true },
       `push-test-${Date.now()}`,

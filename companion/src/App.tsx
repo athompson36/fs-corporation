@@ -387,8 +387,20 @@ export default function App() {
                 className="primary"
                 onClick={async () => {
                   try {
-                    await api.pushNotify(`Companion test ${new Date().toLocaleTimeString()}`);
-                    setPushStatus("Test push sent — check OS notification.");
+                    const body = await api.pushNotify(`Companion test ${new Date().toLocaleTimeString()}`);
+                    const deliveries = body.result?.deliveries || body.deliveries || [];
+                    if (!deliveries.length) {
+                      setPushStatus("Test push returned no deliveries.");
+                      return;
+                    }
+                    const statuses = [...new Set(deliveries.map((d) => d.status))];
+                    if (statuses.includes("applied")) {
+                      setPushStatus(`Test push applied (${deliveries.length} delivery). Check OS notification.`);
+                    } else if (statuses.every((s) => s === "failed")) {
+                      setPushStatus(`Test push failed: ${statuses.join(", ")}. Server could not deliver.`);
+                    } else {
+                      setPushStatus(`Test push statuses: ${statuses.join(", ")}.`);
+                    }
                   } catch (e) {
                     setPushStatus(e instanceof Error ? e.message : String(e));
                   }
