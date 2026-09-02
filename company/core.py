@@ -874,6 +874,94 @@ class Company:
         return {"rooms":rooms,"departments":depts,"room_count":1+sum(1 for r in rooms if r["status"]=="built"),
                 "occupancy_note":"Room occupancy is not running model count.","source":"persisted_events"}
 
+    def room_detail(self, room_id):
+        row = self.db.execute("SELECT * FROM expansions WHERE id=?", (room_id,)).fetchone()
+        if not row:
+            raise LookupError("Room not found")
+        room = {"id": row["id"], "status": row["status"], "source_project": row["source_project"],
+                "contractor": row["contractor"]}
+        project_id = room["source_project"]
+        project = self.db.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+        purpose = project["brief"] if project else f"Expansion for accepted project {project_id}"
+        tasks = [dict(r) for r in self.db.execute(
+            "SELECT * FROM tasks WHERE project=? ORDER BY rowid", (project_id,))]
+        deliverables = [{"id": r["id"], "hash": r["hash"], "task_id": r["task_id"],
+                         "producer": r["producer"], "created_at": r["created_at"]}
+                        for r in self.db.execute(
+                            "SELECT * FROM artifacts WHERE project=? ORDER BY created_at", (project_id,))]
+        queue = [dict(r) for r in self.db.execute(
+            "SELECT id,task_id,actor,project,action,cost,status FROM queue WHERE project=? ORDER BY id",
+            (project_id,))]
+        dept_ids = [r[0] for r in self.db.execute(
+            "SELECT DISTINCT department_id FROM project_dispatches WHERE project_id=?", (project_id,))]
+        known = {r[0] for r in self.db.execute("SELECT id FROM departments")}
+        for task in tasks:
+            actor = task["actor"]
+            prefix = actor.split(":", 1)[0]
+            if actor in known and actor not in dept_ids:
+                dept_ids.append(actor)
+            elif prefix in known and prefix not in dept_ids:
+                dept_ids.append(prefix)
+        departments = []
+        for dept_id in dept_ids:
+            d = self.db.execute(
+                "SELECT id,name,head_title,mission,room_type,initially_active FROM departments WHERE id=?",
+                (dept_id,)).fetchone()
+            if d:
+                departments.append(dict(d))
+        staff = []
+        for dept_id in dept_ids:
+            for emp in self.db.execute(
+                    "SELECT id,position_id,display_name,status FROM employees WHERE position_id LIKE ?",
+                    (f"{dept_id}:%",)):
+                staff.append(dict(emp))
+        models = [dict(r) for r in self.db.execute(
+            """SELECT * FROM model_assignments
+               WHERE scope_kind='department' AND scope_id IN (SELECT department_id FROM project_dispatches WHERE project_id=?)
+               ORDER BY effective_at""",
+            (project_id,))]
+        spent = self.db.execute(
+            "SELECT COALESCE(SUM(cost),0) FROM ledger WHERE task_id IN (SELECT id FROM tasks WHERE project=?)",
+            (project_id,)).fetchone()[0]
+        reserved = self.db.execute(
+            """SELECT COALESCE(SUM(amount_cents),0) FROM reservations
+               WHERE status='reserved' AND task_id IN (SELECT id FROM tasks WHERE project=?)""",
+            (project_id,)).fetchone()[0]
+        decisions = []
+        for ev in self.db.execute(
+                """SELECT seq,at,kind,body,project_id FROM events
+                   WHERE kind IN (
+                     'project.accepted','expansion.proposed','expansion.approved',
+                     'expansion.inspected','room.built','project.dispatched')
+                   ORDER BY seq"""):
+            body = json.loads(ev["body"])
+            related = (
+                ev["project_id"] == project_id
+                or body.get("project") == project_id
+                or body.get("source_project") == project_id
+                or body.get("id") == room_id
+            )
+            if related:
+                decisions.append({"id": ev["seq"], "kind": ev["kind"], "at": ev["at"],
+                                  "summary": ev["body"]})
+        for item in self.decisions_inbox()["items"]:
+            if item.get("project_id") == project_id:
+                decisions.append(item)
+        return {
+            "room": room,
+            "purpose": purpose,
+            "tasks": tasks,
+            "staff": staff,
+            "deliverables": deliverables,
+            "queue": queue,
+            "departments": departments,
+            "model_assignments": models,
+            "costs": {"simulated_spend_cents": spent, "reserved_cents": reserved},
+            "decisions": decisions,
+            "occupancy_note": "Room occupancy is not running model count.",
+            "source": "persisted_events",
+        }
+
     def put_memory(self,actor,memory_id,body,classification,project_id=None,department_id=None,approved=False):
         if classification not in {"public","internal","restricted"}:raise ValueError("Unknown data classification")
         if approved and actor!=self.ceo:raise PermissionError("CEO authority required")

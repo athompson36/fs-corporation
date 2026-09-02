@@ -6,7 +6,7 @@ import unittest
 from fastapi.testclient import TestClient
 from company.core import Company, now
 from company.service import create_app
-from tests.test_core import install, policy
+from tests.test_core import install, policy, qc_pass
 
 
 def owner_client():
@@ -113,6 +113,30 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(hq.status_code, 200)
         self.assertIn("occupancy_note", hq.json())
         self.assertEqual(hq.json()["source"], "persisted_events")
+
+    def test_room_detail_api_and_desk_nav(self):
+        missing = self.client.get("/api/v1/headquarters/rooms/no-such-room",
+                                  headers={"Authorization": "Bearer owner-token"})
+        self.assertEqual(missing.status_code, 422)
+        t = self.c.execute_mock(actor="head", project="app", action="draft", cost=10, task_id="api-room")
+        qc_pass(self.c, t)
+        self.c.accept_project("human-ceo", "api-room", t["artifact_hash"])
+        self.c.approve_expansion("human-ceo", "expansion-app")
+        self.c.build_mock("builder", "expansion-app")
+        detail = self.client.get("/api/v1/headquarters/rooms/expansion-app",
+                                 headers={"Authorization": "Bearer owner-token"})
+        self.assertEqual(detail.status_code, 200)
+        body = detail.json()
+        self.assertEqual(body["room"]["id"], "expansion-app")
+        self.assertEqual([task["id"] for task in body["tasks"]], ["api-room"])
+        self.assertNotIn("occupancy", body)
+        page = self.client.get("/")
+        self.assertIn('id="room-detail"', page.text)
+        self.assertIn('href="#projects"', page.text)
+        self.assertIn('href="#departments"', page.text)
+        self.assertIn('href="#budget"', page.text)
+        self.assertIn('href="#activity"', page.text)
+        self.assertIn("/api/v1/headquarters/rooms/", page.text)
 
 
 if __name__ == "__main__":

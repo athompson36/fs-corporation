@@ -20,7 +20,7 @@ Brief, acceptance criteria, repository/fork identity, branch policy, departments
 
 ## Headquarters
 
-Readable 2D floor plan plus an isometric projection of the same persisted expansion rooms. Select rooms via the list. Provide a keyboard-accessible list view, reduced motion (isometric rise animation is disabled), text status in addition to color, and zoom that preserves legibility. Room occupancy is not the count of running model requests. Empty HQ draws no invented rooms.
+Readable 2D floor plan plus an isometric projection of the same persisted expansion rooms. Select a room from the list or tiles to open persisted tasks, staff, deliverables, simulated costs and related decisions. Provide a keyboard-accessible list view, reduced motion (isometric rise animation is disabled), text status in addition to color, and zoom that preserves legibility. Room occupancy is not the count of running model requests. Empty HQ draws no invented rooms.
 
 ## Intelligence inbox
 
@@ -36,4 +36,4 @@ FS-Corporation can use a restrained cosmic visual identity with a dark backgroun
 
 ## Current status
 
-This bundle has a local HTML CEO desk (2D plan + isometric projection of persisted rooms) and a mobile-first PWA in `companion/` that reads the same persisted API state. Hardware skill gaps appear as blocked work, not as animated progress. Custom room art and logo/palette remain undecided.
+This bundle has a local HTML CEO desk (2D plan + isometric projection + room detail from persisted events, plus read lists for projects, departments, people, budget and activity) and a mobile-first PWA in `companion/` that reads the same persisted API state. Hardware skill gaps appear as blocked work, not as animated progress. Custom room art and logo/palette remain undecided.

@@ -48,6 +48,7 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | POST /expansions/{id}/decision | Approve exact plan | facilities.approve |
 | GET /events | Cursor-paginated audit/activity | audit.read |
 | GET /headquarters | Event-projected rooms and departments | company.read |
+| GET /headquarters/rooms/{id} | Persisted tasks, staff, deliverables, costs and decisions for one expansion room | company.read |
 | GET /slos | SLO catalog and latest sourced observation (or unmeasured) | company.read |
 | POST /slos/{id}/observations | Record a sourced, windowed measurement | company.pause |
 | POST /consultant-proposals | Submit an evidence-backed proposal | consultant.propose |

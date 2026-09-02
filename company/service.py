@@ -29,6 +29,9 @@ main { max-width: 52rem; margin: 0 auto; padding: 1rem; }
 nav a { color:#9cf; margin-right:1rem; }
 section { border:1px solid #444; padding:1rem; margin:1rem 0; }
 .muted { color:#bbb; }
+button.room { background:none; border:0; color:#9cf; cursor:pointer; padding:0; font:inherit; text-align:left; }
+#iso, #floor { width:100%; max-height:16rem; }
+#iso [data-room-id], #floor [data-room-id] { cursor:pointer; }
 #iso { width:100%; max-height:16rem; }
 .iso-rise { transform-box: fill-box; transform-origin: center bottom; animation: iso-rise 0.7s ease-out; }
 @keyframes iso-rise { from { transform: translateY(8px); opacity: 0.4; } to { transform: none; opacity: 1; } }
@@ -42,24 +45,81 @@ section { border:1px solid #444; padding:1rem; margin:1rem 0; }
 <nav aria-label="Primary">
 <a href="#desk">CEO desk</a>
 <a href="#hq">Headquarters</a>
+<a href="#projects">Projects</a>
+<a href="#departments">Departments</a>
+<a href="#people">People</a>
 <a href="#decisions">Decisions</a>
+<a href="#budget">Budget</a>
+<a href="#activity">Activity</a>
 <a href="#consultant">Consultant</a>
 </nav>
 <h1 id="desk">CEO desk</h1>
 <p class="muted">Reads persisted company state. Occupancy is not running-model count.</p>
 <section id="status"><h2>Status</h2><pre id="status-json">Loading…</pre></section>
-<section id="decisions"><h2>Policy proposals</h2><ul id="proposal-list"></ul></section>
+<section id="decisions"><h2>Decisions inbox</h2><ul id="proposal-list"></ul></section>
 <section id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul></section>
+<section id="projects"><h2>Projects</h2><ul id="project-list"></ul></section>
+<section id="departments"><h2>Departments</h2><ul id="department-list"></ul></section>
+<section id="people"><h2>People</h2><ul id="people-list"></ul></section>
+<section id="budget"><h2>Budget</h2>
+<p class="muted">Simulated credits, not billed cost.</p>
+<pre id="budget-json">Loading…</pre>
+</section>
+<section id="activity"><h2>Activity</h2><ul id="activity-list"></ul></section>
 <section id="hq"><h2>Headquarters</h2>
 <p>List navigation of rooms from expansion events. Occupancy is not running-model count.</p>
 <ul id="room-list"></ul>
 <svg id="floor" viewBox="0 0 200 80" role="img" aria-label="2D floor plan of provisioned rooms"></svg>
 <svg id="iso" viewBox="0 0 220 140" role="img" aria-label="isometric projection of provisioned rooms"></svg>
+<div id="room-detail" hidden>
+<h3>Room</h3>
+<p id="room-purpose" class="muted"></p>
+<ul id="room-facts"></ul>
+</div>
 </section>
 </main>
 <script>
+const headers = {Authorization: 'Bearer ' + (localStorage.getItem('ownerToken')||'')};
+function fill(id, items, text) {
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  items.forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = text(item);
+    el.appendChild(li);
+  });
+}
+function listed(items, fn) {
+  const arr = items || [];
+  return arr.length ? arr.map(fn).join(', ') : 'none';
+}
+async function openRoom(roomId) {
+  const panel = document.getElementById('room-detail');
+  const facts = document.getElementById('room-facts');
+  const res = await fetch('/api/v1/headquarters/rooms/' + encodeURIComponent(roomId), {headers});
+  const detail = await res.json();
+  if (!res.ok) {
+    panel.hidden = false;
+    document.getElementById('room-purpose').textContent = detail.detail || 'Room not found';
+    facts.innerHTML = '';
+    return;
+  }
+  panel.hidden = false;
+  document.getElementById('room-purpose').textContent = detail.purpose;
+  const lines = [
+    detail.room.id + ' — ' + detail.room.status + ' — ' + detail.room.source_project,
+    'Tasks: ' + listed(detail.tasks, t => t.id),
+    'Staff: ' + listed(detail.staff, s => s.display_name + ' (' + s.position_id + ')'),
+    'Deliverables: ' + listed(detail.deliverables, d => d.hash.slice(0,12)),
+    'Decisions: ' + listed(detail.decisions, d => d.kind),
+    'Simulated spend: ' + detail.costs.simulated_spend_cents + '¢ reserved ' + detail.costs.reserved_cents + '¢',
+    detail.occupancy_note
+  ];
+  facts.innerHTML = '';
+  lines.forEach(line => { const li = document.createElement('li'); li.textContent = line; facts.appendChild(li); });
+  location.hash = 'room-detail';
+}
 async function load() {
-  const headers = {Authorization: 'Bearer ' + (localStorage.getItem('ownerToken')||'')};
   const status = await fetch('/api/v1/company', {headers});
   document.getElementById('status-json').textContent = await status.text();
   const hq = await fetch('/api/v1/headquarters', {headers});
@@ -68,27 +128,39 @@ async function load() {
   list.innerHTML = '';
   (data.rooms||[]).forEach(room => {
     const li = document.createElement('li');
-    li.textContent = room.id + ' — ' + room.status + ' — ' + room.source_project;
+    const btn = document.createElement('button');
+    btn.className = 'room';
+    btn.type = 'button';
+    btn.textContent = room.id + ' — ' + room.status + ' — ' + room.source_project;
+    btn.addEventListener('click', () => openRoom(room.id));
+    li.appendChild(btn);
     list.appendChild(li);
   });
   const cons = await fetch('/api/v1/consultant-proposals', {headers});
   const cj = await cons.json();
-  const cl = document.getElementById('consultant-list');
-  cl.innerHTML = '';
-  (cj.proposals||[]).forEach(p => {
-    const li = document.createElement('li');
-    const title = (p.body && p.body.title) ? p.body.title : p.id;
-    li.textContent = title + ' — ' + p.status;
-    cl.appendChild(li);
-  });
+  fill('consultant-list', cj.proposals||[], p => ((p.body && p.body.title) ? p.body.title : p.id) + ' — ' + p.status);
+  const inbox = await fetch('/api/v1/decisions/inbox', {headers});
+  const ij = await inbox.json();
+  fill('proposal-list', ij.items||[], item => item.kind + ' — ' + item.title);
   const ev = await fetch('/api/v1/events?limit=20', {headers});
   const ej = await ev.json();
-  const pl = document.getElementById('proposal-list');
-  pl.innerHTML = '';
-  (ej.items||[]).forEach(item => {
-    const li = document.createElement('li');
-    li.textContent = item.kind + ' @ ' + item.at;
-    pl.appendChild(li);
+  fill('activity-list', ej.items||[], item => item.kind + ' @ ' + item.at);
+  const projects = await fetch('/api/v1/projects', {headers});
+  const pj = await projects.json();
+  fill('project-list', pj.projects||[], p => p.id + ' — ' + (p.brief || p.status || ''));
+  const depts = await fetch('/api/v1/departments', {headers});
+  const dj = await depts.json();
+  fill('department-list', dj.departments||[], d => d.id + ' — ' + d.name + ' — ' + d.head_title);
+  const people = await fetch('/api/v1/hr/development', {headers});
+  const peoplej = await people.json();
+  fill('people-list', peoplej.employees || peoplej.assignments || [], p => (p.display_name || p.employee_id || p.id) + ' — ' + (p.position_id || p.status || ''));
+  const dash = await fetch('/api/v1/dashboard', {headers});
+  const dashj = await dash.json();
+  const company = dashj.company || {};
+  document.getElementById('budget-json').textContent = JSON.stringify({
+    simulated_spend_cents: company.simulated_spend_cents,
+    reserved_cents: company.reserved_cents,
+    note: 'Simulated credits, not billed cost'
   });
   const svg = document.getElementById('floor');
   svg.innerHTML = '';
@@ -104,6 +176,7 @@ async function load() {
     r.setAttribute('fill', room.status === 'built' ? '#356' : '#333');
     r.setAttribute('stroke', '#888');
     r.setAttribute('data-room-id', room.id);
+    r.addEventListener('click', () => openRoom(room.id));
     svg.appendChild(r);
     const t = ns('text');
     t.setAttribute('x', x+4); t.setAttribute('y', y+16); t.setAttribute('fill', '#eee');
@@ -117,6 +190,7 @@ async function load() {
     const g = ns('g');
     g.setAttribute('data-room-id', room.id);
     if (built) g.setAttribute('class', 'iso-rise');
+    g.addEventListener('click', () => openRoom(room.id));
     const top = ns('polygon');
     top.setAttribute('points', [ix,iy-h, ix+24,iy-h+12, ix,iy-h+24, ix-24,iy-h+12].join(' '));
     top.setAttribute('fill', built ? '#468' : '#2a2a2a');
@@ -619,6 +693,15 @@ def create_app(company: Company) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "company.read")
         return company.headquarters()
+
+    @app.get("/api/v1/headquarters/rooms/{room_id}")
+    def hq_room(room_id: str, authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.room_detail(room_id)
+        except LookupError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/api/v1/consultant-proposals")
     def consultant_submit(body: Command, authorization: str | None = Header(default=None), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):

@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.11 local status:** Isometric HQ projection of persisted rooms. SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, fs-dev runbook, and mobile companion remain. Live adapters remain disabled.
+**v0.3.12 local status:** Room selection opens persisted tasks, staff, deliverables and decisions. Isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, fs-dev runbook, and mobile companion remain. Live adapters remain disabled.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials remain unconfigured and do not block local work.
 
@@ -195,6 +195,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Facilities: costed proposal → approve → contractor provision → independent inspection → `room.built`
 - [x] Growth credit once per unique accepted project; replay/retry cannot farm credits
 - [x] Art/isometric animation — CEO desk isometric SVG from the same `headquarters()` rooms; rise animation respects `prefers-reduced-motion`; no invented occupancy; custom room art still undecided
+- [x] Room detail — `GET /api/v1/headquarters/rooms/{id}` returns persisted tasks, staff, deliverables, simulated costs and related decisions; desk list/tiles open that panel; missing rooms fail closed
 - [x] Consultant inbox: findings, evidence, approve/reject/revise (API + desk list)
 
 **Acceptance:** one accepted project earns progress; justified expansion is approved and provisioned; a room opens real department data; restart/replay keeps room identity and count. Reduced-motion and list navigation work.

@@ -32,7 +32,7 @@ The art style is undecided. The CEO desk shows a readable top-down 2D floor plan
 
 Room identity derives from expansion ID; room state derives from authoritative events. Replaying events must reconstruct the same operational building. Agent movement and construction effects are decorative and must not pretend that a task is running or delay actual completion. If a task fails, show its actual failed/blocked state.
 
-Clicking a room reveals its purpose, staff/model assignments, queue, artifacts, costs and pending decisions. Show proposed rooms distinctly from active rooms. Offline/dormant activity is visible without implying live agents.
+Clicking a room reveals its purpose, staff/model assignments, queue, artifacts, simulated costs and related decisions from persisted events. Show proposed rooms distinctly from active rooms. Offline/dormant activity is visible without implying live agents. Empty staff or deliverable lists stay empty.
 
 ## Current core
 
