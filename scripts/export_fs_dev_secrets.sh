@@ -31,7 +31,11 @@ if has_key ANTHROPIC_API_KEY; then echo "ANTHROPIC_API_KEY=$(grep '^ANTHROPIC_AP
 if [[ -f "$ROOT/secrets/vapid-private.pem" ]]; then
   echo "VAPID_PUBLIC_KEY_FILE=/etc/fs-corporation/vapid-public.pem"
   echo "VAPID_PRIVATE_KEY_FILE=/etc/fs-corporation/vapid-private.pem"
-  echo "VAPID_CONTACT_EMAIL=mailto:owner@example.com"
+  if has_key VAPID_CONTACT_EMAIL; then
+    echo "VAPID_CONTACT_EMAIL=$(grep '^VAPID_CONTACT_EMAIL=' "$ENV_FILE" | cut -d= -f2-)"
+  else
+    echo "VAPID_CONTACT_EMAIL=mailto:owner@example.com"
+  fi
   echo "# scp $ROOT/secrets/vapid-*.pem root@192.168.4.100:/etc/fs-corporation/"
 fi
 

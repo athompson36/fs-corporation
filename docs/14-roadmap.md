@@ -278,4 +278,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M9 phase 1 + same-host phase 2 defaults are live on fs-dev.** Container is the default worker runtime when Docker/image/scratch are ready; `/api/v1/workers/status` reports whether `192.168.4.101` is present on the host. Workers stay `network_mode=none` (gateway via scratch). Next: optional owner config (`VAPID_CONTACT_EMAIL`), or a dedicated worker host / egress policy on `.101`. Furnished HQ room art remains deferred.
+**M9 phase 1 + same-host phase 2 defaults are live on fs-dev.** Container is the default worker runtime when Docker/image/scratch are ready; `/api/v1/workers/status` reports whether `192.168.4.101` is present on the host. Workers stay `network_mode=none` (gateway via scratch). Owner `VAPID_CONTACT_EMAIL` is set. Next: dedicated worker host / egress policy on `.101` if needed. Furnished HQ room art remains deferred.
