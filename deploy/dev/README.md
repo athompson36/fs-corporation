@@ -33,9 +33,14 @@ docker compose --profile https up -d
 open https://localhost:8443
 ```
 
-Paste the owner token in Settings. Same-origin `/api/*` avoids CORS; push registration uses the service worker on HTTPS.
+Paste the owner token in Settings. Same-origin `/api/*` avoids CORS; push registration uses the service worker on HTTPS. Use **Send test push** after allowing notifications, or:
 
-Direct API access remains at http://localhost:8013.
+```bash
+python3 scripts/exercise_push_notify.py \
+  --token-file <(docker compose exec -T api cat /data/owner.token)
+```
+
+Direct API access remains at http://localhost:8013. For QR pairing via the HTTPS edge, set `FS_CORP_PUBLIC_URL=https://localhost:8443` in `.env` (or use `./scripts/start_https_dev.sh`, which exports it).
 
 After changing `.env` or Python code, recreate the API container:
 

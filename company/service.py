@@ -646,6 +646,18 @@ def create_app(company: Company) -> FastAPI:
         return run(ident, idempotency_key, payload | {"id": subscription_id}, lambda: (
             company.revoke_push_subscription(ident["principal_id"], subscription_id), 200))
 
+    @app.post("/api/v1/push/notify")
+    def push_notify(body: Command, authorization: str | None = Header(default=None),
+                    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        kind = payload.get("kind") or "owner_inbox"
+        subject = payload.get("subject") or "FS-Corporation test notification"
+        extra = {k: v for k, v in payload.items() if k not in {"kind", "subject"}}
+        return run(ident, idempotency_key, payload, lambda: (
+            company.notify_push(kind, subject, extra), 200))
+
     @app.post("/api/v1/owner-inbox/{request_id}/respond")
     def owner_inbox_respond(request_id: str, body: Command, authorization: str | None = Header(default=None),
                               idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):

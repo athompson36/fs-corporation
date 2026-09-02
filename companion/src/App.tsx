@@ -359,6 +359,22 @@ export default function App() {
           <p className="muted">Push uses the owner bearer token (CEO-only on the API). Paired devices without pause scope keep polling.</p>
           <div className="actions">
             <button type="button" onClick={refresh}>Test connection</button>
+            {pushSubscriptions.length ? (
+              <button
+                type="button"
+                className="primary"
+                onClick={async () => {
+                  try {
+                    await api.pushNotify(`Companion test ${new Date().toLocaleTimeString()}`);
+                    setPushStatus("Test push sent — check OS notification.");
+                  } catch (e) {
+                    setPushStatus(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+              >
+                Send test push
+              </button>
+            ) : null}
             <button type="button" onClick={() => save({ baseUrl: settings.baseUrl, token: "" })}>Clear token</button>
           </div>
         </section>

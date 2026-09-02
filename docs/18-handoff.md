@@ -1,25 +1,26 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.22. State: Local HTTPS dev profile for Web Push; automated feed poll exercise.
+Date: 2026-09-02. Version: 0.3.23. State: Local HTTPS edge + CEO test-push API for end-to-end Web Push.
 
 ## Delivered
 
-- **v0.3.21** (`d2e91ab`): Push subscription list API, `verify_push_delivery.py`, `export_fs_dev_secrets.sh`.
-- **v0.3.22:** Docker `https` profile (Caddy on `https://localhost:8443`), `scripts/exercise_feed_poll.py`.
+- **v0.3.22** (`bad4736` / `370bdca`): HTTPS Caddy profile, feed poll exercise, verification HTTPS check.
+- **v0.3.23:** `POST /api/v1/push/notify`, companion **Send test push**, `scripts/exercise_push_notify.py`.
 
 ## Verification
 
 ```bash
 ./scripts/run_all_verifications.sh
-cd companion && npm run build && cd ..
-docker compose --profile https up -d
-open https://localhost:8443   # owner token in Settings → push on secure context
+./scripts/start_https_dev.sh
+# Browser: https://localhost:8443 → owner token → allow notifications → Send test push
+python3 scripts/exercise_push_notify.py \
+  --token-file <(docker compose exec -T api cat /data/owner.token)
 ```
 
 ## Next task
 
-1. **Owner:** Debian fs-dev at `192.168.4.100` — `install.sh` + secrets from `export_fs_dev_secrets.sh`.
-2. **Owner:** test live push on `https://localhost:8443` (Mac) or `https://192.168.4.100` (fs-dev).
+1. **Owner:** exercise push on `https://localhost:8443`, then Debian fs-dev `install.sh` + secrets export.
+2. **Engineering:** production slice on physical host (container dispatch + companion behind Caddy).
 3. Furnished HQ room art remains deferred.
 
 See [../deploy/dev/README.md](../deploy/dev/README.md).

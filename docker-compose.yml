@@ -48,7 +48,7 @@ services:
       FS_CORP_DATA_DIR: /data
       FS_CORP_DB: /data/company.db
       FS_CORP_ALLOW_CORS: "1"
-      FS_CORP_PUBLIC_URL: http://localhost:8013
+      FS_CORP_PUBLIC_URL: ${FS_CORP_PUBLIC_URL:-http://localhost:8013}
     restart: unless-stopped
 
   worker:

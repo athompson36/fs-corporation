@@ -98,6 +98,22 @@ class PushNotificationTests(unittest.TestCase):
         self.assertEqual(subs[0]["endpoint"], "https://push.example/sub/2")
         self.assertNotIn("keys", subs[0])
 
+    def test_api_notify_push(self):
+        from unittest.mock import patch
+        from company.service import create_app
+        self.c.register_identity("human-ceo", "owner", "owner-token")
+        self.c.register_push_subscription("human-ceo", "https://push.example/sub/3")
+        client = __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(create_app(self.c))
+        with patch("company.push_vapid.send_push", return_value={"status": "applied", "http_status": 201}):
+            resp = client.post(
+                "/api/v1/push/notify",
+                json={"payload": {"subject": "Test ping", "kind": "owner_inbox"}},
+                headers={"Authorization": "Bearer owner-token", "Idempotency-Key": "notify-1"},
+            )
+        self.assertEqual(resp.status_code, 200)
+        deliveries = resp.json()["result"]["deliveries"]
+        self.assertEqual(deliveries[0]["status"], "applied")
+
     def test_application_server_key_when_vapid_pem_set(self):
         from unittest.mock import patch
         from company.push_vapid import application_server_key, status_summary

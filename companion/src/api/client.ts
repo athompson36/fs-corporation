@@ -126,6 +126,14 @@ export class ApiClient {
     );
   }
 
+  pushNotify(subject: string) {
+    return this.post(
+      "/api/v1/push/notify",
+      { kind: "owner_inbox", subject, test: true },
+      `push-test-${Date.now()}`,
+    );
+  }
+
   pause() {
     return this.post("/api/v1/company/pause", {}, "pause");
   }
