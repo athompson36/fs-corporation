@@ -81,9 +81,36 @@ curl -k -sS -o /dev/null -w "%{http_code}\n" https://192.168.4.100/
 
 Run unit tests on a dev machine: `python3 -m unittest discover -s tests -v`.
 
-## 7. Container worker image (optional)
+## 7. Container worker image (phase 2 on-host)
 
-The control plane dispatches container workers with image `fs-corporation-worker:local` (`network_mode: none`, scratch volume). Build on the host:
+`install.sh` installs Docker, adds `fs-corp` to the `docker` group, creates `/var/lib/fs-corporation/worker-scratch`, builds `fs-corporation-worker:local`, and bootstraps project `app` grants. Ensure `/etc/fs-corporation/env` includes:
+
+```bash
+FS_CORP_WORKER_SCRATCH=/var/lib/fs-corporation/worker-scratch
+FS_CORP_WORKER_IMAGE=fs-corporation-worker:local
+FS_CORP_WORKER_NIC_IP=192.168.4.101   # reserved; same-host dispatch works without binding to this NIC
+```
+
+Verify readiness (as `fs-corp`):
+
+```bash
+sudo -u fs-corp /opt/fs-corporation/.venv/bin/python /opt/fs-corporation/scripts/verify_fs_dev_workers.py
+curl -H "Authorization: Bearer $(sudo cat /etc/fs-corporation/owner.token)" \
+  http://127.0.0.1:8000/api/v1/workers/status
+```
+
+Exercise a mock container dispatch:
+
+```bash
+sudo -u fs-corp FS_CORP_DB=/var/lib/fs-corporation/company.db \
+  /opt/fs-corporation/.venv/bin/python /opt/fs-corporation/scripts/exercise_container_dispatch.py \
+  --base http://127.0.0.1:8000 \
+  --token-file /etc/fs-corporation/owner.token \
+  --db /var/lib/fs-corporation/company.db \
+  --task-id container-pilot-$(date +%s)
+```
+
+Manual image rebuild:
 
 ```bash
 docker build -f deploy/fs-dev/Dockerfile.worker -t fs-corporation-worker:local .
@@ -122,5 +149,6 @@ Companion assets are rebuilt; systemd restarts the API.
 ## Limitations
 
 - `--data-dir` on `company.service` is part of the fs-dev contract; ensure the installed package version supports it or align flags with `python -m company.service --help`.
-- Container worker `main()` may still be a stub until gateway proxy is implemented; subprocess workers remain the default for local dev.
+- Container worker `main()` may still be a stub until gateway proxy is fully implemented; subprocess workers remain the dev default.
+- Dedicated worker traffic on NIC `192.168.4.101` is documented but not required for same-host dispatch.
 - Live GitHub, billing, and model providers remain owner-configured and fail-closed until wired in config.

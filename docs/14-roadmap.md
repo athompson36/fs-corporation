@@ -276,4 +276,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-GitHub pilot is live. **Feed HTTP API**, **model verification**, **container dispatch**, and **Web Push (VAPID)** adapters are wired. Next: **fs-dev** worker NIC `192.168.4.101` production path.
+GitHub pilot is live. **Feed HTTP API**, **model verification**, **container dispatch**, **Web Push (VAPID)**, and **fs-dev worker install path** are wired. Next: owner runs `install.sh` on physical fs-dev host and exercises container dispatch on `192.168.4.100`.

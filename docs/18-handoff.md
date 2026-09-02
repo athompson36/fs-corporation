@@ -1,32 +1,34 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.17. State: Live GitHub, OpenAI + Anthropic models, RSS/Atom feeds + HTTP API, container worker dispatch, Web Push (VAPID) adapter.
+Date: 2026-09-02. Version: 0.3.18. State: Live GitHub, models, feeds, Docker dev container dispatch, Web Push (VAPID), fs-dev production worker install path.
 
 ## Delivered
 
-- **v0.3.15 pushed** (`b31ae0a`): GitHub App, model providers, feed poll, Docker dev, owner checklist.
-- **Container workers (v0.3.16):** Docker CLI + socket in API image, host scratch mount, `scripts/exercise_container_dispatch.py`, dev bootstrap grants for `head`/`app`.
-- **Web Push (v0.3.17):** `company/push_vapid.py`, live `notify_push` → `applied`/`failed`, `GET /api/v1/push/status`, `scripts/generate_vapid_keys.py`, `scripts/verify_vapid.py`.
-- Live integrations verified on owner Docker stack: GitHub PR, model status, feed ingest, container `runtime=container` → `produced`.
+- **v0.3.17 pushed** (`1413f7b`): Web Push (VAPID) adapter, `GET /api/v1/push/status`, verify/generate scripts.
+- **fs-dev workers (v0.3.18):** `install.sh` installs Docker, builds worker image, worker scratch dir, bootstrap grants; `GET /api/v1/workers/status`, `scripts/verify_fs_dev_workers.py`; native `exercise_container_dispatch.py --db` for loopback API.
 
 ## Verification
 
 ```bash
 python3 -m unittest discover -s tests -v
-docker compose --profile workers build
-docker compose up -d --force-recreate
+# Docker dev:
 python3 scripts/exercise_container_dispatch.py \
   --token-file <(docker compose exec -T api cat /data/owner.token) \
   --task-id container-pilot-$(date +%s)
-# After VAPID keys in .env:
-python3 scripts/generate_vapid_keys.py   # one-time; paste into .env
-docker compose exec api python scripts/verify_vapid.py
+# fs-dev host (after install.sh):
+sudo -u fs-corp /opt/fs-corporation/.venv/bin/python scripts/verify_fs_dev_workers.py
+sudo -u fs-corp FS_CORP_DB=/var/lib/fs-corporation/company.db \
+  /opt/fs-corporation/.venv/bin/python scripts/exercise_container_dispatch.py \
+  --base http://127.0.0.1:8000 \
+  --token-file /etc/fs-corporation/owner.token \
+  --db /var/lib/fs-corporation/company.db \
+  --task-id container-pilot-$(date +%s)
 ```
 
 ## Next task
 
-1. **Owner:** rotate API keys if exposed during setup; generate VAPID keys and recreate API container for live push.
-2. **Engineering:** fs-dev worker NIC `192.168.4.101` production path.
+1. **Owner:** run `install.sh` on fs-dev host; add live secrets to `/etc/fs-corporation/secrets.env`; generate VAPID keys for push.
+2. **Engineering:** exercise container dispatch on physical host `192.168.4.100`; optional dedicated worker NIC `.101` when second interface is configured.
 3. Furnished HQ room art remains deferred.
 
-See [../deploy/dev/README.md](../deploy/dev/README.md).
+See [../deploy/fs-dev/README.md](../deploy/fs-dev/README.md).

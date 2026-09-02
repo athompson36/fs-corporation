@@ -942,6 +942,13 @@ def create_app(company: Company) -> FastAPI:
         from company.push_vapid import status_summary
         return status_summary()
 
+    @app.get("/api/v1/workers/status")
+    def workers_status(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        from company.worker_status import status_summary
+        return status_summary()
+
     @app.get("/api/v1/remote-access")
     def remote_access(authorization: str | None = Header(default=None)):
         ident = principal(authorization)

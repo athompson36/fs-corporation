@@ -21,7 +21,7 @@ def api(base: str, method: str, path: str, token: str, body: dict | None = None,
         return json.loads(resp.read().decode())
 
 
-def queue_and_lease_in_container(project: str, task_id: str, worker_id: str) -> None:
+def queue_and_lease(project: str, task_id: str, worker_id: str, *, db_path: str | None) -> None:
     code = (
         "from company.core import Company\n"
         "import os\n"
@@ -33,6 +33,11 @@ def queue_and_lease_in_container(project: str, task_id: str, worker_id: str) -> 
         "c.claim_lease(worker, tid)\n"
         "c.close()\n"
     )
+    if db_path:
+        env = os.environ.copy()
+        env["FS_CORP_DB"] = db_path
+        subprocess.run([sys.executable, "-c", code], check=True, env=env)
+        return
     subprocess.run(
         ["docker", "compose", "exec", "-T", "api", "python", "-c", code],
         check=True,
@@ -42,8 +47,13 @@ def queue_and_lease_in_container(project: str, task_id: str, worker_id: str) -> 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Queue and container-dispatch a mock draft task")
-    parser.add_argument("--base", default=os.environ.get("FS_CORP_API_BASE", "http://localhost:8013"))
+    parser.add_argument(
+        "--base",
+        default=os.environ.get("FS_CORP_API_BASE", "http://localhost:8013"),
+        help="API base URL (fs-dev loopback: http://127.0.0.1:8000)",
+    )
     parser.add_argument("--token-file", default=os.environ.get("FS_CORP_TOKEN_FILE", ""))
+    parser.add_argument("--db", default=os.environ.get("FS_CORP_DB", ""), help="SQLite path for native/fs-dev mode")
     parser.add_argument("--project", default="app")
     parser.add_argument("--task-id", default="container-pilot-1")
     parser.add_argument("--worker-id", default="container-pilot")
@@ -53,9 +63,11 @@ def main() -> int:
         return 1
     token = Path(args.token_file).read_text().strip()
     tid = args.task_id
+    db_path = args.db.strip() or None
     try:
-        queue_and_lease_in_container(args.project, tid, args.worker_id)
-        print(f"queued and leased task {tid} as head (in-container)")
+        queue_and_lease(args.project, tid, args.worker_id, db_path=db_path)
+        mode = "native" if db_path else "docker-compose"
+        print(f"queued and leased task {tid} as head ({mode})")
         dispatched = api(args.base, "POST", f"/api/v1/tasks/{tid}/dispatch-worker", token, {
             "payload": {"runtime": "container", "worker_id": args.worker_id},
         }, idem=f"dispatch-{tid}")

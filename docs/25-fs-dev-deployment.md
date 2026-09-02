@@ -177,23 +177,27 @@ Configure the companion PWA Settings screen. Rotate via `register_identity` if a
 
 `GET /api/v1/health` requires no authentication and confirms the control service is up.
 
-## Worker Docker scaffold (disabled until live adapters)
+## Worker Docker (phase 2 on-host)
 
-Phase 1 **does not** dispatch container workers in production. Subprocess workers remain the default for local development. The following files exist for phase 2 build and smoke test only:
+Phase 1 runs the control API and Caddy edge only. **Phase 2 on the same host** enables `runtime=container` dispatch when Docker, the worker image, and `FS_CORP_WORKER_SCRATCH` are configured via `install.sh` and `/etc/fs-corporation/env`.
 
 | File | Purpose |
 |------|---------|
 | `deploy/fs-dev/Dockerfile.worker` | Python 3.12 worker image (`fs-corporation-worker:local`) |
 | `deploy/fs-dev/docker-compose.workers.yml` | Local compose smoke test (`network_mode: none`) |
+| `scripts/verify_fs_dev_workers.py` | Readiness check (Docker, image, scratch) |
+| `scripts/exercise_container_dispatch.py` | End-to-end pilot (`--db` for native loopback API) |
 
-Build on the host when ready:
+Build on the host when skipping `install.sh` image step:
 
 ```bash
 docker build -f deploy/fs-dev/Dockerfile.worker -t fs-corporation-worker:local .
 docker compose -f deploy/fs-dev/docker-compose.workers.yml build
 ```
 
-`ContainerWorkerRuntime` pumps a scratch-directory gateway (`gw-request.json` / `gw-response.json`) so the image can complete mock work without a control-plane database. Live model/GitHub adapters inside that gateway remain fail-closed until the owner supplies credentials. See [23-isolated-workers.md](23-isolated-workers.md).
+`ContainerWorkerRuntime` pumps a scratch-directory gateway (`gw-request.json` / `gw-response.json`) so the image can complete mock work without a control-plane database. Live model/GitHub adapters inside that gateway remain fail-closed until the owner supplies credentials in `/etc/fs-corporation/secrets.env`. See [23-isolated-workers.md](23-isolated-workers.md).
+
+The reserved NIC **`192.168.4.101`** is for a future dedicated worker host or internal traffic; same-host dispatch on `.100` does not require binding Docker to that address.
 
 ## Upgrades
 

@@ -30,14 +30,15 @@ ensure_user() {
 }
 
 ensure_packages() {
-  log "Installing OS packages (python3.12, venv, build deps, node)"
+  log "Installing OS packages (python3.12, venv, build deps, node, docker)"
   apt-get update -qq
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3.12 python3.12-venv python3-pip \
     git curl ca-certificates rsync openssl \
     nodejs npm \
     caddy \
-    ufw
+    ufw \
+    docker.io
 }
 
 sync_install_tree() {
@@ -74,9 +75,10 @@ run_migrations() {
 
 ensure_dirs() {
   log "Data and config directories"
-  mkdir -p "${DATA_DIR}" "${CONFIG_DIR}" "$(dirname "${COMPANION_DIST}")"
+  mkdir -p "${DATA_DIR}" "${CONFIG_DIR}" "$(dirname "${COMPANION_DIST}")" "${DATA_DIR}/worker-scratch"
   chown "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}"
   chmod 750 "${DATA_DIR}"
+  chmod 750 "${DATA_DIR}/worker-scratch"
   chmod 750 "${CONFIG_DIR}"
   if [[ ! -f "${TOKEN_FILE}" ]]; then
     log "Creating owner token file ${TOKEN_FILE} (store securely; rotate if leaked)"
@@ -113,6 +115,29 @@ install_env_example() {
   fi
 }
 
+ensure_docker_access() {
+  log "Docker group access for ${SERVICE_USER}"
+  groupadd -f docker
+  usermod -aG docker "${SERVICE_USER}"
+  systemctl enable --now docker
+}
+
+build_worker_image() {
+  if [[ "${FS_CORP_SKIP_WORKER_BUILD:-0}" == "1" ]]; then
+    log "Skipping worker image build (FS_CORP_SKIP_WORKER_BUILD=1)"
+    return
+  fi
+  log "Building container worker image fs-corporation-worker:local"
+  docker build -f "${INSTALL_DIR}/deploy/fs-dev/Dockerfile.worker" \
+    -t fs-corporation-worker:local "${INSTALL_DIR}"
+}
+
+bootstrap_company() {
+  log "Bootstrap default policy grants and project app (idempotent)"
+  sudo -u "${SERVICE_USER}" FS_CORP_DB="${DB_PATH}" \
+    "${INSTALL_DIR}/.venv/bin/python" "${INSTALL_DIR}/scripts/bootstrap_dev_company.py"
+}
+
 install_systemd() {
   log "Installing systemd unit"
   install -o root -g root -m 644 \
@@ -137,6 +162,15 @@ UFW (review deploy/fs-dev/ufw.rules.example before enabling).
 Owner token: ${TOKEN_FILE}
 Companion URL: https://\${FS_CORP_LAN_IP:-192.168.4.100}/
 
+Container workers:
+  sudo -u fs-corp ${INSTALL_DIR}/.venv/bin/python ${INSTALL_DIR}/scripts/verify_fs_dev_workers.py
+  sudo -u fs-corp FS_CORP_DB=${DB_PATH} ${INSTALL_DIR}/.venv/bin/python \
+    ${INSTALL_DIR}/scripts/exercise_container_dispatch.py \
+    --base http://127.0.0.1:8000 \
+    --token-file ${TOKEN_FILE} \
+    --db ${DB_PATH} \
+    --task-id container-pilot-\$(date +%s)
+
 EOF
 }
 
@@ -150,6 +184,9 @@ main() {
   run_migrations
   build_companion
   install_env_example
+  ensure_docker_access
+  build_worker_image
+  bootstrap_company
   install_systemd
   print_caddy_instructions
   log "fs-dev install complete"
