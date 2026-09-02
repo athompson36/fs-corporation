@@ -75,6 +75,15 @@ run python3 scripts/exercise_container_dispatch.py \
   --task-id "container-pilot-$(date +%s)"
 rm -f "$TOKEN_FILE"
 
+step "HTTPS same-origin edge (optional)"
+if [[ -f companion/dist/index.html ]]; then
+  docker compose --profile https up -d caddy 2>/dev/null || true
+  sleep 1
+  run curl -k -sf -o /dev/null https://localhost:8443/api/v1/health
+else
+  echo "SKIP: companion/dist missing (run: cd companion && npm run build)"
+fi
+
 step "Unit tests"
 if [[ -x "$ROOT/.venv/bin/python" ]]; then
   run "$ROOT/.venv/bin/python" -m unittest discover -s tests -q
