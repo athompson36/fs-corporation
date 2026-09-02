@@ -1067,7 +1067,18 @@ def create_app(company: Company) -> FastAPI:
 def bootstrap_owner(company: Company, token_path: Path, principal_id="human-ceo"):
     token_path.parent.mkdir(parents=True, exist_ok=True)
     if token_path.is_file():
-        return token_path.read_text().strip()
+        # A provisioning step may have written the token file before the service
+        # ever ran, so the file existing does not imply a registered identity.
+        token = token_path.read_text().strip()
+        if token and not company.identity_for_token(token):
+            if company.db.execute("SELECT 1 FROM identities WHERE principal_id=?",
+                                  (principal_id,)).fetchone():
+                raise RuntimeError(
+                    f"Owner identity {principal_id!r} is registered with a different token than "
+                    f"{token_path}. Refusing to start with an owner token nobody can use. "
+                    "Restore the matching token file or re-provision the database.")
+            company.register_identity(principal_id, "owner", token, ["*"])
+        return token
     import secrets
     token = secrets.token_urlsafe(32)
     if not company.identity_for_token(token) and not company.db.execute("SELECT 1 FROM identities WHERE principal_id=?", (principal_id,)).fetchone():
