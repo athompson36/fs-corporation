@@ -1,38 +1,42 @@
 # Current handoff
 
-Date: 2026-09-01. Version: 0.3.14. State: QR pairing with scoped access levels (read only / user / admin), Tailscale handoff on redeem, companion auto-redeem and scope-gated UI, cosmic-glass desk/companion, room detail, isometric HQ, sourced SLO catalog, fail-closed Web Push, GitHub/feed/container lifecycles, fs-dev runbook. Live adapters remain disabled.
+Date: 2026-09-02. Version: 0.3.15. State: Live GitHub pilot, OpenAI + Anthropic model adapters, RSS/Atom feed poll + HTTP API, Docker dev stack with hot-mounted `company/` + `scripts/`, owner live-config checklist, QR pairing.
 
 ## Delivered
 
 - Origin: `https://github.com/athompson36/fs-corporation.git`.
-- Alembic through `0011_pairing_access_level`.
-- QR pairing (ADR-018): CEO desk level picker, one-time tickets, companion `#fs-pair` auto-redeem, scoped service principals (never root owner token), paired-device list and revoke.
-- Optional `FS_CORP_PUBLIC_URL`, `FS_CORP_TAILSCALE_AUTHKEY` (redeem only), `FS_CORP_ALLOW_CORS` for dev preview.
-- Prior: cosmic-glass UI, room detail, isometric HQ, SLO catalog, Web Push, GitHub apply, feed poll, container file gateway, companion PWA, fs-dev.
+- **Live GitHub:** App configured; project `app` on repo `1354087890`; pilot PR #1.
+- **Live models:** `MODEL_PROVIDER_API_KEY` (OpenAI-compatible) and `ANTHROPIC_API_KEY` (Claude `/v1/messages`); `GET /api/v1/model/status`.
+- **Live feeds:** `approve_feed_source` / `poll_market_feed`; `GET/POST /api/v1/feeds`, `POST /api/v1/feeds/{id}/poll`.
+- Docker: `docker compose up -d --force-recreate`; `PYTHONPATH=/src`; port **8013**.
+- Prior: pairing, checklist, cosmic-glass UI, fs-dev runbook.
 
 ## Verification
-
-Run in `.venv` after `pip install -e .`:
 
 ```bash
 python3 -m unittest discover -s tests -v
 python3 scripts/check_bundle.py
-cd companion && npm run build
+docker compose exec api python scripts/verify_github_app.py
+docker compose exec api python scripts/verify_model_provider.py
 ```
-
-Pairing tests cover level scopes, deny approve/pause for read_only/user, and auth key only on redeem.
 
 ## Limitations
 
-Furnished room interiors are deferred. SLOs have no production samples. Live GitHub/model/feed/VAPID and container dispatch on `192.168.4.101` still need owner credentials. PWA cannot join Tailscale kernel VPN.
+Furnished room interiors deferred. VAPID/Web Push live send unconfigured. Container dispatch on worker NIC `192.168.4.101` not exercised on owner hardware yet.
 
 ## Next task
 
-Owner-supplied live configuration on fs-dev: GitHub App + repo IDs, model credential, approved feed, optional VAPID. Build and exercise `fs-corporation-worker:local` on `192.168.4.101`.
+1. **Owner:** run market feed pilot (`POST /api/v1/feeds` + poll GitHub releases atom); rotate API keys if exposed during setup.
+2. **Engineering:** exercise `docker compose --profile workers build` and container task dispatch; wire Web Push when VAPID keys supplied.
+3. Commit/push v0.3.15 bundle when ready.
 
 ## Commands
 
 ```bash
-python3 -m company.service --host 127.0.0.1 --port 8000
-python3 -m unittest discover -s tests -v
+docker compose up -d --force-recreate
+TOKEN=$(docker compose exec -T api cat /data/owner.token)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8013/api/v1/github/status
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8013/api/v1/model/status
 ```
+
+See [../deploy/dev/README.md](../deploy/dev/README.md).

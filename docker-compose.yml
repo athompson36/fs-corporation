@@ -1,0 +1,51 @@
+# Local development — control API in Docker
+#
+#   docker compose up --build
+#   curl http://localhost:8013/api/v1/health
+#   docker compose exec api cat /data/owner.token
+#
+# Build worker image (optional):
+#   docker compose --profile workers build
+#
+# Companion on the host (optional):
+#   cd companion && VITE_API_BASE=http://localhost:8013 npm run dev
+#
+# Not for production. fs-dev uses native systemd + Caddy (deploy/fs-dev/).
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: deploy/dev/Dockerfile.api
+    image: fs-corporation-api:dev
+    ports:
+      - "8013:8000"
+# Optional: load secrets from a local file (gitignored). Example:
+#   cp deploy/fs-dev/secrets.example.env .env
+#   # edit .env with GITHUB_APP_ID, GITHUB_INSTALLATION_ID, GITHUB_PRIVATE_KEY_FILE
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - fs-corp-data:/data
+      - ./secrets/github-app.pem:/run/secrets/github-app.pem:ro
+      - ./scripts:/src/scripts:ro
+      - ./company:/src/company:ro
+    environment:
+      PYTHONPATH: /src
+      FS_CORP_DATA_DIR: /data
+      FS_CORP_DB: /data/company.db
+      FS_CORP_ALLOW_CORS: "1"
+      FS_CORP_PUBLIC_URL: http://localhost:8013
+    restart: unless-stopped
+
+  worker:
+    profiles: ["workers"]
+    build:
+      context: .
+      dockerfile: deploy/fs-dev/Dockerfile.worker
+    image: fs-corporation-worker:local
+    network_mode: none
+
+volumes:
+  fs-corp-data:

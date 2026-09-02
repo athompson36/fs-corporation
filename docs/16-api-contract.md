@@ -49,6 +49,12 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | GET /events | Cursor-paginated audit/activity | audit.read |
 | GET /headquarters | Event-projected rooms and departments | company.read |
 | GET /headquarters/rooms/{id} | Persisted tasks, staff, deliverables, costs and decisions for one expansion room | company.read |
+| POST /projects/{id}/github-enrollment | Enroll upstream/fork repo IDs and branch policy | project.enroll (CEO) |
+| GET /github/status | GitHub App connectivity (no secrets returned) | company.read |
+| GET /model/status | Model provider connectivity (no secrets returned) | company.read |
+| GET /feeds | List CEO-approved market feed sources | company.read |
+| POST /feeds | Approve an HTTPS feed URL (`payload.id`, `payload.url`) | project.enroll (CEO) |
+| POST /feeds/{id}/poll | Poll an approved feed and ingest signals | company.pause (CEO) |
 | GET /remote-access | VPN/pairing status and `pairing_levels` catalog | company.read |
 | POST /remote-access/pairing | Issue one-time pairing QR (`payload.access_level`: `read_only`, `user`, `admin`) | company.pause (owner only) |
 | POST /remote-access/redeem | Redeem ticket for scoped companion token (no auth) | — |

@@ -666,10 +666,18 @@ class Company:
         if profile_id not in profiles:raise LookupError("Unknown profile")
         profile=profiles[profile_id]
         if not profile.get("enabled"):raise PermissionError("Profile is disabled")
-        if profile.get("provider")!="mock":
-            raise NotImplementedError("Live model requires configured credentials inside the worker boundary; see docs/12-security.md")
         if not isinstance(prompt,str):raise ValueError("Prompt required")
-        return {"text":"mock-provider-output","profile_id":profile_id,"cost_cents":0,"provider":"mock"}
+        provider=profile.get("provider")
+        if provider=="mock":
+            return {"text":"mock-provider-output","profile_id":profile_id,"cost_cents":0,"provider":"mock"}
+        from .model_provider import LIVE_PROVIDERS, complete, _credential_env
+        if provider in LIVE_PROVIDERS:
+            env_name = _credential_env(profile)
+            if not (os.environ.get(env_name) or "").strip():
+                raise NotImplementedError(
+                    f"Live model requires {env_name} inside the worker boundary; see docs/06-model-routing.md")
+            return complete(profile_id, profile, prompt)
+        raise NotImplementedError("Live model requires configured credentials inside the worker boundary; see docs/12-security.md")
 
     def seed_catalog(self,departments_path):
         data=json.loads(Path(departments_path).read_text())
@@ -778,13 +786,27 @@ class Company:
              "head_sha":head_sha,"expected_sha":expected_sha,"path":path,
              "worktree":self.worktree_path(project_id,task_id)})
         try:
-            GitHubAdapter().execute(order)
+            result = GitHubAdapter().execute(order)
         except NotImplementedError:
             with self.tx():
                 self.db.execute("UPDATE github_effects SET status=? WHERE id=?",("live_unavailable",row["id"]))
                 self._event("github.effect_live_unavailable",{"id":row["id"],"operation":operation},project_id=project_id)
             return dict(self.db.execute("SELECT * FROM github_effects WHERE id=?",(row["id"],)).fetchone())
-        raise RuntimeError("Live GitHub adapter returned without applying an effect")
+        except Exception as exc:
+            with self.tx():
+                self.db.execute("UPDATE github_effects SET status=? WHERE id=?",("failed",row["id"]))
+                self._event("github.effect_failed",{"id":row["id"],"operation":operation,"error":str(exc)},
+                            project_id=project_id)
+            raise
+        remote_id = result.get("remote_id")
+        with self.tx():
+            self.db.execute(
+                "UPDATE github_effects SET status=?, remote_id=? WHERE id=?",
+                (result.get("status", "applied"), remote_id, row["id"]))
+            self._event("github.effect_applied",
+                          {"id": row["id"], "operation": operation, "remote_id": remote_id,
+                           "html_url": result.get("html_url")}, project_id=project_id)
+        return dict(self.db.execute("SELECT * FROM github_effects WHERE id=?",(row["id"],)).fetchone())
 
     def create_impact_brief(self,signal_id,project_id,affected_summary,recommended_action,cost_cents,authority):
         money(cost_cents)
@@ -827,8 +849,13 @@ class Company:
             self._event("feed.source_approved",{"id":source_id,"url":url},actor_id=actor)
         return dict(self.db.execute("SELECT * FROM feed_sources WHERE id=?",(source_id,)).fetchone())
 
-    def poll_market_feed(self,source_id):
-        """Record a poll attempt for an approved source. Live fetch stays fail-closed."""
+    def list_feed_sources(self):
+        return [dict(r) for r in self.db.execute("SELECT * FROM feed_sources ORDER BY id")]
+
+    def poll_market_feed(self,source_id,*,actor=None):
+        if actor is not None:
+            self._ceo(actor)
+        """Record a poll attempt for an approved source. Live fetch when adapter succeeds."""
         src=self.db.execute("SELECT * FROM feed_sources WHERE id=? AND status='approved'",(source_id,)).fetchone()
         if not src:
             raise PermissionError("Feed source is not approved")
@@ -842,17 +869,34 @@ class Company:
                                 (pid,source_id,"recorded",now().isoformat()))
                 self._event("feed.poll_recorded",{"id":pid,"source_id":source_id})
                 row=dict(self.db.execute("SELECT * FROM feed_polls WHERE id=?",(pid,)).fetchone())
-        if row["status"]=="live_unavailable":
+        if row["status"] in {"live_unavailable","applied"}:
             return row
         from .adapters import MarketFeedAdapter
         try:
-            MarketFeedAdapter().poll(source_id)
+            items=MarketFeedAdapter().poll(source_id, src["url"])
         except NotImplementedError:
             with self.tx():
                 self.db.execute("UPDATE feed_polls SET status=? WHERE id=?",("live_unavailable",pid))
                 self._event("feed.poll_live_unavailable",{"id":pid,"source_id":source_id})
             return dict(self.db.execute("SELECT * FROM feed_polls WHERE id=?",(pid,)).fetchone())
-        raise RuntimeError("Live feed adapter returned without poll results")
+        except Exception as exc:
+            with self.tx():
+                self.db.execute("UPDATE feed_polls SET status=? WHERE id=?",("failed",pid))
+                self._event("feed.poll_failed",{"id":pid,"source_id":source_id,"error":str(exc)})
+            raise
+        ingested=0
+        for item in items:
+            try:
+                self.ingest_signal(**item)
+                ingested+=1
+            except ValueError:
+                continue
+        with self.tx():
+            self.db.execute("UPDATE feed_polls SET status=? WHERE id=?",("applied",pid))
+            self._event("feed.poll_applied",{"id":pid,"source_id":source_id,"ingested":ingested})
+        out=dict(self.db.execute("SELECT * FROM feed_polls WHERE id=?",(pid,)).fetchone())
+        out["ingested"]=ingested
+        return out
 
     def cost_expansion(self,actor,eid,estimate_cents):
         self._ceo(actor)

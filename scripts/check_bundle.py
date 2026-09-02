@@ -7,7 +7,7 @@ _skip=(".venv","upstream",".local","node_modules")
 for p in root.rglob("*.json"):
     if not any(x in p.parts for x in _skip):
         json.loads(p.read_text())
-for name in ("README.md","START_HERE.md","AGENTS.md","docs/00-project-context.md","docs/14-roadmap.md","fs-corporation.code-workspace"):
+for name in ("README.md","START_HERE.md","AGENTS.md","docs/00-project-context.md","docs/14-roadmap.md","docs/26-owner-live-configuration.md","fs-corporation.code-workspace"):
     assert (root/name).is_file(),name
 for p in root.rglob("*.md"):
     if any(x in p.parts for x in _skip):

@@ -46,11 +46,91 @@ class MockChatDevAdapter:
 
 class GitHubAdapter:
     def execute(self, order: WorkOrder) -> dict:
-        raise NotImplementedError("Live repository actions require GitHub App installation and validated action permissions; see docs/08-github-cursor.md")
+        from . import github_app
+        if not github_app.github_configured():
+            raise NotImplementedError(
+                "Live repository actions require GitHub App installation and validated action permissions; "
+                "see docs/08-github-cursor.md")
+        operation = order.payload.get("operation")
+        repo_id = str(order.payload.get("repo_id") or "")
+        branch = order.payload.get("branch") or ""
+        if not operation or not repo_id or not branch:
+            raise ValueError("GitHub WorkOrder requires operation, repo_id and branch")
+        if operation == "open_pr":
+            return self._open_pr(order, repo_id, branch)
+        if operation in {"push", "prepare_pr"}:
+            return self._push(order, repo_id, branch)
+        raise ValueError(f"Unsupported GitHub operation: {operation}")
+
+    def _repo(self, repo_id: str) -> dict:
+        from . import github_app
+        return github_app.repo_by_id(repo_id)
+
+    def _worktree_bytes(self, order: WorkOrder) -> tuple[str, bytes]:
+        from pathlib import Path
+        worktree = Path(order.payload.get("worktree") or "")
+        if worktree.is_dir():
+            files = sorted(p for p in worktree.rglob("*") if p.is_file())
+            if files:
+                primary = files[0]
+                rel = primary.relative_to(worktree).as_posix()
+                return rel, primary.read_bytes()
+        text = f"FS-Corporation pilot task {order.task_id} (project {order.project_id})"
+        return f"company/{order.project_id}/{order.task_id}.txt", text.encode()
+
+    def _open_pr(self, order: WorkOrder, repo_id: str, branch: str) -> dict:
+        from . import github_app
+        repo = self._repo(repo_id)
+        owner = repo["owner"]["login"]
+        name = repo["name"]
+        default = repo.get("default_branch") or "main"
+        base_ref = github_app.github_request("GET", f"/repos/{owner}/{name}/git/ref/heads/{default}")
+        base_sha = base_ref["object"]["sha"]
+        github_app.ensure_branch(owner, name, branch, base_sha)
+        rel_path, content = self._worktree_bytes(order)
+        github_app.upsert_file(
+            owner, name, branch, rel_path, content,
+            f"FS-Corporation: {order.project_id}/{order.task_id}")
+        pr = github_app.open_pull_request(
+            owner, name,
+            title=f"[fs-corp] {order.project_id}/{order.task_id}",
+            head=branch,
+            base=default,
+            body="Automated pilot pull request from FS-Corporation.",
+        )
+        return {
+            "status": "applied",
+            "remote_id": str(pr.get("number") or pr.get("id")),
+            "html_url": pr.get("html_url"),
+            "operation": "open_pr",
+        }
+
+    def _push(self, order: WorkOrder, repo_id: str, branch: str) -> dict:
+        from . import github_app
+        repo = self._repo(repo_id)
+        owner = repo["owner"]["login"]
+        name = repo["name"]
+        default = repo.get("default_branch") or "main"
+        base_ref = github_app.github_request("GET", f"/repos/{owner}/{name}/git/ref/heads/{default}")
+        github_app.ensure_branch(owner, name, branch, base_ref["object"]["sha"])
+        rel_path, content = self._worktree_bytes(order)
+        result = github_app.upsert_file(
+            owner, name, branch, rel_path, content,
+            f"FS-Corporation push: {order.project_id}/{order.task_id}")
+        return {
+            "status": "applied",
+            "remote_id": result.get("commit", {}).get("sha"),
+            "operation": order.payload.get("operation"),
+        }
 
 class MarketFeedAdapter:
-    def poll(self, source_id: str) -> list[dict]:
-        raise NotImplementedError("No live polling configured; see docs/09-market-intelligence.md")
+    def poll(self, source_id: str, url: str) -> list[dict]:
+        from datetime import datetime, timezone
+        from .feed_fetch import fetch_feed
+        if not url or not url.startswith("https://"):
+            raise ValueError("Approved feed source needs an HTTPS URL")
+        observed = datetime.now(timezone.utc).isoformat()
+        return fetch_feed(url, observed_at=observed)
 
 class LearningAdapter:
     def fetch(self, url: str) -> dict:

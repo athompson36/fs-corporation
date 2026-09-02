@@ -1,6 +1,8 @@
 .env
 .env.*
 !.env.example
+config/owner-live.checklist.json
+secrets/
 .venv/
 .local/
 __pycache__/

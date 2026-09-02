@@ -26,11 +26,23 @@ python -m unittest discover -s tests -v
 
 Expected first demo result: `mode` is `offline_mock`, policy version 2, one task, one completion, one synthetic signal, simulated spend of 150 cents, two rooms, and a valid audit chain. This does not represent real spending or a real delivered application.
 
+### Docker (optional)
+
+Run the control API without a host venv:
+
+```bash
+docker compose up --build
+curl http://localhost:8013/api/v1/health
+docker compose exec api cat /data/owner.token
+```
+
+See [deploy/dev/README.md](deploy/dev/README.md).
+
 ## 3. Start the Cursor implementation session
 
 Read [AGENTS.md](AGENTS.md), then paste [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent. Cursor rules are included in `.cursor/rules/`. If your Cursor version does not automatically load them, explicitly attach AGENTS.md and the kickoff file.
 
-The next concrete work is **owner-supplied live configuration** for a contained GitHub/model slice, plus isolated workers. Do not skip authentication, scope enforcement and isolated execution to connect a live model quickly. Local M1 loopback service: `pip install -e .` then `python3 -m company.service --host 127.0.0.1 --port 8000`.
+The next concrete work is **owner-supplied live configuration** — track items in [docs/26-owner-live-configuration.md](docs/26-owner-live-configuration.md) and run `python3 scripts/check_owner_config.py`. For local API development without a host venv, use `docker compose up --build` ([deploy/dev/README.md](deploy/dev/README.md)).
 
 ## 4. Configure only what is needed
 

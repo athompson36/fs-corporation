@@ -2,7 +2,7 @@
 
 A persistent AI corporation inspired by ChatDev: CEO governance, delegated department heads, mixed-model teams, controlled project forks, market intelligence, and a headquarters that grows with accepted work.
 
-**Deliverable status: v0.3.13 cosmic-glass desk/companion + room detail + isometric HQ + sourced SLO catalog + fail-closed Web Push + feed/GitHub/container lifecycles + fs-dev deployment.** This is not a finished autonomous company. Live ChatDev, GitHub, market feeds, billed models, push delivery, and documentation fetch are not connected.
+**Deliverable status: v0.3.15 live GitHub pilot + model/feed adapters + Docker dev + owner live-config checklist.** ChatDev, billed model usage in production workers, Web Push delivery, and container dispatch on the worker NIC still need owner credentials or follow-up wiring.
 
 Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-corporation.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
 
@@ -32,20 +32,20 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 | Action-bound, expiring approvals | Implemented for mock actions |
 | Integer budgets, reservations, period caps | Implemented for simulated spend |
 | Project acceptance and approved room growth | Implemented using synthetic artifact hashes |
-| Model profile selection with capability/data filtering | Implemented selector; mock invoke only |
-| Signal ingestion and impact briefs | Implemented with supplied metadata; no source retrieval |
+| Model profile selection with capability/data filtering | Implemented selector; mock invoke; OpenAI-compatible live invoke when `MODEL_PROVIDER_API_KEY` set |
+| Signal ingestion and impact briefs | Implemented; live RSS/Atom poll ingests signals from CEO-approved HTTPS feeds |
 | Hardware firmware skill gaps and learning | Implemented locally; live documentation fetch disabled |
 | Quality Control inspection before acceptance | Implemented locally; producer and CEO cannot inspect |
 | Human Resources development and training | Implemented locally; catalog id `people` |
 | Employee hire, training files, goals and trends | Implemented locally; overdue training blocks hired dispatch |
 | Master Consultant | Heuristic scan, durable CEO decisions, revision/work-order handoff |
-| ChatDev, GitHub and market integration interfaces | Live adapters disabled; GitHub `apply_github_effect` and feed `poll_market_feed` record `live_unavailable`; denial tests exist |
+| ChatDev, GitHub and market integration interfaces | GitHub live when App configured; feed poll live for approved RSS/Atom URLs; ChatDev and doc fetch still disabled |
 | 14 departments and role prompts | Configuration plus optional catalog seed |
 | CEO desk and headquarters projection | Cosmic-glass HTML/SVG desk; 2D + isometric tiles; room selection opens persisted work; companion shares the same tokens |
 | Isolated subprocess workers with gateway allowlist | Implemented locally; container runtime uses a scratch-directory gateway |
 | fs-dev production hosting | systemd + Caddy edge (`deploy/fs-dev/`); worker Docker scaffold only |
 | Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented; Web Push subscriptions recorded, live send fail-closed |
-| Live providers inside worker boundary | Not implemented; mock invoke only |
+| Live providers inside worker boundary | Model invoke when key set; GitHub when App installed; feed fetch for approved URLs; ChatDev/doc fetch not connected |
 
 ## Documentation map
 
@@ -75,5 +75,7 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 - [Isolated workers and gateway](docs/23-isolated-workers.md)
 - [Mobile CEO companion](docs/24-mobile-companion.md)
 - [fs-dev deployment](docs/25-fs-dev-deployment.md)
+- [Owner live-configuration checklist](docs/26-owner-live-configuration.md)
+- [Local Docker development](deploy/dev/README.md)
 
 This bundle contains original starter code, not a vendored ChatDev checkout. The upstream integration baseline is pinned in [upstream.lock.json](config/upstream.lock.json). Licensing and attribution details are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -276,4 +276,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model, an approved feed URL, optional VAPID keys, and sourced SLO samples from production load. Build `fs-corporation-worker:local` and exercise **container dispatch** on reserved host **`192.168.4.101`**. Furnished HQ room art remains deferred.
+GitHub pilot is live. **Feed HTTP API** and **model verification** are wired. Next: **container dispatch** with `docker compose --profile workers build` on worker NIC `192.168.4.101`, then Web Push when VAPID keys exist. Commit/push v0.3.15 when ready.

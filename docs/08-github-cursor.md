@@ -42,4 +42,4 @@ Cursor opens the same repositories and branches for human review and editing. An
 
 Use a disposable repository with no production secrets. Have the company create a small file change, run checks and open a PR. Demonstrate denial of a protected-branch push, unauthorized repository access, stale-head approval, workflow-file change without scope and cross-project secret access. Test retry after a simulated ambiguous network response.
 
-Live GitHub is not connected by this package. `apply_github_effect` persists `live_unavailable`; the adapter still raises NotImplementedError.
+Live GitHub connects when `GITHUB_APP_ID`, `GITHUB_INSTALLATION_ID`, and `GITHUB_PRIVATE_KEY_FILE` are set. `apply_github_effect` persists `applied` with a PR number when the App is configured; otherwise `live_unavailable`. Verify with `scripts/verify_github_app.py` and `GET /api/v1/github/status`.

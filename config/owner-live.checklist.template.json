@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "updated_at": null,
+  "notes": "Copy to config/owner-live.checklist.json (gitignored). Store secrets in a password manager; reference paths/IDs here only.",
+  "tier_a_host_network": {
+    "fs_dev_host": null,
+    "lan_ip": "192.168.4.100",
+    "worker_nic_ip": "192.168.4.101",
+    "fs_corp_public_url": null,
+    "tls_approach": "caddy_internal",
+    "tailscale_ip": null,
+    "tailscale_auth_key_configured": false,
+    "backup_location": null,
+    "status": "pending"
+  },
+  "tier_b_github_pilot": {
+    "github_app_id": null,
+    "github_installation_id": null,
+    "github_private_key_path": null,
+    "github_webhook_secret_configured": false,
+    "pilot_repo_owner": null,
+    "pilot_repo_name": null,
+    "pilot_fork_repo_id": null,
+    "pilot_upstream_repo_id": null,
+    "protected_branches": ["main"],
+    "branch_prefix": "company/",
+    "permitted_actions": ["push", "open_pr"],
+    "status": "pending"
+  },
+  "tier_b_model_v1": {
+    "provider": null,
+    "model_id": null,
+    "credential_env": "MODEL_PROVIDER_API_KEY",
+    "models_config_path": "config/models.json",
+    "company_budget_cents": null,
+    "status": "pending"
+  },
+  "tier_b_feed_v1": {
+    "feed_url": null,
+    "feed_api_key_configured": false,
+    "poll_cadence": null,
+    "status": "pending"
+  },
+  "tier_b_worker": {
+    "docker_host": "192.168.4.101",
+    "image_tag": "fs-corporation-worker:local",
+    "image_built": false,
+    "container_dispatch_tested": false,
+    "status": "pending"
+  },
+  "tier_c_optional": {
+    "vapid_configured": false,
+    "image_provider_configured": false,
+    "chatdev_checkout": "./upstream/ChatDev",
+    "chatdev_pin": "4fb2db0ea90375ce1059f44fe03ffbd191a7a169"
+  },
+  "tier_d_policy": {
+    "pilot_project_id": null,
+    "pilot_brief": null,
+    "active_departments": ["executive", "engineering", "quality", "art", "marketing", "finance", "facilities", "people"],
+    "off_lan_access": "lan_only"
+  }
+}

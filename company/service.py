@@ -883,6 +883,58 @@ def create_app(company: Company) -> FastAPI:
                 ident["principal_id"], slo_id, payload["value"], payload["source"],
                 payload["window_start"], payload["window_end"]), 200))
 
+    @app.post("/api/v1/projects/{project_id}/github-enrollment")
+    def github_enroll(project_id: str, body: Command, authorization: str | None = Header(default=None),
+                      idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "project.enroll")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"project_id": project_id}, lambda: (
+            company.enroll_github(
+                ident["principal_id"], project_id,
+                str(payload["upstream_repo_id"]), str(payload["fork_repo_id"]),
+                payload.get("protected_branches") or ["main"],
+                payload["branch_prefix"], payload.get("permitted_actions") or ["open_pr"]),
+            200))
+
+    @app.get("/api/v1/github/status")
+    def github_status(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        from company.github_app import status_summary
+        return status_summary()
+
+    @app.get("/api/v1/model/status")
+    def model_status(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        from company.model_provider import status_summary
+        return status_summary()
+
+    @app.get("/api/v1/feeds")
+    def list_feeds(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"feeds": company.list_feed_sources()}
+
+    @app.post("/api/v1/feeds")
+    def approve_feed(body: Command, authorization: str | None = Header(default=None),
+                     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "project.enroll")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.approve_feed_source(ident["principal_id"], payload["id"], payload["url"]), 200))
+
+    @app.post("/api/v1/feeds/{source_id}/poll")
+    def poll_feed(source_id: str, body: Command, authorization: str | None = Header(default=None),
+                  idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"source_id": source_id}, lambda: (
+            company.poll_market_feed(source_id, actor=ident["principal_id"]), 200))
+
     @app.get("/api/v1/remote-access")
     def remote_access(authorization: str | None = Header(default=None)):
         ident = principal(authorization)

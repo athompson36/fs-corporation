@@ -29,6 +29,20 @@
       ],
       "credential_ref": "MODEL_PROVIDER_API_KEY"
     },
+    "claude-reasoning": {
+      "provider": "anthropic",
+      "model": "configure-exact-claude-model-id",
+      "enabled": false,
+      "capabilities": [
+        "text",
+        "code_review"
+      ],
+      "allowed_data": [
+        "public",
+        "internal"
+      ],
+      "credential_ref": "ANTHROPIC_API_KEY"
+    },
     "local-text": {
       "provider": "configure-local-adapter",
       "model": "configure-exact-model-id",
@@ -102,6 +116,7 @@
   },
   "positions": {
     "engineering-reviewer": [
+      "claude-reasoning",
       "reasoning-cloud",
       "mock-text"
     ],
@@ -109,6 +124,7 @@
       "image-tool"
     ],
     "master-consultant": [
+      "claude-reasoning",
       "reasoning-cloud",
       "mock-text"
     ]

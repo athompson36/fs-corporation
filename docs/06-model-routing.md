@@ -21,7 +21,7 @@ Multiple models do not guarantee independence or truth. Assess disagreement agai
 
 `config/models.example.json` uses disabled placeholder profiles instead of guessed current model names. Set exact provider-supported IDs during onboarding. Capabilities in config are claims that must be tested during registration. Chat/text, image generation, audio, video, tool calls and structured outputs require different adapters and validation.
 
-The offline profile is deterministic and free. `choose_model` selects metadata only; it does not perform inference. Ensemble scheduling, rate limits, retries, price refresh, provider health and billing reconciliation are planned.
+The offline profile is deterministic and free. `choose_model` selects metadata only; it does not perform inference. `invoke_model` calls the mock provider locally, or an OpenAI-compatible `/chat/completions` endpoint when `MODEL_PROVIDER_API_KEY` is set inside the worker/gateway boundary.
 
 ## Evaluation before promotion
 
