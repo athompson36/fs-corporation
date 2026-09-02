@@ -10,6 +10,12 @@ From the repository root:
 docker compose up --build -d
 ```
 
+**macOS:** use this directory only (`/Users/.../fs-corporation`). Do **not** `git clone` again inside the repo, and do **not** run `deploy/fs-dev/install.sh` (Debian servers only). If something breaks, run:
+
+```bash
+./scripts/dev-doctor.sh
+```
+
 After changing `.env` or Python code, recreate the API container:
 
 ```bash
