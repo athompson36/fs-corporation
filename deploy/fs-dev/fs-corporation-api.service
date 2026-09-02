@@ -8,14 +8,14 @@ User=fs-corp
 Group=fs-corp
 EnvironmentFile=-/etc/fs-corporation/env
 EnvironmentFile=-/etc/fs-corporation/secrets.env
-WorkingDirectory=/opt/fs-corporation
-ExecStart=/opt/fs-corporation/.venv/bin/python -m company.service --host 127.0.0.1 --port 8000 --db /var/lib/fs-corporation/company.db --token-file /etc/fs-corporation/owner.token --data-dir /var/lib/fs-corporation
+WorkingDirectory=__INSTALL_DIR__
+ExecStart=__INSTALL_DIR__/.venv/bin/python -m company.service --host 127.0.0.1 --port 8000 --db __DB_PATH__ --token-file __TOKEN_FILE__ --data-dir __DATA_DIR__
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/fs-corporation
+ReadWritePaths=__DATA_DIR__
 PrivateTmp=true
 SupplementaryGroups=docker
 

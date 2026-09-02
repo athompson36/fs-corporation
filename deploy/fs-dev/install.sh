@@ -155,13 +155,39 @@ bootstrap_company() {
 }
 
 install_systemd() {
-  log "Installing systemd unit"
-  install -o root -g root -m 644 \
-    "${INSTALL_DIR}/deploy/fs-dev/fs-corporation-api.service" \
-    /etc/systemd/system/fs-corporation-api.service
+  log "Installing systemd unit (paths: install=${INSTALL_DIR} data=${DATA_DIR})"
+  local unit=/etc/systemd/system/fs-corporation-api.service
+  sed \
+    -e "s|__INSTALL_DIR__|${INSTALL_DIR}|g" \
+    -e "s|__DATA_DIR__|${DATA_DIR}|g" \
+    -e "s|__DB_PATH__|${DB_PATH}|g" \
+    -e "s|__TOKEN_FILE__|${TOKEN_FILE}|g" \
+    "${INSTALL_DIR}/deploy/fs-dev/fs-corporation-api.service" > "${unit}.tmp"
+  install -o root -g root -m 644 "${unit}.tmp" "${unit}"
+  rm -f "${unit}.tmp"
   systemctl daemon-reload
   systemctl enable fs-corporation-api.service
   systemctl restart fs-corporation-api.service
+}
+
+install_caddy_site() {
+  if [[ "${FS_CORP_SKIP_CADDY:-0}" == "1" ]]; then
+    log "Skipping Caddy install (FS_CORP_SKIP_CADDY=1)"
+    return
+  fi
+  if ! command -v caddy >/dev/null 2>&1; then
+    log "Installing caddy package"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y caddy
+  fi
+  log "Installing Caddyfile (companion root ${COMPANION_DIST})"
+  local caddy_src="${INSTALL_DIR}/deploy/fs-dev/Caddyfile"
+  local caddy_dst=/etc/caddy/Caddyfile
+  sed -e "s|/var/lib/fs-corporation/companion/dist|${COMPANION_DIST}|g" \
+    "${caddy_src}" > "${caddy_dst}.tmp"
+  install -o root -g root -m 644 "${caddy_dst}.tmp" "${caddy_dst}"
+  rm -f "${caddy_dst}.tmp"
+  systemctl enable --now caddy
+  systemctl reload caddy || systemctl restart caddy
 }
 
 print_caddy_instructions() {
@@ -205,6 +231,7 @@ main() {
   build_worker_image
   bootstrap_company
   install_systemd
+  install_caddy_site
   print_caddy_instructions
   log "fs-dev install complete"
 }

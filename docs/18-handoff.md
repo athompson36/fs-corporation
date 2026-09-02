@@ -1,26 +1,25 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.23. State: Local HTTPS edge + CEO test-push API for end-to-end Web Push.
+Date: 2026-09-02. Version: 0.3.23. State: fs-dev online at `.100`/`.101`; Mac deploy staged to `/Data/fs-corporation`.
 
 ## Delivered
 
-- **v0.3.22** (`bad4736` / `370bdca`): HTTPS Caddy profile, feed poll exercise, verification HTTPS check.
-- **v0.3.23:** `POST /api/v1/push/notify`, companion **Send test push**, `scripts/exercise_push_notify.py`.
+- Local Docker HTTPS + Web Push test path (v0.3.22–0.3.23).
+- **fs-dev deploy helper:** `scripts/deploy_to_fs_dev.sh` rsyncs to `/Data/fs-corporation`, stages secrets; host `run-install.sh` needs owner sudo.
 
-## Verification
+## Verification (after sudo install)
 
 ```bash
-./scripts/run_all_verifications.sh
-./scripts/start_https_dev.sh
-# Browser: https://localhost:8443 → owner token → allow notifications → Send test push
-python3 scripts/exercise_push_notify.py \
-  --token-file <(docker compose exec -T api cat /data/owner.token)
+./scripts/deploy_to_fs_dev.sh
+ssh -t andrew@192.168.4.100 'sudo bash /Data/fs-corporation/run-install.sh'
+curl -k -sS -o /dev/null -w "%{http_code}\n" https://192.168.4.100/
+# Mac share: /Volumes/fs-dev-data/fs-corporation
 ```
 
 ## Next task
 
-1. **Owner:** exercise push on `https://localhost:8443`, then Debian fs-dev `install.sh` + secrets export.
-2. **Engineering:** production slice on physical host (container dispatch + companion behind Caddy).
+1. **Owner (now):** run the sudo install command above (password required).
+2. Confirm companion at `https://192.168.4.100` + container dispatch; Mac can browse `/Volumes/fs-dev-data/fs-corporation`.
 3. Furnished HQ room art remains deferred.
 
-See [../deploy/dev/README.md](../deploy/dev/README.md).
+See [../deploy/fs-dev/README.md](../deploy/fs-dev/README.md).

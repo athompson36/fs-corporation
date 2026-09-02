@@ -31,11 +31,13 @@ sudo chown root:fs-corp /etc/fs-corporation/env   # after fs-corp user exists
 
 Edit `/etc/fs-corporation/env` if paths or IPs differ from defaults.
 
-**Migrate secrets from your Mac dev machine:**
+**Data on fs-dev big disk + Mac SMB:** use [`scripts/deploy_to_fs_dev.sh`](../../scripts/deploy_to_fs_dev.sh) from your Mac. It rsyncs to `/Data/fs-corporation` on `192.168.4.100`, stages secrets, then you run:
 
 ```bash
-./scripts/export_fs_dev_secrets.sh   # prints secrets.env lines + scp hints
+ssh -t andrew@192.168.4.100 'sudo bash /Data/fs-corporation/run-install.sh'
 ```
+
+That sets `FS_CORP_DATA_DIR=/Data/fs-corporation/data`, binds the tree into the `fs-dev-data` share (`/Volumes/fs-dev-data/fs-corporation`), and starts Caddy + the API. Worker NIC `192.168.4.101` is already on `eno2`.
 
 ## 2. Automated install (recommended)
 
