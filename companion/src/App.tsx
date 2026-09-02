@@ -201,6 +201,7 @@ export default function App() {
           <input id="token" type="password" value={settings.token}
             onChange={(e) => save({ ...settings, token: e.target.value })} />
           <p className="muted">Use the token from `.local/owner.token` on your control host. Connect phone and host on Tailscale.</p>
+          <p className="muted">Push notifications: the API records HTTPS subscriptions and fail-closes live send until VAPID keys are configured. The PWA still polls every 15s.</p>
           <div className="actions">
             <button type="button" onClick={refresh}>Test connection</button>
           </div>

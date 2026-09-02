@@ -62,6 +62,7 @@ In **Settings**, set:
 - `GET /api/v1/decisions/inbox`
 - `GET /api/v1/owner-inbox`, `POST /api/v1/owner-inbox`, `POST /api/v1/owner-inbox/{id}/respond`
 - `GET /api/v1/events/stream` (SSE; PWA polls every 15s as fallback)
+- `POST /api/v1/push/subscriptions`, `POST /api/v1/push/subscriptions/{id}/revoke` (HTTPS endpoint recorded; live send fail-closed until VAPID keys exist)
 
 ## Security
 
@@ -69,6 +70,7 @@ In **Settings**, set:
 - **fs-dev:** use HTTPS via Caddy on LAN or Tailscale; do not expose port 8000 on the LAN.
 - **Dev:** Tailscale with `--allow-remote` is acceptable; do not use that bind on the public internet.
 - Rotate tokens via `register_identity` if a device is lost.
+- Web Push: CEO registers an HTTPS subscription; `notify_push` / new owner-inbox items record `live_unavailable` until VAPID keys are configured. No invented delivery. PWA polling remains the fallback.
 
 ## Native shell (optional)
 

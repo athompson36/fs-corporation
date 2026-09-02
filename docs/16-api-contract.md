@@ -12,6 +12,8 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | GET /owner-inbox | Owner feedback/escalation requests | company.read |
 | POST /owner-inbox | Create owner request (heads need `owner.escalate`) | owner.escalate |
 | POST /owner-inbox/{id}/respond | CEO response to open request | company.pause |
+| POST /push/subscriptions | Register an HTTPS Web Push endpoint | company.pause |
+| POST /push/subscriptions/{id}/revoke | Revoke a push subscription | company.pause |
 | POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
 | GET /events/stream | SSE audit events (cursor query param) | audit.read |
 | POST /company/pause | Stop new dispatch | company.pause |

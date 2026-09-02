@@ -2,7 +2,7 @@
 
 A persistent AI corporation inspired by ChatDev: CEO governance, delegated department heads, mixed-model teams, controlled project forks, market intelligence, and a headquarters that grows with accepted work.
 
-**Deliverable status: v0.3.8 feed poll lifecycle + container worker file gateway + GitHub effect lifecycle + mobile CEO companion PWA + dashboard APIs + isolated workers + loopback control service + fs-dev deployment.** This is not a finished autonomous company. Live ChatDev, GitHub, market feeds, billed models, and documentation fetch are not connected.
+**Deliverable status: v0.3.9 fail-closed Web Push + feed poll + container file gateway + GitHub effect lifecycle + mobile CEO companion PWA + isolated workers + loopback control service + fs-dev deployment.** This is not a finished autonomous company. Live ChatDev, GitHub, market feeds, billed models, push delivery, and documentation fetch are not connected.
 
 Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-corporation.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
 
@@ -44,7 +44,7 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 | CEO desk and 2D headquarters projection | Local HTML/SVG from persisted events; no isometric art |
 | Isolated subprocess workers with gateway allowlist | Implemented locally; container runtime uses a scratch-directory gateway |
 | fs-dev production hosting | systemd + Caddy edge (`deploy/fs-dev/`); worker Docker scaffold only |
-| Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented |
+| Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented; Web Push subscriptions recorded, live send fail-closed |
 | Live providers inside worker boundary | Not implemented; mock invoke only |
 
 ## Documentation map

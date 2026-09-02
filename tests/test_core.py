@@ -6,7 +6,7 @@ import threading
 import unittest
 from company.core import Company, now
 from company.routing import choose_model
-from company.adapters import ChatDevAdapter, GitHubAdapter, MarketFeedAdapter, LearningAdapter, WorkOrder
+from company.adapters import ChatDevAdapter, GitHubAdapter, MarketFeedAdapter, LearningAdapter, PushNotificationAdapter, WorkOrder
 
 
 def policy(c, budget=500, approval=None):
@@ -153,6 +153,7 @@ class GovernanceTests(unittest.TestCase):
         with self.assertRaises(NotImplementedError):ChatDevAdapter().run(order)
         with self.assertRaises(NotImplementedError):GitHubAdapter().execute(order)
         with self.assertRaises(NotImplementedError):LearningAdapter().fetch("https://example.com/docs")
+        with self.assertRaises(NotImplementedError):PushNotificationAdapter().send({"endpoint":"https://push.example/x"},{"title":"t"})
 
 
 class PersistenceTests(unittest.TestCase):

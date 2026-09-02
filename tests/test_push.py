@@ -1,0 +1,73 @@
+import unittest
+from company.adapters import PushNotificationAdapter
+from company.core import Company
+from tests.test_core import install, policy
+
+
+class PushNotificationTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.addCleanup(self.c.close)
+
+    def test_register_requires_https_and_ceo(self):
+        with self.assertRaises(ValueError):
+            self.c.register_push_subscription("human-ceo", "http://insecure.example/push")
+        with self.assertRaises(PermissionError):
+            self.c.register_push_subscription("engineering-head", "https://push.example/sub/1")
+        row = self.c.register_push_subscription("human-ceo", "https://push.example/sub/1")
+        self.assertEqual(row["status"], "active")
+        self.assertEqual(row["endpoint"], "https://push.example/sub/1")
+
+    def test_notify_fail_closes_and_is_idempotent(self):
+        self.c.register_push_subscription("human-ceo", "https://push.example/sub/1")
+        first = self.c.notify_push("owner_inbox", "Need scope decision", {"request_id": "r1"})
+        self.assertEqual(len(first["deliveries"]), 1)
+        self.assertEqual(first["deliveries"][0]["status"], "live_unavailable")
+        retry = self.c.notify_push("owner_inbox", "Need scope decision", {"request_id": "r1"})
+        self.assertEqual(first["deliveries"][0]["id"], retry["deliveries"][0]["id"])
+        self.assertEqual(self.c.db.execute("SELECT COUNT(*) FROM push_deliveries").fetchone()[0], 1)
+        kinds = [r[0] for r in self.c.db.execute("SELECT kind FROM events WHERE kind LIKE 'push.%'")]
+        self.assertIn("push.subscription_registered", kinds)
+        self.assertIn("push.delivery_live_unavailable", kinds)
+
+    def test_revoked_subscription_is_skipped(self):
+        sub = self.c.register_push_subscription("human-ceo", "https://push.example/sub/1")
+        self.c.revoke_push_subscription("human-ceo", sub["id"])
+        result = self.c.notify_push("owner_inbox", "Closed", {})
+        self.assertEqual(result["deliveries"], [])
+        self.assertEqual(self.c.db.execute("SELECT COUNT(*) FROM push_deliveries").fetchone()[0], 0)
+
+    def test_owner_request_attempts_push(self):
+        from pathlib import Path
+        self.c.seed_catalog(Path(__file__).resolve().parents[1] / "config" / "departments.json")
+        self.c.register_identity("engineering:Director", "service", "head-token", ["owner.escalate"])
+        self.c.register_push_subscription("human-ceo", "https://push.example/sub/1")
+        self.c.create_owner_request(
+            "engineering:Director", "engineering", "feedback", "Need scope", "Details")
+        row = self.c.db.execute("SELECT * FROM push_deliveries").fetchone()
+        self.assertEqual(row["status"], "live_unavailable")
+        self.assertEqual(row["kind"], "owner_inbox")
+
+    def test_api_register_requires_owner(self):
+        from company.service import create_app
+        self.c.register_identity("human-ceo", "owner", "owner-token")
+        client = __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(create_app(self.c))
+        denied = client.post("/api/v1/push/subscriptions", json={
+            "payload": {"endpoint": "https://push.example/sub/1"}
+        })
+        self.assertEqual(denied.status_code, 401)
+        ok = client.post("/api/v1/push/subscriptions", json={
+            "payload": {"endpoint": "https://push.example/sub/1"}
+        }, headers={"Authorization": "Bearer owner-token", "Idempotency-Key": "push-1"})
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(ok.json()["result"]["status"], "active")
+
+    def test_adapter_still_disabled(self):
+        with self.assertRaises(NotImplementedError):
+            PushNotificationAdapter().send(
+                {"endpoint": "https://push.example/sub/1"}, {"title": "x"})
+
+
+if __name__ == "__main__":
+    unittest.main()

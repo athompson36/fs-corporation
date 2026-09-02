@@ -95,7 +95,7 @@
 - Public cloud API without VPN: contradicts loopback-first security posture for v1.
 - Native-only app without shared API: duplicates governance logic on the device.
 
-**Consequences.** Alembic revision `0006_mobile_companion`. New scope `owner.escalate` for head escalations. PWA polls every 15s; SSE available for live refresh. Push notifications deferred.
+**Consequences.** Alembic revision `0006_mobile_companion`. New scope `owner.escalate` for head escalations. PWA polls every 15s; SSE available for live refresh. Push subscriptions persist from 0.3.9 (`0008_push_notifications`); live Web Push stays fail-closed until VAPID keys exist.
 
 ### ADR-016 detail
 

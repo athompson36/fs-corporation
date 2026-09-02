@@ -213,7 +213,7 @@ The following are **planned** on `192.168.4.101` and owner live configuration; d
 - Owner-supplied **GitHub App**, disposable repo IDs, and **model credentials** inside the worker/gateway boundary
 - Production **`runtime: container`** dispatch with `fs-corporation-worker:local`
 - Optional approved market feed adapter
-- Push notifications for owner inbox (deferred from M8)
+- Live Web Push (VAPID keys); subscriptions and `live_unavailable` deliveries already persist
 - PostgreSQL or HA control plane (still deferred; SQLite remains phase 1 store)
 
 **Immediate next implementation task:** owner live config + container worker image exercised on `.101`.

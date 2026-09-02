@@ -21,4 +21,4 @@ The app loads the built PWA from that URL in a WebView, or open the PWA directly
 ## Future
 
 - Shared TypeScript API client extracted from `companion/src/api/client.ts`
-- Push notifications when an owner-request gateway exists
+- Live Web Push (VAPID) when owner keys exist; subscriptions already persist via `POST /api/v1/push/subscriptions`

@@ -1349,7 +1349,60 @@ class Company:
                  "open", None, now().isoformat(), None))
             self._event("owner.request_created", {"id": rid, "kind": kind, "department_id": department_id},
                         actor_id=actor, project_id=project_id)
-        return dict(self.db.execute("SELECT * FROM owner_requests WHERE id=?", (rid,)).fetchone())
+        row = dict(self.db.execute("SELECT * FROM owner_requests WHERE id=?", (rid,)).fetchone())
+        self.notify_push("owner_inbox", subject.strip(), {"request_id": rid})
+        return row
+
+    def register_push_subscription(self, actor, endpoint, keys=None):
+        """CEO-only Web Push enrollment. Does not send."""
+        from urllib.parse import urlparse
+        self._ceo(actor)
+        parsed = urlparse(endpoint)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError("Push endpoint needs an HTTPS URL")
+        sid = digest({"endpoint": endpoint})
+        with self.tx():
+            self.db.execute("INSERT OR REPLACE INTO push_subscriptions VALUES(?,?,?,?,?,?)",
+                            (sid, actor, endpoint, canonical(keys or {}), now().isoformat(), "active"))
+            self._event("push.subscription_registered", {"id": sid}, actor_id=actor)
+        return dict(self.db.execute("SELECT * FROM push_subscriptions WHERE id=?", (sid,)).fetchone())
+
+    def revoke_push_subscription(self, actor, subscription_id):
+        self._ceo(actor)
+        with self.tx():
+            row = self.db.execute("SELECT * FROM push_subscriptions WHERE id=?", (subscription_id,)).fetchone()
+            if not row:
+                raise ValueError("Push subscription not found")
+            self.db.execute("UPDATE push_subscriptions SET status='revoked' WHERE id=?", (subscription_id,))
+            self._event("push.subscription_revoked", {"id": subscription_id}, actor_id=actor)
+        return dict(self.db.execute("SELECT * FROM push_subscriptions WHERE id=?", (subscription_id,)).fetchone())
+
+    def notify_push(self, kind, subject, payload=None):
+        """Record a delivery attempt for each active subscription. Live send stays fail-closed."""
+        if not subject or not str(subject).strip():
+            raise ValueError("Subject required")
+        payload = payload or {}
+        deliveries = []
+        from .adapters import PushNotificationAdapter
+        for sub in self.db.execute("SELECT * FROM push_subscriptions WHERE status='active'"):
+            did = digest({"subscription_id": sub["id"], "kind": kind, "subject": subject})
+            existing = self.db.execute("SELECT * FROM push_deliveries WHERE id=?", (did,)).fetchone()
+            if existing:
+                deliveries.append(dict(existing))
+                continue
+            try:
+                PushNotificationAdapter().send(
+                    {"endpoint": sub["endpoint"], "keys": json.loads(sub["keys"])},
+                    {"kind": kind, "subject": subject, **payload})
+            except NotImplementedError:
+                with self.tx():
+                    self.db.execute("INSERT INTO push_deliveries VALUES(?,?,?,?,?,?)",
+                                    (did, sub["id"], kind, subject, "live_unavailable", now().isoformat()))
+                    self._event("push.delivery_live_unavailable", {"id": did, "kind": kind})
+                deliveries.append(dict(self.db.execute("SELECT * FROM push_deliveries WHERE id=?", (did,)).fetchone()))
+                continue
+            raise RuntimeError("Live push adapter returned without sending")
+        return {"deliveries": deliveries}
 
     def owner_inbox(self, status=None):
         if status and status not in {"open", "answered", "closed"}:

@@ -138,6 +138,12 @@ CREATE TABLE IF NOT EXISTS feed_sources(
   approved_at TEXT NOT NULL, status TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS feed_polls(
   id TEXT PRIMARY KEY, source_id TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS push_subscriptions(
+  id TEXT PRIMARY KEY, principal_id TEXT NOT NULL, endpoint TEXT NOT NULL,
+  keys TEXT NOT NULL, created_at TEXT NOT NULL, status TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS push_deliveries(
+  id TEXT PRIMARY KEY, subscription_id TEXT NOT NULL, kind TEXT NOT NULL,
+  subject TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);
 """
 
 GRANT_REQUIRED = {"actions", "projects", "budget_cents", "per_action_cents", "expires_at", "requires_approval"}

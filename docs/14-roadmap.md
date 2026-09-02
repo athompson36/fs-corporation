@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.8 local status:** Market feed poll lifecycle (CEO-approved HTTPS source, fail-closed live fetch) and container worker file gateway. GitHub effect lifecycle, fs-dev runbook, and mobile companion remain. Live adapters remain disabled.
+**v0.3.9 local status:** Owner Web Push subscriptions with fail-closed delivery. Feed poll, GitHub effect, container file gateway, fs-dev runbook, and mobile companion remain. Live adapters remain disabled.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials remain unconfigured and do not block local work.
 
@@ -225,7 +225,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] SSE event stream; PWA polls as fallback
 - [x] Tailscale bind via `--allow-remote` (documented; not public internet)
 - [x] Mobile PWA in `companion/`; thin Expo shell in `companion-native/`
-- [ ] Push notifications (deferred)
+- [x] Push notifications — `register_push_subscription` / `notify_push` (HTTPS only; live send `live_unavailable` until VAPID keys exist); owner-inbox create attempts delivery
 
 **Acceptance:** over Tailscale, owner opens PWA, sees stats, approves a proposal, dispatches a project brief, and responds to an owner request; denial tests still pass.
 
@@ -274,4 +274,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model inside the worker/gateway boundary, and an approved feed URL if `poll_market_feed` should leave `live_unavailable`. Build `fs-corporation-worker:local` and exercise **container dispatch** on reserved host **`192.168.4.101`**. Push notifications for owner inbox are optional follow-up.
+Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model inside the worker/gateway boundary, an approved feed URL, and optional VAPID keys so `notify_push` can leave `live_unavailable`. Build `fs-corporation-worker:local` and exercise **container dispatch** on reserved host **`192.168.4.101`**.

@@ -318,6 +318,24 @@ def create_app(company: Company) -> FastAPI:
             ident["principal_id"], payload["department_id"], payload["kind"],
             payload["subject"], payload["body"], payload.get("project_id")), 200))
 
+    @app.post("/api/v1/push/subscriptions")
+    def push_register(body: Command, authorization: str | None = Header(default=None),
+                      idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.register_push_subscription(ident["principal_id"], payload["endpoint"], payload.get("keys")), 200))
+
+    @app.post("/api/v1/push/subscriptions/{subscription_id}/revoke")
+    def push_revoke(subscription_id: str, body: Command, authorization: str | None = Header(default=None),
+                    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"id": subscription_id}, lambda: (
+            company.revoke_push_subscription(ident["principal_id"], subscription_id), 200))
+
     @app.post("/api/v1/owner-inbox/{request_id}/respond")
     def owner_inbox_respond(request_id: str, body: Command, authorization: str | None = Header(default=None),
                               idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
