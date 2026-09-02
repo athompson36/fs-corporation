@@ -31,8 +31,13 @@ services:
       - ./secrets/github-app.pem:/run/secrets/github-app.pem:ro
       - ./scripts:/src/scripts:ro
       - ./company:/src/company:ro
+      - ./.local/worker-scratch:/worker-scratch
+      # Host Docker socket — required for runtime=container dispatch from the API container
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       PYTHONPATH: /src
+      FS_CORP_WORKER_IMAGE: fs-corporation-worker:local
+      FS_CORP_WORKER_SCRATCH: /worker-scratch
       FS_CORP_DATA_DIR: /data
       FS_CORP_DB: /data/company.db
       FS_CORP_ALLOW_CORS: "1"

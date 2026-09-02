@@ -708,7 +708,7 @@ def create_app(company: Company) -> FastAPI:
         scoped(ident, "task.dispatch")
         payload = envelope(ident, body)
         worker_id = payload.get("worker_id") or ident["principal_id"]
-        scratch = payload.get("scratch_root") or tempfile.mkdtemp(prefix="company-worker-")
+        scratch = payload.get("scratch_root") or os.environ.get("FS_CORP_WORKER_SCRATCH") or tempfile.mkdtemp(prefix="company-worker-")
         runtime = payload.get("runtime", "subprocess")
         return run(ident, idempotency_key, payload | {"task_id": task_id}, lambda: (
             dict(company.dispatch_queued_isolated(worker_id, task_id, scratch, payload.get("approval"), runtime=runtime)), 200))

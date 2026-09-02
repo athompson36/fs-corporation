@@ -108,6 +108,24 @@ curl -s -X POST http://localhost:8013/api/v1/feeds/github-blog/poll \
 
 List approved feeds: `GET /api/v1/feeds`
 
+### Container worker dispatch
+
+Build the worker image, rebuild the API (includes Docker CLI + socket mount), then exercise:
+
+```bash
+docker compose --profile workers build
+docker compose up --build -d --force-recreate
+
+TOKEN=$(docker compose exec -T api cat /data/owner.token)
+docker compose exec -T api docker image inspect fs-corporation-worker:local >/dev/null
+
+python3 scripts/exercise_container_dispatch.py \
+  --token-file <(docker compose exec -T api cat /data/owner.token) \
+  --task-id container-pilot-$(date +%s)
+```
+
+Requires project `app` enrolled and Docker Desktop running. On macOS, set `FS_CORP_WORKER_SCRATCH_HOST` in `.env` to the **absolute host path** of `.local/worker-scratch` (the API container cannot bind-mount its own paths to sibling containers).
+
 **OpenAI-compatible pilot**
 
 ```bash

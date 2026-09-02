@@ -11,4 +11,8 @@ if [ -f /src/alembic.ini ]; then
   alembic upgrade head
 fi
 
+if [ -f /src/scripts/bootstrap_dev_company.py ]; then
+  python /src/scripts/bootstrap_dev_company.py
+fi
+
 exec python -m company.service "$@"

@@ -8,6 +8,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Docker CLI for container worker dispatch from the dev API container (uses host socket).
+COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
+
 COPY pyproject.toml README.md alembic.ini /src/
 COPY company /src/company
 COPY alembic /src/alembic

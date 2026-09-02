@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 import multiprocessing
+import os
 import shutil
 import subprocess
 import time
@@ -205,6 +206,14 @@ class ContainerWorkerRuntime:
 
     runtime_name = "container"
 
+    @staticmethod
+    def _docker_mount_path(scratch_task_dir: Path) -> str:
+        """Host path for docker -v. Required when the API itself runs in a container."""
+        host_base = (os.environ.get("FS_CORP_WORKER_SCRATCH_HOST") or "").strip()
+        if host_base:
+            return str(Path(host_base) / scratch_task_dir.name)
+        return str(scratch_task_dir.resolve())
+
     def dispatch(self, company, worker_id: str, task_id: str, scratch_root: Path, approval=None, docker_path=None):
         docker = docker_path or shutil.which("docker")
         if not docker:
@@ -216,13 +225,15 @@ class ContainerWorkerRuntime:
         envelope_path = scratch_root / "envelope.json"
         envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
         run_id = company._start_worker_run(worker_id, task_id, self.runtime_name, str(scratch_root))
-        image = "fs-corporation-worker:local"
+        image = os.environ.get("FS_CORP_WORKER_IMAGE", "fs-corporation-worker:local")
+        mount_src = self._docker_mount_path(scratch_root)
         cmd = [
             docker, "run", "--rm", "--network", "none",
-            "-v", f"{scratch_root.resolve()}:/work:rw",
+            "-v", f"{mount_src}:/work:rw",
             "-e", "COMPANY_WORKER_MODE=container",
             image,
-            "python", "-m", "company.worker", "--envelope", "/work/envelope.json", "--scratch", "/work",
+            "--envelope", "/work/envelope.json",
+            "--scratch", "/work",
         ]
         try:
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
