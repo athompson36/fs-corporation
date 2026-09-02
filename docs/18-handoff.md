@@ -16,14 +16,15 @@ Date: 2026-09-02. Version: 0.3.23. State: **fs-dev live end-to-end** — compani
 | --- | --- |
 | API + HTTPS edge | 200 |
 | Phone companion poll | 200 |
-| Active push subscription | 1 |
-| Companion “Send test push” | sent (check delivery status in DB/journal) |
-| Container dispatch | produced earlier this session |
+| Active push subscription (Apple) | 1 |
+| First test notify | `failed` (VAPID PEM passed as raw string) |
+| VAPID loader fix deployed | awaiting second phone test |
 
 ## Next task
 
-1. Confirm the OS notification actually appeared on the phone (if not, check Focus/DND and delivery `status` in `push_deliveries`).
-2. Optional: set a real `VAPID_CONTACT_EMAIL` in `.env` (still placeholder) and redeploy secrets.
+1. On the phone Settings → **Send test push** again (new subject). Delivery should
+   become `applied` and an OS notification should appear.
+2. Optional: set a real `VAPID_CONTACT_EMAIL` in `.env` (still placeholder).
 3. Furnished HQ room art remains deferred.
 
 ```bash
