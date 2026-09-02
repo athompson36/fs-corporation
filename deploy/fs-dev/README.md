@@ -31,13 +31,21 @@ sudo chown root:fs-corp /etc/fs-corporation/env   # after fs-corp user exists
 
 Edit `/etc/fs-corporation/env` if paths or IPs differ from defaults.
 
-**Data on fs-dev big disk + Mac SMB:** use [`scripts/deploy_to_fs_dev.sh`](../../scripts/deploy_to_fs_dev.sh) from your Mac. It rsyncs to `/Data/fs-corporation` on `192.168.4.100`, stages secrets, then you run:
+**Data on fs-dev big disk + Mac SMB:** use [`scripts/deploy_to_fs_dev.sh`](../../scripts/deploy_to_fs_dev.sh) from your Mac. It stages under `~/fs-corporation-deploy` on ext4 (mode 700 — off the SMB share), keeps runtime data on `/Data/fs-corporation/data`, then:
 
 ```bash
-ssh -t andrew@192.168.4.100 'sudo bash /Data/fs-corporation/run-install.sh'
+./scripts/setup_fs_dev_passwordless.sh   # once, after deploy refreshes the sudoers candidate
+ssh andrew@192.168.4.100 'sudo bash ~/fs-corporation-deploy/run-install.sh'
 ```
 
-That sets `FS_CORP_DATA_DIR=/Data/fs-corporation/data`, binds the tree into the `fs-dev-data` share (`/Volumes/fs-dev-data/fs-corporation`), and starts Caddy + the API. Worker NIC `192.168.4.101` is already on `eno2`.
+That sets `FS_CORP_DATA_DIR=/Data/fs-corporation/data`, binds the data tree into the `fs-dev-data` share (`/Volumes/fs-dev-data/fs-corporation`), and starts Caddy + the API. Worker NIC `192.168.4.101` is already on `eno2`.
+
+Rotate the owner token after any exposure:
+
+```bash
+ssh andrew@192.168.4.100 'sudo bash ~/fs-corporation-deploy/rotate-owner-token.sh'
+# then store and shred ~/fs-corporation-deploy/owner.token.rotated
+```
 
 ## 2. Automated install (recommended)
 
@@ -51,19 +59,37 @@ The script is idempotent: it creates `fs-corp`, installs Python 3.12 venv, `pip 
 
 ## 3. Caddy (HTTPS edge)
 
-1. Edit `deploy/fs-dev/Caddyfile`: set the LAN IP and uncomment the Tailscale `https://` block when ready.
-2. Install and enable:
-
-```bash
-sudo cp deploy/fs-dev/Caddyfile /etc/caddy/Caddyfile
-sudo systemctl enable --now caddy
-sudo systemctl reload caddy
-```
+`install.sh` installs and **restarts** Caddy (never reload — `admin off` makes reload hang). Edit site addresses in `/etc/caddy/Caddyfile` if the LAN IP changes.
 
 Caddy serves:
 
-- `/api/*` → `127.0.0.1:8000` (with SSE-friendly settings on `/api/v1/events/stream`)
-- All other paths → companion `dist` with SPA fallback (`index.html`)
+- `/` → companion PWA (`FS_CORP_COMPANION_DIST`)
+- `/desk` → CEO desk (pairing QR) via the loopback API
+- `/api/*` → `127.0.0.1:8000` (SSE-friendly on `/api/v1/events/stream`)
+
+HTTP/3 is disabled on this host because WireGuard (`wg0`) already owns UDP 443.
+
+## 3b. Phone companion + Web Push
+
+1. On a Mac browser open `https://192.168.4.100/desk` (accept the local CA warning).
+2. Paste the owner token (from `~/fs-corporation-deploy/owner.token.rotated` or `/etc/fs-corporation/owner.token`), click **Save**.
+3. Choose an access level and **Create pairing QR**.
+4. On the phone (same LAN), open the `pair_url` / scan the QR, allow notifications when prompted, then **Add to Home Screen**.
+5. From the companion, tap **Send test push**, or from the host:
+
+```bash
+# As root / with token file readable:
+/opt/fs-corporation/.venv/bin/python /opt/fs-corporation/scripts/exercise_push_notify.py \
+  --base http://127.0.0.1:8000 \
+  --token-file /etc/fs-corporation/owner.token
+```
+
+CLI pairing without the desk UI:
+
+```bash
+/opt/fs-corporation/.venv/bin/python /opt/fs-corporation/scripts/issue_pairing_ticket.py \
+  --token-file /etc/fs-corporation/owner.token
+```
 
 ## 4. Firewall
 

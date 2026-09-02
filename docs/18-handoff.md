@@ -1,24 +1,14 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.23. State: **fs-dev install complete and serving** from the relocated ext4 deploy tree.
+Date: 2026-09-02. Version: 0.3.23. State: **fs-dev serving**; CEO desk now on HTTPS at `/desk` for phone pairing.
 
-## Delivered
+## Delivered (this session)
 
-- Companion + API + Caddy + container workers on `https://192.168.4.100`.
-- Deploy tree at `~/fs-corporation-deploy` (ext4, mode 700); only `/Data/fs-corporation/data` stays on the SMB-exported NTFS volume.
-- Stale `/Data/fs-corporation/{repo,run-install.sh,secrets-staging,…}` deploy artifacts removed.
-- Owner bootstrap registers a pre-created token file; Alembic uses an absolute `script_location` under `/opt`.
-- Secrets installed `0640 root:fs-corp`; staging shredded after install.
-- **Owner token rotation:** `Company.rotate_owner_token` + `scripts/rotate_owner_token.py` + host wrapper `~/fs-corporation-deploy/rotate-owner-token.sh`.
-
-## Verified on fs-dev (2026-09-02)
-
-| Check | Result |
-| --- | --- |
-| Loopback + HTTPS health / SPA / push / workers | 200 / ready |
-| Container dispatch of a draft task | `produced` |
-| Passwordless sudo for `~/fs-corporation-deploy/run-install.sh` | OK |
-| Unit tests / bundle | 136 passed / passed |
+- Deploy tree on ext4 (`~/fs-corporation-deploy`); stale `/Data` deploy artifacts removed.
+- Owner token rotated; rotate sudoers grant installed.
+- `/desk` exposes the CEO desk through Caddy (companion owns `/`).
+- Desk UI accepts a pasted owner token for pairing QR issuance.
+- `scripts/issue_pairing_ticket.py` for CLI pairing URLs.
 
 ## Operator commands
 
@@ -26,20 +16,19 @@ Date: 2026-09-02. Version: 0.3.23. State: **fs-dev install complete and serving*
 ./scripts/deploy_to_fs_dev.sh
 ssh andrew@192.168.4.100 'sudo bash ~/fs-corporation-deploy/run-install.sh'
 
-# After sudoers includes rotate-owner-token.sh (re-run setup_fs_dev_passwordless.sh):
-ssh andrew@192.168.4.100 'sudo bash ~/fs-corporation-deploy/rotate-owner-token.sh'
-# Then read and shred: ~/fs-corporation-deploy/owner.token.rotated
+# Phone push path
+# 1. Store then shred: ~/fs-corporation-deploy/owner.token.rotated
+# 2. Mac: https://192.168.4.100/desk → paste token → Create pairing QR
+# 3. Phone: open pair_url, allow notifications, Add to Home Screen
+# 4. Companion → Send test push
 ```
 
 ## Next task
 
-1. Store the new owner token from `~/fs-corporation-deploy/owner.token.rotated`
-   somewhere safe, then shred that file. Re-run
-   `./scripts/setup_fs_dev_passwordless.sh` once so future rotations use
-   `sudo bash ~/fs-corporation-deploy/rotate-owner-token.sh` without a one-shot
-   install rewrite (sudoers candidate already includes it).
-2. Set a real `VAPID_CONTACT_EMAIL` in `.env` (still `mailto:owner@example.com`).
-3. Install the companion PWA from `https://192.168.4.100` and confirm a test push.
+1. **You:** store `~/fs-corporation-deploy/owner.token.rotated`, then
+   `ssh andrew@192.168.4.100 'shred -u ~/fs-corporation-deploy/owner.token.rotated'`.
+2. Set a real `VAPID_CONTACT_EMAIL` in `.env` (still `mailto:owner@example.com`) and redeploy secrets.
+3. Pair a phone and confirm a test push arrives.
 4. Furnished HQ room art remains deferred.
 
 See [../deploy/fs-dev/README.md](../deploy/fs-dev/README.md).

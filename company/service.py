@@ -143,6 +143,12 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 <section class="glass" id="pairing">
 <h2>Phone pairing</h2>
 <p class="muted">Issues a one-time QR. The companion redeems it for a scoped device token — never the root owner token. Tailscale join material is returned only on redeem when FS_CORP_TAILSCALE_AUTHKEY is set on the host.</p>
+<div class="row" id="owner-token-row">
+<label for="owner-token-input" class="muted">Owner token (stored only in this browser)</label>
+<input id="owner-token-input" type="password" autocomplete="off" placeholder="Paste owner token, then Save" style="flex:1;min-width:12rem"/>
+<button type="button" class="chip" id="owner-token-save">Save</button>
+</div>
+<p id="owner-token-status" class="muted"></p>
 <div class="row" id="pair-levels" role="group" aria-label="Access level"></div>
 <p id="pair-level-summary" class="muted"></p>
 <p id="pair-remote-status" class="muted"></p>
@@ -157,7 +163,23 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 </main>
 </div>
 <script>
-const headers = {Authorization: 'Bearer ' + (localStorage.getItem('ownerToken')||'')};
+let headers = {Authorization: 'Bearer ' + (localStorage.getItem('ownerToken')||'')};
+function refreshOwnerTokenStatus() {
+  const status = document.getElementById('owner-token-status');
+  const has = !!(localStorage.getItem('ownerToken')||'').trim();
+  status.textContent = has ? 'Owner token present in this browser.' : 'No owner token yet — paste from the secure copy, then Save.';
+  document.getElementById('owner-token-input').value = '';
+}
+document.getElementById('owner-token-save').addEventListener('click', () => {
+  const value = document.getElementById('owner-token-input').value.trim();
+  if (!value) { alert('Paste the owner token first'); return; }
+  localStorage.setItem('ownerToken', value);
+  headers = {Authorization: 'Bearer ' + value};
+  refreshOwnerTokenStatus();
+  loadRemoteAccess();
+  load();
+});
+refreshOwnerTokenStatus();
 function fill(id, items, text) {
   const el = document.getElementById(id);
   el.innerHTML = '';
@@ -488,6 +510,11 @@ def create_app(company: Company) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def desk_page():
+        return DESK_HTML
+
+    @app.get("/desk", response_class=HTMLResponse)
+    def desk_page_alias():
+        # fs-dev Caddy serves the companion at /; /desk keeps the CEO desk reachable on HTTPS.
         return DESK_HTML
 
     @app.get("/api/v1/health")

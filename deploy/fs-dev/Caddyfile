@@ -28,6 +28,10 @@
 	root * /var/lib/fs-corporation/companion/dist
 	encode gzip
 
+	handle /desk {
+		reverse_proxy 127.0.0.1:8000
+	}
+
 	# Server-Sent Events — disable buffering
 	handle /api/v1/events/stream {
 		reverse_proxy 127.0.0.1:8000 {
