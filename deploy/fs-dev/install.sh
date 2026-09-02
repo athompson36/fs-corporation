@@ -42,6 +42,8 @@ ensure_user() {
     useradd --system --home "${INSTALL_DIR}" --shell /usr/sbin/nologin "${SERVICE_USER}"
   else
     log "User ${SERVICE_USER} already exists"
+    # Keep home on the app install dir (ext4). NTFS homes break npm rename/cache.
+    usermod -d "${INSTALL_DIR}" "${SERVICE_USER}" 2>/dev/null || true
   fi
 }
 
@@ -156,17 +158,21 @@ ensure_dirs() {
 
 build_companion() {
   log "Building companion PWA to ${COMPANION_DIST}"
+  local npm_cache="${INSTALL_DIR}/.npm-cache"
+  mkdir -p "${npm_cache}"
+  chown -R "${SERVICE_USER}:${SERVICE_USER}" "${INSTALL_DIR}/companion" "${npm_cache}"
   pushd "${INSTALL_DIR}/companion" >/dev/null
+  # Force npm cache onto the install filesystem (ext4). A home on NTFS/fuse breaks cacache rename.
   if [[ ! -d node_modules ]]; then
-    sudo -u "${SERVICE_USER}" npm ci
+    sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm ci --cache "${npm_cache}"
   else
-    sudo -u "${SERVICE_USER}" npm install
+    sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm install --cache "${npm_cache}"
   fi
-  sudo -u "${SERVICE_USER}" npm run build
+  sudo -u "${SERVICE_USER}" env HOME="${INSTALL_DIR}" npm run build --cache "${npm_cache}"
   popd >/dev/null
   mkdir -p "${COMPANION_DIST}"
   rsync -a --delete "${INSTALL_DIR}/companion/dist/" "${COMPANION_DIST}/"
-  chown -R "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}/companion"
+  chown -R "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}/companion" 2>/dev/null || true
 }
 
 install_env_example() {
