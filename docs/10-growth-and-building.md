@@ -26,7 +26,7 @@ These are virtual/software contractors. A networking contractor configures an ap
 4. Specialized spaces: media studio, training center and research lab.
 5. Additional wings/buildings: justified by the portfolio and capacity.
 
-The art style is undecided. Begin with a readable top-down 2D floor plan, responsive zoom and a list equivalent. Later isometric art and animations can be layered on the same room data.
+The art style is undecided. The CEO desk shows a readable top-down 2D floor plan, a list equivalent, and an isometric projection of the same persisted expansion rooms. Custom room art can still be layered later. Animation respects `prefers-reduced-motion`.
 
 ## Projection rules
 

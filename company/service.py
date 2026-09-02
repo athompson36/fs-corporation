@@ -29,6 +29,9 @@ main { max-width: 52rem; margin: 0 auto; padding: 1rem; }
 nav a { color:#9cf; margin-right:1rem; }
 section { border:1px solid #444; padding:1rem; margin:1rem 0; }
 .muted { color:#bbb; }
+#iso { width:100%; max-height:16rem; }
+.iso-rise { transform-box: fill-box; transform-origin: center bottom; animation: iso-rise 0.7s ease-out; }
+@keyframes iso-rise { from { transform: translateY(8px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
@@ -48,10 +51,10 @@ section { border:1px solid #444; padding:1rem; margin:1rem 0; }
 <section id="decisions"><h2>Policy proposals</h2><ul id="proposal-list"></ul></section>
 <section id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul></section>
 <section id="hq"><h2>Headquarters</h2>
-<p>List navigation of rooms from expansion events.</p>
+<p>List navigation of rooms from expansion events. Occupancy is not running-model count.</p>
 <ul id="room-list"></ul>
-<svg id="floor" viewBox="0 0 200 80" role="img" aria-label="2D floor plan of provisioned rooms">
-</svg>
+<svg id="floor" viewBox="0 0 200 80" role="img" aria-label="2D floor plan of provisioned rooms"></svg>
+<svg id="iso" viewBox="0 0 220 140" role="img" aria-label="isometric projection of provisioned rooms"></svg>
 </section>
 </main>
 <script>
@@ -89,20 +92,47 @@ async function load() {
   });
   const svg = document.getElementById('floor');
   svg.innerHTML = '';
+  const iso = document.getElementById('iso');
+  iso.innerHTML = '';
+  function ns(name) { return document.createElementNS('http://www.w3.org/2000/svg', name); }
   (data.rooms||[]).forEach((room, i) => {
     const x = 10 + (i % 4) * 48;
     const y = 10 + Math.floor(i / 4) * 36;
-    const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    const r = ns('rect');
     r.setAttribute('x', x); r.setAttribute('y', y);
     r.setAttribute('width', 40); r.setAttribute('height', 28);
     r.setAttribute('fill', room.status === 'built' ? '#356' : '#333');
     r.setAttribute('stroke', '#888');
+    r.setAttribute('data-room-id', room.id);
     svg.appendChild(r);
-    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    const t = ns('text');
     t.setAttribute('x', x+4); t.setAttribute('y', y+16); t.setAttribute('fill', '#eee');
     t.setAttribute('font-size', '6');
     t.textContent = room.status;
     svg.appendChild(t);
+    const col = i % 4, row = Math.floor(i / 4);
+    const ix = 100 + (col - row) * 28, iy = 28 + (col + row) * 16;
+    const built = room.status === 'built';
+    const h = built ? 16 : 6;
+    const g = ns('g');
+    g.setAttribute('data-room-id', room.id);
+    if (built) g.setAttribute('class', 'iso-rise');
+    const top = ns('polygon');
+    top.setAttribute('points', [ix,iy-h, ix+24,iy-h+12, ix,iy-h+24, ix-24,iy-h+12].join(' '));
+    top.setAttribute('fill', built ? '#468' : '#2a2a2a');
+    top.setAttribute('stroke', '#888');
+    const left = ns('polygon');
+    left.setAttribute('points', [ix-24,iy-h+12, ix,iy-h+24, ix,iy+24, ix-24,iy+12].join(' '));
+    left.setAttribute('fill', built ? '#245' : '#222');
+    const right = ns('polygon');
+    right.setAttribute('points', [ix+24,iy-h+12, ix,iy-h+24, ix,iy+24, ix+24,iy+12].join(' '));
+    right.setAttribute('fill', built ? '#357' : '#1a1a1a');
+    const label = ns('text');
+    label.setAttribute('x', ix-10); label.setAttribute('y', iy-h+16);
+    label.setAttribute('fill', '#eee'); label.setAttribute('font-size', '6');
+    label.textContent = room.status;
+    g.appendChild(left); g.appendChild(right); g.appendChild(top); g.appendChild(label);
+    iso.appendChild(g);
   });
 }
 load().catch(err => { document.getElementById('status-json').textContent = String(err); });

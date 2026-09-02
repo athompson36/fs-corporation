@@ -105,9 +105,14 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertIn("prefers-reduced-motion", page.text)
         self.assertIn("CEO desk", page.text)
+        self.assertIn('id="iso"', page.text)
+        self.assertIn("isometric projection of provisioned rooms", page.text)
+        self.assertIn("iso-rise", page.text)
+        self.assertIn("data-room-id", page.text)
         hq = self.client.get("/api/v1/headquarters", headers={"Authorization": "Bearer owner-token"})
         self.assertEqual(hq.status_code, 200)
         self.assertIn("occupancy_note", hq.json())
+        self.assertEqual(hq.json()["source"], "persisted_events")
 
 
 if __name__ == "__main__":
