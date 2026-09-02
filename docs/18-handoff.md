@@ -33,8 +33,11 @@ ssh andrew@192.168.4.100 'sudo bash ~/fs-corporation-deploy/rotate-owner-token.s
 
 ## Next task
 
-1. Re-run `./scripts/setup_fs_dev_passwordless.sh` once so sudoers also grants
-   `rotate-owner-token.sh`, then rotate the exposed owner token.
+1. Store the new owner token from `~/fs-corporation-deploy/owner.token.rotated`
+   somewhere safe, then shred that file. Re-run
+   `./scripts/setup_fs_dev_passwordless.sh` once so future rotations use
+   `sudo bash ~/fs-corporation-deploy/rotate-owner-token.sh` without a one-shot
+   install rewrite (sudoers candidate already includes it).
 2. Set a real `VAPID_CONTACT_EMAIL` in `.env` (still `mailto:owner@example.com`).
 3. Install the companion PWA from `https://192.168.4.100` and confirm a test push.
 4. Furnished HQ room art remains deferred.
