@@ -17,7 +17,7 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | GET /push/status | VAPID configuration summary (public key when set) | company.read |
 | GET /push/subscriptions | List active CEO push subscriptions | company.read |
 | POST /push/notify | Send a test/owner Web Push to active subscriptions | company.pause |
-| GET /workers/status | Container worker Docker/scratch readiness | company.read |
+| GET /workers/status | Container worker readiness: Docker/scratch/image, `default_runtime`, optional `worker_nic_present` | company.read |
 | POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
 | GET /events/stream | SSE audit events (cursor query param) | audit.read |
 | POST /company/pause | Stop new dispatch | company.pause |
@@ -33,7 +33,7 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | GET /projects/{id}/skills | Platform, skill gaps, learning assignments | company.read |
 | POST /projects/{id}/tasks | Queue a scoped task | task.create |
 | POST /tasks/{id}/dispatch | Dispatch authorized mock execution in-process | task.dispatch |
-| POST /tasks/{id}/dispatch-worker | Dispatch through an isolated worker (`runtime`, `scratch_root`, `worker_id`) | task.dispatch |
+| POST /tasks/{id}/dispatch-worker | Isolated worker dispatch (`runtime` optional; default from `FS_CORP_DEFAULT_WORKER_RUNTIME`) | task.dispatch |
 | POST /tasks/{id}/quality-inspect | Quality Control pass/fail on the exact artifact | quality.inspect |
 | POST /tasks/{id}/accept | Accept exact artifact after a passing QC inspection | artifact.accept |
 | GET /hr/development | Learning assignments and acquired skills | organization.read |

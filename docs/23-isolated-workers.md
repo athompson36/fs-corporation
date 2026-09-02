@@ -41,4 +41,4 @@ In-process `POST /api/v1/tasks/{task_id}/dispatch` remains available for local t
 
 ## Limits
 
-Subprocess isolation is not a sandbox against a malicious process with host access. Container mode uses `network_mode: none` and a scratch-directory gateway so the child still cannot open the control-plane database. Production dispatch on `192.168.4.101` still requires an owner-built image. Live ChatDev, GitHub, and billed models still require owner credentials inside the gateway boundary.
+Subprocess isolation is not a sandbox against a malicious process with host access. Container mode uses `network_mode: none` and a scratch-directory gateway so the child still cannot open the control-plane database. On fs-dev, `FS_CORP_DEFAULT_WORKER_RUNTIME=container` makes container the default when Docker/image/scratch are ready; `/api/v1/workers/status` also reports whether `FS_CORP_WORKER_NIC_IP` (`.101`) is present on the host. Workers still do not attach to that NIC. Live ChatDev, GitHub, and billed models still require owner credentials inside the gateway boundary.

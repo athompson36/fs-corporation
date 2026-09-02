@@ -762,8 +762,12 @@ def create_app(company: Company) -> FastAPI:
         payload = envelope(ident, body)
         worker_id = payload.get("worker_id") or ident["principal_id"]
         scratch = payload.get("scratch_root") or os.environ.get("FS_CORP_WORKER_SCRATCH") or tempfile.mkdtemp(prefix="company-worker-")
-        runtime = payload.get("runtime", "subprocess")
-        return run(ident, idempotency_key, payload | {"task_id": task_id}, lambda: (
+        from company.worker_status import resolve_worker_runtime
+        try:
+            runtime = resolve_worker_runtime(payload.get("runtime"))
+        except (ValueError, NotImplementedError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return run(ident, idempotency_key, payload | {"task_id": task_id, "runtime": runtime}, lambda: (
             dict(company.dispatch_queued_isolated(worker_id, task_id, scratch, payload.get("approval"), runtime=runtime)), 200))
 
     @app.post("/api/v1/tasks/{task_id}/accept")

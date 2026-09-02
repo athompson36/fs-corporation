@@ -227,14 +227,21 @@ class ContainerWorkerRuntime:
         run_id = company._start_worker_run(worker_id, task_id, self.runtime_name, str(scratch_root))
         image = os.environ.get("FS_CORP_WORKER_IMAGE", "fs-corporation-worker:local")
         mount_src = self._docker_mount_path(scratch_root)
+        worker_nic = (os.environ.get("FS_CORP_WORKER_NIC_IP") or "").strip()
         cmd = [
             docker, "run", "--rm", "--network", "none",
             "-v", f"{mount_src}:/work:rw",
             "-e", "COMPANY_WORKER_MODE=container",
+            "--label", "fs.corp.runtime=container",
+        ]
+        if worker_nic:
+            # Workers stay network-none; the label records the reserved host NIC for ops.
+            cmd.extend(["--label", f"fs.corp.worker_nic={worker_nic}"])
+        cmd.extend([
             image,
             "--envelope", "/work/envelope.json",
             "--scratch", "/work",
-        ]
+        ])
         try:
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         except FileNotFoundError as exc:

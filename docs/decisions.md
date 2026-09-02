@@ -111,7 +111,7 @@
 - Bind API directly to LAN/Tailscale with `--allow-remote`: acceptable for dev; production fs-dev keeps API on loopback and proxies through Caddy on 443.
 - Public internet exposure without VPN: contradicts loopback-first security posture.
 
-**Consequences.** `deploy/fs-dev/` ships `install.sh`, systemd unit, Caddyfile, ufw example, and worker Dockerfile/compose (scaffold). Runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md). Live adapter dispatch and worker host on `.101` remain owner-configuration work (phase 2).
+**Consequences.** `deploy/fs-dev/` ships `install.sh`, systemd unit, Caddyfile, ufw example, and worker Dockerfile/compose. Runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md). Same-host phase 2 sets `FS_CORP_DEFAULT_WORKER_RUNTIME=container` and reports `worker_nic_present` for `.101`; workers remain `--network none`. Dedicated worker-host egress on `.101` remains optional follow-on.
 
 ### ADR-018 detail
 

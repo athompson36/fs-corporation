@@ -179,7 +179,14 @@ Configure the companion PWA Settings screen. Rotate via `register_identity` if a
 
 ## Worker Docker (phase 2 on-host)
 
-Phase 1 runs the control API and Caddy edge only. **Phase 2 on the same host** enables `runtime=container` dispatch when Docker, the worker image, and `FS_CORP_WORKER_SCRATCH` are configured via `install.sh` and `/etc/fs-corporation/env`.
+Same-host phase 2 enables **`runtime=container` by default** when Docker, the worker image, and `FS_CORP_WORKER_SCRATCH` are ready (`FS_CORP_DEFAULT_WORKER_RUNTIME=container`). Omit `runtime` on `POST /api/v1/tasks/{id}/dispatch-worker` to use that default; it **fails closed** with 422 if container dispatch is not ready.
+
+Workers still run with **`--network none`** and a scratch-directory gateway — they do not bind sockets on `.101`. The reserved NIC is verified in `/api/v1/workers/status` as `worker_nic_present`, and container labels record `fs.corp.worker_nic` for operators.
+
+```bash
+curl -sS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/api/v1/workers/status
+# expect: container_dispatch_ready=true, default_runtime=container, worker_nic_present=true
+```
 
 | File | Purpose |
 |------|---------|

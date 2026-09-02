@@ -2,7 +2,7 @@
 
 A persistent AI corporation inspired by ChatDev: CEO governance, delegated department heads, mixed-model teams, controlled project forks, market intelligence, and a headquarters that grows with accepted work.
 
-**Deliverable status: v0.3.18 live GitHub pilot + model/feed adapters + Docker dev + container workers + Web Push (VAPID) + fs-dev worker install path.** ChatDev, billed model usage in production workers, and dedicated worker NIC `.101` deployment still need owner host setup or follow-up wiring.
+**Deliverable status: v0.3.25 live GitHub pilot + model/feed adapters + Docker dev + container workers (default on fs-dev) + Web Push (VAPID) + fs-dev worker install path.** ChatDev, billed model usage in production workers, and dedicated worker-host egress on `.101` still need owner follow-up.
 
 Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-corporation.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
 
@@ -42,8 +42,8 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 | ChatDev, GitHub and market integration interfaces | GitHub live when App configured; feed poll live for approved RSS/Atom URLs; ChatDev and doc fetch still disabled |
 | 14 departments and role prompts | Configuration plus optional catalog seed |
 | CEO desk and headquarters projection | Cosmic-glass HTML/SVG desk; 2D + isometric tiles; room selection opens persisted work; companion shares the same tokens |
-| Isolated subprocess workers with gateway allowlist | Implemented locally; container runtime uses a scratch-directory gateway |
-| fs-dev production hosting | systemd + Caddy edge + Docker worker image via `install.sh` (`deploy/fs-dev/`) |
+| Isolated subprocess workers with gateway allowlist | Implemented; fs-dev defaults to container when ready; workers remain `--network none` |
+| fs-dev production hosting | systemd + Caddy edge + Docker worker image; `.101` NIC presence reported in workers/status |
 | Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented; Web Push live when VAPID keys configured |
 | Live providers inside worker boundary | Model invoke when key set; GitHub when App installed; feed fetch for approved URLs; ChatDev/doc fetch not connected |
 
