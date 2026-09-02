@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import sqlite3
 import uuid
-from .schema import GRANT_OPTIONAL, GRANT_REQUIRED, MAX_DELEGATION_DEPTH, POLICY_REQUIRED, apply_schema
+from .schema import GRANT_OPTIONAL, GRANT_REQUIRED, MAX_DELEGATION_DEPTH, POLICY_REQUIRED, SLO_DEFINITIONS, apply_schema
 
 
 def now():
@@ -1481,6 +1481,49 @@ class Company:
         finally:
             out.close()
         return str(dest)
+
+    def list_slos(self):
+        latest = {r["slo_id"]: dict(r) for r in self.db.execute(
+            """SELECT * FROM slo_observations WHERE id IN (
+                 SELECT id FROM slo_observations s1
+                 WHERE recorded_at=(SELECT MAX(recorded_at) FROM slo_observations s2 WHERE s2.slo_id=s1.slo_id)
+               )""")}
+        items = []
+        for definition in SLO_DEFINITIONS:
+            obs = latest.get(definition["id"])
+            items.append({
+                **definition,
+                "status": "observed" if obs else "unmeasured",
+                "value": obs["value"] if obs else None,
+                "source": obs["source"] if obs else None,
+                "window_start": obs["window_start"] if obs else None,
+                "window_end": obs["window_end"] if obs else None,
+            })
+        return {"items": items}
+
+    def record_slo_observation(self, actor, slo_id, value, source, window_start, window_end):
+        """Record a sourced measurement. Does not invent targets or claim SLO met/breached."""
+        self._ceo(actor)
+        if slo_id not in {d["id"] for d in SLO_DEFINITIONS}:
+            raise LookupError("Unknown SLO")
+        if not source or not str(source).strip():
+            raise ValueError("Observation source required")
+        if window_start is None or window_end is None:
+            raise ValueError("Observation window required")
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Observation value must be numeric") from exc
+        oid = digest({"slo_id": slo_id, "source": source, "window_start": window_start, "window_end": window_end})
+        with self.tx():
+            existing = self.db.execute("SELECT * FROM slo_observations WHERE id=?", (oid,)).fetchone()
+            if existing:
+                return dict(existing) | {"status": "observed"}
+            self.db.execute("INSERT INTO slo_observations VALUES(?,?,?,?,?,?,?,?)",
+                            (oid, slo_id, numeric, source.strip(), window_start, window_end,
+                             now().isoformat(), actor))
+            self._event("slo.observed", {"id": oid, "slo_id": slo_id, "source": source.strip()}, actor_id=actor)
+        return dict(self.db.execute("SELECT * FROM slo_observations WHERE id=?", (oid,)).fetchone()) | {"status": "observed"}
 
     def restore(self,src):
         src=Path(src)

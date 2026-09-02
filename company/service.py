@@ -567,6 +567,23 @@ def create_app(company: Company) -> FastAPI:
         payload = envelope(ident, body)
         return run(ident, idempotency_key, payload | {"id": assignment_id}, lambda: ({"skill_id": company.certify_skill(ident["principal_id"], assignment_id)}, 200))
 
+    @app.get("/api/v1/slos")
+    def list_slos(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.list_slos()
+
+    @app.post("/api/v1/slos/{slo_id}/observations")
+    def record_slo(slo_id: str, body: Command, authorization: str | None = Header(default=None),
+                   idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"slo_id": slo_id}, lambda: (
+            company.record_slo_observation(
+                ident["principal_id"], slo_id, payload["value"], payload["source"],
+                payload["window_start"], payload["window_end"]), 200))
+
     @app.get("/api/v1/headquarters")
     def hq(authorization: str | None = Header(default=None)):
         ident = principal(authorization)

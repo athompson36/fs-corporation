@@ -160,7 +160,7 @@ class SchemaMigrationTests(unittest.TestCase):
                         "consultant_proposals", "skills", "acquired_skills", "project_capabilities",
                         "learning_assignments", "qc_inspections", "employees", "training_records",
                         "performance_goals", "performance_reviews", "feed_sources", "feed_polls",
-                        "push_subscriptions", "push_deliveries"}
+                        "push_subscriptions", "push_deliveries", "slo_observations"}
             self.assertTrue(required.issubset(core_tables))
             self.assertTrue(required.issubset(migrated))
 

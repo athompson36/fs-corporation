@@ -2,7 +2,7 @@
 
 A persistent AI corporation inspired by ChatDev: CEO governance, delegated department heads, mixed-model teams, controlled project forks, market intelligence, and a headquarters that grows with accepted work.
 
-**Deliverable status: v0.3.9 fail-closed Web Push + feed poll + container file gateway + GitHub effect lifecycle + mobile CEO companion PWA + isolated workers + loopback control service + fs-dev deployment.** This is not a finished autonomous company. Live ChatDev, GitHub, market feeds, billed models, push delivery, and documentation fetch are not connected.
+**Deliverable status: v0.3.10 sourced SLO catalog (unmeasured until recorded) + fail-closed Web Push + feed poll + container file gateway + GitHub effect lifecycle + mobile CEO companion + fs-dev deployment.** This is not a finished autonomous company. Live ChatDev, GitHub, market feeds, billed models, push delivery, and documentation fetch are not connected.
 
 Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-corporation.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
 

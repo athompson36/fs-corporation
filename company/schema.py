@@ -144,7 +144,17 @@ CREATE TABLE IF NOT EXISTS push_subscriptions(
 CREATE TABLE IF NOT EXISTS push_deliveries(
   id TEXT PRIMARY KEY, subscription_id TEXT NOT NULL, kind TEXT NOT NULL,
   subject TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS slo_observations(
+  id TEXT PRIMARY KEY, slo_id TEXT NOT NULL, value REAL NOT NULL, source TEXT NOT NULL,
+  window_start TEXT NOT NULL, window_end TEXT NOT NULL, recorded_at TEXT NOT NULL, recorded_by TEXT NOT NULL);
 """
+
+SLO_DEFINITIONS = (
+    {"id": "api.health_availability", "name": "Control API health availability", "unit": "ratio"},
+    {"id": "api.request_latency_ms", "name": "Control API request latency", "unit": "milliseconds"},
+    {"id": "worker.dispatch_success", "name": "Isolated worker dispatch success", "unit": "ratio"},
+    {"id": "queue.blocked_count", "name": "Blocked or denied dispatch count", "unit": "count"},
+)
 
 GRANT_REQUIRED = {"actions", "projects", "budget_cents", "per_action_cents", "expires_at", "requires_approval"}
 GRANT_OPTIONAL = {"approval_rights"}

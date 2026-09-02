@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.9 local status:** Owner Web Push subscriptions with fail-closed delivery. Feed poll, GitHub effect, container file gateway, fs-dev runbook, and mobile companion remain. Live adapters remain disabled.
+**v0.3.10 local status:** SLO catalog with sourced observations (unmeasured until recorded). Web Push, feed poll, GitHub effect, container file gateway, fs-dev runbook, and mobile companion remain. Live adapters remain disabled.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials remain unconfigured and do not block local work.
 
@@ -208,7 +208,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Monthly budget periods as an additional cap; full forecast/refunds not implemented
 - [x] Two concurrent projects with no cross-leakage or overspend
 - [x] Backup/restore commands and operations notes
-- [ ] Measured SLOs (unmeasured until production load exists)
+- [x] Measured SLOs — catalog + sourced `slo_observations`; remain `unmeasured` until an owner records a windowed sample; no invented met/breached targets
 - [x] Consultant review cooldowns; independent before/after validation still requires a live change
 - [x] Explicit refusal of non-loopback binds; human approval still required before any deployment
 
@@ -274,4 +274,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model inside the worker/gateway boundary, an approved feed URL, and optional VAPID keys so `notify_push` can leave `live_unavailable`. Build `fs-corporation-worker:local` and exercise **container dispatch** on reserved host **`192.168.4.101`**.
+Owner-supplied **live configuration** on fs-dev: GitHub App + disposable repo IDs, one enabled text model, an approved feed URL, optional VAPID keys, and sourced SLO samples from production load. Build `fs-corporation-worker:local` and exercise **container dispatch** on reserved host **`192.168.4.101`**. Isometric HQ art remains deferred (visual style undecided).

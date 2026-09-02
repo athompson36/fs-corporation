@@ -34,6 +34,29 @@ class PortfolioTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             c.consultant_cooldown("manual")
 
+    def test_slos_unmeasured_until_sourced_observation(self):
+        c = Company()
+        install(c, policy(c))
+        self.addCleanup(c.close)
+        listed = c.list_slos()["items"]
+        self.assertGreaterEqual(len(listed), 3)
+        self.assertTrue(all(item["status"] == "unmeasured" for item in listed))
+        self.assertTrue(all(item.get("value") is None for item in listed))
+        with self.assertRaises(ValueError):
+            c.record_slo_observation("human-ceo", "api.health_availability", 1.0, "", "2026-09-01T00:00:00+00:00", "2026-09-01T01:00:00+00:00")
+        with self.assertRaises(LookupError):
+            c.record_slo_observation("human-ceo", "invented.capacity", 99, "lab", "2026-09-01T00:00:00+00:00", "2026-09-01T01:00:00+00:00")
+        with self.assertRaises(PermissionError):
+            c.record_slo_observation("engineering-head", "api.health_availability", 1.0, "loopback curl", "2026-09-01T00:00:00+00:00", "2026-09-01T01:00:00+00:00")
+        row = c.record_slo_observation(
+            "human-ceo", "api.health_availability", 1.0, "loopback GET /api/v1/health",
+            "2026-09-01T00:00:00+00:00", "2026-09-01T01:00:00+00:00")
+        self.assertEqual(row["status"], "observed")
+        self.assertEqual(row["source"], "loopback GET /api/v1/health")
+        after = {item["id"]: item for item in c.list_slos()["items"]}
+        self.assertEqual(after["api.health_availability"]["status"], "observed")
+        self.assertEqual(after["api.request_latency_ms"]["status"], "unmeasured")
+
 
 if __name__ == "__main__":
     unittest.main()

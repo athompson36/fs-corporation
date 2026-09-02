@@ -20,7 +20,7 @@ By default the control service **refuses non-loopback binds** during local devel
 
 **Production (fs-dev)** keeps the API on **`127.0.0.1:8000`** under systemd. **Caddy** listens on HTTPS (443) at the LAN edge, serves the companion PWA, and reverse-proxies `/api/*` to loopback. UFW must not expose port 8000 on external interfaces. See [25-fs-dev-deployment.md](25-fs-dev-deployment.md).
 
-Owner bootstrap writes `.local/owner.token` (mode 600) in dev; production uses `/etc/fs-corporation/owner.token`. `.env.example` is a future live-integration template and is not loaded by the core. Alembic revision `0002_hardware_skills` adds skill catalog tables; `0003_quality_control` adds inspection records; `0004_employee_development` adds hire/training/performance tables; restore from backup rather than downgrading.
+Owner bootstrap writes `.local/owner.token` (mode 600) in dev; production uses `/etc/fs-corporation/owner.token`. `.env.example` is a future live-integration template and is not loaded by the core. Alembic revisions through `0009_slo_observations` add skill, QC, employee, worker, companion, feed, push, and SLO tables; restore from backup rather than downgrading.
 
 ## Budgets
 
@@ -43,6 +43,8 @@ Durable leases with heartbeat and expiry; transactional outbox; explicit max att
 ## Observability
 
 Correlate company, project, task, attempt, actor, policy version, model profile, source signal and external action. Track accepted deliverables, review burden, latency, errors, cost/reservation exposure, blocked work and tool denials. Provide human-readable status and exportable audit records.
+
+`GET /api/v1/slos` lists the catalog (`api.health_availability`, `api.request_latency_ms`, `worker.dispatch_success`, `queue.blocked_count`). Each item is `unmeasured` until the CEO records a sourced, windowed observation via `POST /api/v1/slos/{id}/observations`. Do not invent production capacity numbers or mark an SLO met/breached without a recorded sample.
 
 ## Incident runbook
 
