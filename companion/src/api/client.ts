@@ -12,6 +12,9 @@ const SETTINGS_KEY = "fs-corp-companion-settings";
 export function defaultApiBase(): string {
   const env = import.meta.env.VITE_API_BASE;
   if (typeof env === "string") return env;
+  if (import.meta.env.PROD && typeof window !== "undefined") {
+    return "";
+  }
   return "http://127.0.0.1:8000";
 }
 

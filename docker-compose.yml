@@ -10,6 +10,11 @@
 # Companion on the host (optional):
 #   cd companion && VITE_API_BASE=http://localhost:8013 npm run dev
 #
+# HTTPS same-origin (Web Push on localhost):
+#   cd companion && npm run build
+#   docker compose --profile https up -d
+#   open https://localhost:8443
+#
 # Not for production. fs-dev uses native systemd + Caddy (deploy/fs-dev/).
 
 services:
@@ -53,6 +58,18 @@ services:
       dockerfile: deploy/fs-dev/Dockerfile.worker
     image: fs-corporation-worker:local
     network_mode: none
+
+  caddy:
+    profiles: ["https"]
+    image: caddy:2-alpine
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./deploy/dev/Caddyfile.https:/etc/caddy/Caddyfile:ro
+      - ./companion/dist:/srv/companion:ro
+    depends_on:
+      - api
+    restart: unless-stopped
 
 volumes:
   fs-corp-data:

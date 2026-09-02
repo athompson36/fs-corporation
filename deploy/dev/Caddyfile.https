@@ -1,0 +1,38 @@
+# Local HTTPS dev — same-origin companion + API (Web Push requires secure context).
+#
+#   cd companion && npm run build
+#   docker compose --profile https up -d --build
+#   open https://localhost:8443
+#
+# Trust Caddy's local CA or accept the browser warning. API stays on :8013 for direct curl.
+
+{
+	admin off
+	local_certs
+}
+
+(dev_site) {
+	encode gzip
+
+	handle /api/v1/events/stream {
+		reverse_proxy api:8000 {
+			flush_interval -1
+			header_up Connection "keep-alive"
+			header_up Cache-Control "no-cache"
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv/companion
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+https://localhost:8443 {
+	import dev_site
+}

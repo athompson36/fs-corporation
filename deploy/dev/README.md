@@ -20,6 +20,23 @@ docker compose up --build -d
 
 **Claude model ids:** use ids from your account (e.g. `claude-sonnet-5`). Legacy names like `claude-3-5-haiku-latest` return `LookupError`, not a generic credentials error.
 
+### HTTPS same-origin (Web Push)
+
+Web Push needs a secure context. Build the companion, then start the optional Caddy profile:
+
+```bash
+cd companion && npm run build && cd ..
+# Optional in .env: FS_CORP_PUBLIC_URL=https://localhost:8443
+docker compose --profile https up -d
+# or:
+./scripts/start_https_dev.sh
+open https://localhost:8443
+```
+
+Paste the owner token in Settings. Same-origin `/api/*` avoids CORS; push registration uses the service worker on HTTPS.
+
+Direct API access remains at http://localhost:8013.
+
 After changing `.env` or Python code, recreate the API container:
 
 ```bash

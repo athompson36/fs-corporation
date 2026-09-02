@@ -59,6 +59,14 @@ c.close()
 print('both models OK')
 "
 
+step "Market feed poll"
+TOKEN_FILE="$(mktemp)"
+docker compose exec -T api cat /data/owner.token > "$TOKEN_FILE"
+run python3 scripts/exercise_feed_poll.py \
+  --token-file "$TOKEN_FILE" \
+  --feed-id "github-blog-$(date +%s)"
+rm -f "$TOKEN_FILE"
+
 step "Container worker dispatch"
 TOKEN_FILE="$(mktemp)"
 docker compose exec -T api cat /data/owner.token > "$TOKEN_FILE"
