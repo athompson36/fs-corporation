@@ -61,31 +61,45 @@ ssh -t andrew@192.168.4.100 'sudo bash /Data/fs-corporation/run-install.sh'
 curl -k -sS -o /dev/null -w "%{http_code}\n" https://192.168.4.100/
 ```
 
-## Open risk: NOPASSWD sudo points at a script on the SMB share
+## Deploy tree moved off the SMB share
 
-`/etc/sudoers.d/andrew-fs-corporation` grants passwordless root to
+The old layout granted passwordless root to
 `/bin/bash /Data/fs-corporation/run-install.sh`. `/Data` is NTFS mounted 0777
-and bind-mounted into the Samba export, so that script is writable by every
-local user and by any client of the `fs-dev-data` share. Anyone who can write it
-gets root on fs-dev. `chmod` is a no-op on this mount.
+and bind-mounted into the Samba export, so that script was writable by every
+local user and every client of the `fs-dev-data` share — a local root path, and
+`chmod` cannot fix it because the mount forces the mode.
 
-Fix (needs one password-authenticated run): move the deploy staging tree to
-`~/fs-corporation-deploy` on ext4 with mode 700 and repoint the sudoers rule
-there. That keeps the convenience without exposing a root-executed script to the
-network share. Until then, treat the NOPASSWD rule as a known local-root path
-and consider removing it when not actively deploying:
+`scripts/deploy_to_fs_dev.sh` now stages to `~/fs-corporation-deploy` on ext4:
+deploy root `0700`, `run-install.sh` `0700`, staged keys `0600`. Only
+`/Data/fs-corporation/data` (database, companion dist, worker scratch) stays on
+the big disk and the share. `scripts/setup_fs_dev_passwordless.sh` refuses to
+install the rule if the granted script sits on a mount that cannot enforce
+permissions.
+
+Swapping the rule needs one password prompt:
 
 ```bash
-ssh -t andrew@192.168.4.100 'sudo rm /etc/sudoers.d/andrew-fs-corporation'
+./scripts/deploy_to_fs_dev.sh
+./scripts/setup_fs_dev_passwordless.sh
+ssh andrew@192.168.4.100 'sudo bash ~/fs-corporation-deploy/run-install.sh'
 ```
+
+Note that `/Data/fs-corporation/data/company.db` is still world-writable through
+the share by virtue of the NTFS mode. It holds no plaintext secrets (identity
+tokens are hashed), but a share client could tamper with company state.
 
 ## Next task
 
-1. Relocate the deploy tree off `/Data` and repoint the sudoers rule (above).
-2. Set a real `VAPID_CONTACT_EMAIL` in `.env`; it is still the placeholder
+1. After the sudoers swap, delete the stale `/Data/fs-corporation/{repo,
+   run-install.sh,secrets-staging,env.prepared,*.sudoers}`.
+2. Rotate the owner token. It was echoed to the terminal by earlier installs
+   (now fixed). There is no rotation command yet: `bootstrap_owner` fails closed
+   when the file stops matching the registered identity, so rotation needs a
+   deliberate flow that updates both.
+3. Set a real `VAPID_CONTACT_EMAIL` in `.env`; it is still the placeholder
    `mailto:owner@example.com`, which push services may reject.
-3. Install the companion PWA from `https://192.168.4.100` on a phone and confirm
+4. Install the companion PWA from `https://192.168.4.100` on a phone and confirm
    a test push arrives end to end.
-4. Furnished HQ room art remains deferred.
+5. Furnished HQ room art remains deferred.
 
 See [../deploy/fs-dev/README.md](../deploy/fs-dev/README.md).

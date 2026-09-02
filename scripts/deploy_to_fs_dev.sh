@@ -5,18 +5,25 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST="${FS_CORP_FS_DEV_HOST:-andrew@192.168.4.100}"
-REMOTE_REPO="${FS_CORP_REMOTE_REPO:-/Data/fs-corporation/repo}"
 REMOTE_DATA="${FS_CORP_REMOTE_DATA:-/Data/fs-corporation/data}"
 REMOTE_APP="${FS_CORP_REMOTE_APP:-/opt/fs-corporation}"
 SMB_LINK="${FS_CORP_SMB_LINK:-/media/andrew/Data/fs-corporation}"
-STAGE="/Data/fs-corporation/secrets-staging"
+
+# The deploy tree must NOT live on /Data: that mount is NTFS forced to 0777 and
+# is re-exported over SMB, so a root-executed script or a staged private key
+# there is writable/readable by every local user and every share client.
+REMOTE_HOME="$(ssh -o BatchMode=yes "$HOST" 'printf %s "$HOME"')"
+DEPLOY_ROOT="${FS_CORP_DEPLOY_ROOT:-$REMOTE_HOME/fs-corporation-deploy}"
+REMOTE_REPO="${FS_CORP_REMOTE_REPO:-$DEPLOY_ROOT/repo}"
+STAGE="$DEPLOY_ROOT/secrets-staging"
 
 echo "==> Target host: $HOST"
+echo "==> Deploy tree: $DEPLOY_ROOT (ext4, mode 700 — off the SMB share)"
 echo "==> Repo: $REMOTE_REPO"
 echo "==> App:  $REMOTE_APP"
 echo "==> Data: $REMOTE_DATA (big disk /Data; Mac SMB bind → $SMB_LINK)"
 
-ssh -o BatchMode=yes "$HOST" "mkdir -p '$REMOTE_REPO' '$REMOTE_DATA/worker-scratch' '$REMOTE_DATA/companion' '$STAGE' && chmod 700 '$STAGE'"
+ssh -o BatchMode=yes "$HOST" "mkdir -p '$REMOTE_REPO' '$STAGE' '$REMOTE_DATA/worker-scratch' '$REMOTE_DATA/companion' && chmod 700 '$DEPLOY_ROOT' '$STAGE'"
 
 echo "==> rsync repository"
 rsync -az --delete \
@@ -33,7 +40,7 @@ rsync -az --delete \
   "$ROOT/" "$HOST:$REMOTE_REPO/"
 
 echo "==> Write env.prepared"
-ssh -o BatchMode=yes "$HOST" "cat > /Data/fs-corporation/env.prepared <<EOF
+ssh -o BatchMode=yes "$HOST" "cat > $DEPLOY_ROOT/env.prepared <<EOF
 FS_CORP_INSTALL_DIR=${REMOTE_APP}
 FS_CORP_DATA_DIR=${REMOTE_DATA}
 FS_CORP_DB=${REMOTE_DATA}/company.db
@@ -83,14 +90,14 @@ print(f"staged {len(lines)} secret lines")
 PY
 scp -q /tmp/fs-corp-secrets.env "$HOST:$STAGE/secrets.env"
 rm -f /tmp/fs-corp-secrets.env
-ssh -o BatchMode=yes "$HOST" "chmod 600 $STAGE/* 2>/dev/null || true"
+ssh -o BatchMode=yes "$HOST" "chmod 600 $STAGE/*"
 
 echo "==> Write run-install.sh on host"
-ssh -o BatchMode=yes "$HOST" "cat > /Data/fs-corporation/run-install.sh <<'EOS'
+ssh -o BatchMode=yes "$HOST" "cat > $DEPLOY_ROOT/run-install.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
-# sudo bash /Data/fs-corporation/run-install.sh
-bash /Data/fs-corporation/fix_fs_dev_apt.sh
+# sudo bash $DEPLOY_ROOT/run-install.sh
+bash $DEPLOY_ROOT/repo/scripts/fix_fs_dev_apt.sh
 # The app tree must stay on ext4: venv creation and npm both fail on NTFS.
 export FS_CORP_INSTALL_DIR=/opt/fs-corporation
 export FS_CORP_DATA_DIR=/Data/fs-corporation/data
@@ -102,21 +109,20 @@ if id fs-corp &>/dev/null; then
   usermod -d /opt/fs-corporation fs-corp || true
 fi
 rm -rf /Data/fs-corporation/app/.npm /Data/fs-corporation/app/.npm-cache || true
-cd /Data/fs-corporation/repo
+cd $DEPLOY_ROOT/repo
 bash deploy/fs-dev/install.sh
-install -o root -g fs-corp -m 640 /Data/fs-corporation/env.prepared /etc/fs-corporation/env
-if [[ -f /Data/fs-corporation/secrets-staging/secrets.env ]]; then
-  install -o root -g fs-corp -m 640 /Data/fs-corporation/secrets-staging/secrets.env /etc/fs-corporation/secrets.env
+install -o root -g fs-corp -m 640 $DEPLOY_ROOT/env.prepared /etc/fs-corporation/env
+if [[ -f $STAGE/secrets.env ]]; then
+  install -o root -g fs-corp -m 640 $STAGE/secrets.env /etc/fs-corporation/secrets.env
 fi
 # 640 root:fs-corp, not 600: the API runs as fs-corp and reads these key files.
 for f in github-app.pem vapid-public.pem vapid-private.pem; do
-  if [[ -f /Data/fs-corporation/secrets-staging/\$f ]]; then
-    install -o root -g fs-corp -m 640 \"/Data/fs-corporation/secrets-staging/\$f\" \"/etc/fs-corporation/\$f\"
+  if [[ -f $STAGE/\$f ]]; then
+    install -o root -g fs-corp -m 640 \"$STAGE/\$f\" \"/etc/fs-corporation/\$f\"
   fi
 done
-# /Data is NTFS mounted 0777 and re-exported over SMB, so anything left in the
-# staging directory is readable by every local user and every share client.
-shred -u /Data/fs-corporation/secrets-staging/* 2>/dev/null || rm -f /Data/fs-corporation/secrets-staging/*
+# Keys live in /etc/fs-corporation from here on; do not leave copies staged.
+shred -u $STAGE/* 2>/dev/null || rm -f $STAGE/*
 mkdir -p /media/andrew/Data/fs-corporation
 if ! findmnt /media/andrew/Data/fs-corporation >/dev/null 2>&1; then
   mount --bind /Data/fs-corporation /media/andrew/Data/fs-corporation
@@ -136,16 +142,38 @@ done
 echo \"loopback health: \$code\"
 curl -k -sS -o /dev/null -w 'https edge: %{http_code}\\n' https://192.168.4.100/ || true
 EOS
-chmod 700 /Data/fs-corporation/run-install.sh"
+chmod 700 $DEPLOY_ROOT/run-install.sh"
+
+echo "==> Write restricted sudoers candidate"
+REMOTE_USER="${HOST%@*}"
+ssh -o BatchMode=yes "$HOST" "cat > $DEPLOY_ROOT/nopasswd.sudoers <<EOS
+# Passwordless sudo for fs-corporation deploy.
+# run-install.sh must stay on a filesystem only this user can write. Never point
+# this rule at /Data: that mount is 0777 and re-exported over SMB, which would
+# let any share client execute arbitrary code as root.
+$REMOTE_USER ALL=(ALL) NOPASSWD: /bin/bash $DEPLOY_ROOT/run-install.sh
+$REMOTE_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart fs-corporation-api
+$REMOTE_USER ALL=(ALL) NOPASSWD: /bin/systemctl status fs-corporation-api
+$REMOTE_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart caddy
+$REMOTE_USER ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u fs-corporation-api *
+EOS
+chmod 600 $DEPLOY_ROOT/nopasswd.sudoers"
 
 cat <<EOF
 
-Prepared on $HOST under /Data/fs-corporation.
-Next (needs your sudo password on fs-dev):
+Prepared on $HOST under $DEPLOY_ROOT (mode 700, ext4).
 
-  ssh -t $HOST 'sudo bash /Data/fs-corporation/run-install.sh'
+If the sudoers rule still points at /Data, replace it (one password prompt):
 
-Then open https://192.168.4.100 and check Mac share:
+  ssh -t $HOST 'sudo install -o root -g root -m 440 \\
+    $DEPLOY_ROOT/nopasswd.sudoers /etc/sudoers.d/andrew-fs-corporation \\
+    && sudo visudo -cf /etc/sudoers.d/andrew-fs-corporation'
+
+Then install:
+
+  ssh $HOST 'sudo bash $DEPLOY_ROOT/run-install.sh'
+
+Then open https://192.168.4.100 and check the Mac share:
   /Volumes/fs-dev-data/fs-corporation
 
 EOF
