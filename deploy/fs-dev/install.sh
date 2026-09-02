@@ -101,9 +101,21 @@ sync_install_tree() {
 
 ensure_venv() {
   log "Python venv and package install"
-  if [[ ! -d "${INSTALL_DIR}/.venv" ]]; then
-    sudo -u "${SERVICE_USER}" python3.12 -m venv "${INSTALL_DIR}/.venv"
+  # Prefer creating the venv as root then chown — service users often cannot
+  # ensurepip on NTFS/fuse data volumes (nosuid / permission translation).
+  if [[ -d "${INSTALL_DIR}/.venv" ]] && ! "${INSTALL_DIR}/.venv/bin/python" -c "import pip" 2>/dev/null; then
+    log "Removing incomplete venv"
+    rm -rf "${INSTALL_DIR}/.venv"
   fi
+  if [[ ! -d "${INSTALL_DIR}/.venv" ]]; then
+    if ! python3.12 -m venv "${INSTALL_DIR}/.venv"; then
+      log "venv with ensurepip failed; retrying --without-pip + get-pip"
+      rm -rf "${INSTALL_DIR}/.venv"
+      python3.12 -m venv --without-pip "${INSTALL_DIR}/.venv"
+      curl -fsSL https://bootstrap.pypa.io/get-pip.py | "${INSTALL_DIR}/.venv/bin/python"
+    fi
+  fi
+  chown -R "${SERVICE_USER}:${SERVICE_USER}" "${INSTALL_DIR}"
   sudo -u "${SERVICE_USER}" "${INSTALL_DIR}/.venv/bin/pip" install -U pip wheel
   sudo -u "${SERVICE_USER}" "${INSTALL_DIR}/.venv/bin/pip" install -e "${INSTALL_DIR}"
 }

@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST="${FS_CORP_FS_DEV_HOST:-andrew@192.168.4.100}"
 REMOTE_REPO="${FS_CORP_REMOTE_REPO:-/Data/fs-corporation/repo}"
 REMOTE_DATA="${FS_CORP_REMOTE_DATA:-/Data/fs-corporation/data}"
-REMOTE_APP="${FS_CORP_REMOTE_APP:-/Data/fs-corporation/app}"
+REMOTE_APP="${FS_CORP_REMOTE_APP:-/opt/fs-corporation}"
 SMB_LINK="${FS_CORP_SMB_LINK:-/media/andrew/Data/fs-corporation}"
 STAGE="/Data/fs-corporation/secrets-staging"
 
