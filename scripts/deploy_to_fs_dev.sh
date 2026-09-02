@@ -53,6 +53,7 @@ FS_CORP_WORKER_NIC_IP=192.168.4.101
 FS_CORP_WORKER_SCRATCH=${REMOTE_DATA}/worker-scratch
 FS_CORP_WORKER_IMAGE=fs-corporation-worker:local
 FS_CORP_DEFAULT_WORKER_RUNTIME=container
+FS_CORP_GATEWAY_EGRESS=worker_nic
 FS_CORP_PUBLIC_URL=https://192.168.4.100
 EOF"
 
@@ -110,12 +111,19 @@ if id fs-corp &>/dev/null; then
   usermod -d /opt/fs-corporation fs-corp || true
 fi
 rm -rf /Data/fs-corporation/app/.npm /Data/fs-corporation/app/.npm-cache || true
+mkdir -p /etc/fs-corporation
+# Env must exist before install.sh so configure_gateway_egress sees FS_CORP_GATEWAY_EGRESS.
+install -o root -g root -m 640 $DEPLOY_ROOT/env.prepared /etc/fs-corporation/env
 cd $DEPLOY_ROOT/repo
 bash deploy/fs-dev/install.sh
 install -o root -g fs-corp -m 640 $DEPLOY_ROOT/env.prepared /etc/fs-corporation/env
 if [[ -f $STAGE/secrets.env ]]; then
   install -o root -g fs-corp -m 640 $STAGE/secrets.env /etc/fs-corporation/secrets.env
 fi
+# Re-apply egress after final env ownership (idempotent).
+export FS_CORP_WORKER_NIC_IP=192.168.4.101
+export FS_CORP_GATEWAY_EGRESS=worker_nic
+bash /opt/fs-corporation/deploy/fs-dev/gateway-egress.sh apply
 # 640 root:fs-corp, not 600: the API runs as fs-corp and reads these key files.
 for f in github-app.pem vapid-public.pem vapid-private.pem; do
   if [[ -f $STAGE/\$f ]]; then

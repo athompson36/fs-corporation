@@ -200,6 +200,37 @@ install_env_example() {
   fi
 }
 
+configure_gateway_egress() {
+  local env_file="${CONFIG_DIR}/env"
+  local mode="default"
+  local nic_ip="${FS_CORP_WORKER_NIC_IP:-}"
+  if [[ -f "${env_file}" ]]; then
+    local line
+    line=$(grep -E '^FS_CORP_GATEWAY_EGRESS=' "${env_file}" | tail -n1 || true)
+    if [[ -n "${line}" ]]; then
+      mode="${line#FS_CORP_GATEWAY_EGRESS=}"
+    fi
+    line=$(grep -E '^FS_CORP_WORKER_NIC_IP=' "${env_file}" | tail -n1 || true)
+    if [[ -n "${line}" ]]; then
+      nic_ip="${line#FS_CORP_WORKER_NIC_IP=}"
+    fi
+  fi
+  mode="${mode:-default}"
+  export FS_CORP_GATEWAY_EGRESS="${mode}"
+  export FS_CORP_WORKER_NIC_IP="${nic_ip}"
+  export FS_CORP_SERVICE_USER="${SERVICE_USER}"
+  local script="${INSTALL_DIR}/deploy/fs-dev/gateway-egress.sh"
+  chmod +x "${script}"
+  if [[ "${mode}" == "worker_nic" ]]; then
+    log "Applying gateway egress via worker NIC (${nic_ip})"
+    bash "${script}" apply
+  else
+    log "Gateway egress mode=${mode}; clearing policy routing if present"
+    bash "${script}" remove
+  fi
+  bash "${script}" status || true
+}
+
 ensure_docker_access() {
   log "Docker group access for ${SERVICE_USER}"
   groupadd -f docker
@@ -301,6 +332,7 @@ main() {
   run_migrations
   build_companion
   install_env_example
+  configure_gateway_egress
   ensure_docker_access
   build_worker_image
   bootstrap_company

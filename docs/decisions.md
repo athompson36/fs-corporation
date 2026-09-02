@@ -17,7 +17,8 @@
 | ADR-013 | 2026-09-01 | Hired employees, recurring training files, performance trends | Hire stores configurable attributes and background; pertinent skills refresh on an interval; overdue training blocks that employee; HR records goals/reviews; self-review denied. |
 | ADR-014 | 2026-09-01 | Subprocess workers with parent-mediated gateway | Workers run in a spawned process without DB credentials; only gateway_check, store_artifact, execute_mock, and mock invoke_model are allowed; container runtime stays fail-closed until a worker image exists. |
 | ADR-015 | 2026-09-01 | Mobile CEO companion over Tailscale | Dashboard/read APIs, owner inbox, project dispatch-brief, SSE stream, and a mobile PWA; control service may bind to tailnet IP with --allow-remote; phone is not a trust boundary. |
-| ADR-016 | 2026-09-01 | Native control plane + Caddy edge on owned Debian host; Docker for workers only | fs-dev phase 1: systemd runs API on 127.0.0.1:8000; Caddy terminates TLS on 192.168.4.100 and serves companion + /api proxy; ufw denies LAN:8000. Container workers and 192.168.4.101 are phase 2. |
+| ADR-016 | 2026-09-01 | Native control plane + Caddy edge on owned Debian host; Docker for workers only | fs-dev: systemd API on 127.0.0.1:8000; Caddy on 192.168.4.100; workers `--network none`; optional `FS_CORP_GATEWAY_EGRESS=worker_nic` policy-routes `fs-corp` via 192.168.4.101. |
+| ADR-019 | 2026-09-02 | Gateway egress via worker NIC for API UID | Keep containers network-none; route `fs-corp` outbound through `.101` with ip rule table 101 when `FS_CORP_GATEWAY_EGRESS=worker_nic`. |
 | ADR-017 | 2026-09-01 | Cosmic-restraint visual system | Owner-selected palette and glass chrome for desk + companion. Metrics and HQ tiles bind only to persisted API state. Furnished room art stays deferred. |
 | ADR-018 | 2026-09-01 | QR pairing with scoped access levels | CEO desk issues one-time tickets with `read_only`, `user`, or `admin` levels. Redeem creates service principals with explicit scopes — never root owner token or `*`. `FS_CORP_PUBLIC_URL` shapes pair URLs; optional `FS_CORP_TAILSCALE_AUTHKEY` returns only on redeem. PWA cannot join kernel VPN; native shell may consume auth key later. |
 
@@ -111,7 +112,7 @@
 - Bind API directly to LAN/Tailscale with `--allow-remote`: acceptable for dev; production fs-dev keeps API on loopback and proxies through Caddy on 443.
 - Public internet exposure without VPN: contradicts loopback-first security posture.
 
-**Consequences.** `deploy/fs-dev/` ships `install.sh`, systemd unit, Caddyfile, ufw example, and worker Dockerfile/compose. Runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md). Same-host phase 2 sets `FS_CORP_DEFAULT_WORKER_RUNTIME=container` and reports `worker_nic_present` for `.101`; workers remain `--network none`. Dedicated worker-host egress on `.101` remains optional follow-on.
+**Consequences.** `deploy/fs-dev/` ships `install.sh`, systemd unit, Caddyfile, ufw example, and worker Dockerfile/compose. Runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md). Same-host phase 2 sets `FS_CORP_DEFAULT_WORKER_RUNTIME=container`, reports `worker_nic_present` for `.101`, and optionally policy-routes `fs-corp` egress via `.101` (`FS_CORP_GATEWAY_EGRESS=worker_nic`). Workers remain `--network none`. A dedicated second worker host remains optional.
 
 ### ADR-018 detail
 

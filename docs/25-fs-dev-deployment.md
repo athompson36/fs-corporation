@@ -183,9 +183,14 @@ Same-host phase 2 enables **`runtime=container` by default** when Docker, the wo
 
 Workers still run with **`--network none`** and a scratch-directory gateway — they do not bind sockets on `.101`. The reserved NIC is verified in `/api/v1/workers/status` as `worker_nic_present`, and container labels record `fs.corp.worker_nic` for operators.
 
+With **`FS_CORP_GATEWAY_EGRESS=worker_nic`**, install applies policy routing so the **`fs-corp` API** (gateway outbound) uses source `192.168.4.101` on `eno2` (table 101). See `deploy/fs-dev/gateway-egress.sh`. Status field: `gateway_egress.egress_active`.
+
 ```bash
 curl -sS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/api/v1/workers/status
-# expect: container_dispatch_ready=true, default_runtime=container, worker_nic_present=true
+# expect: container_dispatch_ready=true, default_runtime=container, worker_nic_present=true,
+#         gateway_egress.mode=worker_nic, gateway_egress.egress_active=true
+sudo -u fs-corp ip -4 route get 1.1.1.1
+# expect: dev eno2 ... src 192.168.4.101
 ```
 
 | File | Purpose |
@@ -216,18 +221,13 @@ sudo FS_CORP_INSTALL_DIR=/opt/fs-corporation deploy/fs-dev/install.sh
 
 Companion assets are rebuilt; systemd restarts the API. Reload Caddy if the Caddyfile changed.
 
-## Phase 2 (documented only — not in scope for M9 delivery)
+## Phase 2 follow-on (optional)
 
-The following are **planned** on `192.168.4.101` and owner live configuration; do not treat them as complete when M9 is marked delivered:
+Same-host container default and `.101` **API egress** are implemented. Still optional:
 
-- Dedicated worker host or second NIC at **`192.168.4.101`** for container worker traffic
-- Owner-supplied **GitHub App**, disposable repo IDs, and **model credentials** inside the worker/gateway boundary
-- Production **`runtime: container`** dispatch with `fs-corporation-worker:local`
-- Optional approved market feed adapter
-- Live Web Push (VAPID keys + browser subscription); adapter and `GET /api/v1/push/status` wired in v0.3.17
-- PostgreSQL or HA control plane (still deferred; SQLite remains phase 1 store)
-
-**Immediate next implementation task:** owner live config + container worker image exercised on `.101`.
+- Dedicated **second host** for workers (separate from this control plane)
+- Further owner live credential hardening beyond `/etc/fs-corporation/secrets.env`
+- PostgreSQL or HA control plane (still deferred; SQLite remains the store)
 
 ## Limitations
 

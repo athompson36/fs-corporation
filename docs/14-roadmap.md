@@ -245,7 +245,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] ADR-016; canonical runbook [25-fs-dev-deployment.md](25-fs-dev-deployment.md)
 - [x] Phase 1 acceptance on physical fs-dev (`192.168.4.100`): install, API, Caddy, companion, pairing, Apple Web Push `applied`
 - [x] Phase 2 (same-host): `FS_CORP_DEFAULT_WORKER_RUNTIME=container`, worker NIC `.101` presence in status, container labels; workers remain `--network none`
-- [ ] Phase 2 (follow-on): dedicated worker host / egress on `.101`, owner live credential hardening beyond current secrets path
+- [x] Phase 2 (follow-on): host gateway egress via `.101` (`FS_CORP_GATEWAY_EGRESS=worker_nic`, policy routing for `fs-corp`); dedicated second worker host still optional
 
 **Acceptance:** on a Debian host with static `192.168.4.100`, `install.sh` completes; `fs-corporation-api` is active; `curl` to loopback `/api/v1/health` returns 200; phone opens `https://192.168.4.100`, companion loads with same-origin API and owner token; port 8000 is not reachable from LAN; denial tests still pass. Container worker image builds locally; live adapter dispatch remains fail-closed.
 
@@ -278,4 +278,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M9 phase 1 + same-host phase 2 defaults are live on fs-dev.** Container is the default worker runtime when Docker/image/scratch are ready; `/api/v1/workers/status` reports whether `192.168.4.101` is present on the host. Workers stay `network_mode=none` (gateway via scratch). Owner `VAPID_CONTACT_EMAIL` is set. Next: dedicated worker host / egress policy on `.101` if needed. Furnished HQ room art remains deferred.
+**M9 phase 1 + same-host phase 2 (container default + `.101` gateway egress) are live on fs-dev.** Container is the default worker runtime when Docker/image/scratch are ready; API outbound can use policy routing via `192.168.4.101` when `FS_CORP_GATEWAY_EGRESS=worker_nic`. Workers stay `network_mode=none`. Next: optional dedicated worker host, or owner live credential hardening. Furnished HQ room art remains deferred.

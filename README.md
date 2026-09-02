@@ -43,7 +43,7 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 | 14 departments and role prompts | Configuration plus optional catalog seed |
 | CEO desk and headquarters projection | Cosmic-glass HTML/SVG desk; 2D + isometric tiles; room selection opens persisted work; companion shares the same tokens |
 | Isolated subprocess workers with gateway allowlist | Implemented; fs-dev defaults to container when ready; workers remain `--network none` |
-| fs-dev production hosting | systemd + Caddy edge + Docker worker image; `.101` NIC presence reported in workers/status |
+| fs-dev production hosting | systemd + Caddy + Docker workers; `.101` NIC presence + optional API egress via policy routing |
 | Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented; Web Push live when VAPID keys configured |
 | Live providers inside worker boundary | Model invoke when key set; GitHub when App installed; feed fetch for approved URLs; ChatDev/doc fetch not connected |
 
