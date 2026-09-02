@@ -86,6 +86,22 @@ class PushNotificationTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("configured", resp.json())
 
+    def test_application_server_key_when_vapid_pem_set(self):
+        from unittest.mock import patch
+        from company.push_vapid import application_server_key, status_summary
+        pem = """-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAERttVz4X43Iium1+kPMmbYQ1TvcFO
+cUkkvN9F9kBLrxZcmXQSpnCH4P75HX6FIqwq0Uu4fHMd3hIEN5OrD57j6w==
+-----END PUBLIC KEY-----"""
+        with patch.dict("os.environ", {
+            "VAPID_PRIVATE_KEY": "x",
+            "VAPID_PUBLIC_KEY": pem,
+        }, clear=False):
+            key = application_server_key()
+            summary = status_summary()
+        self.assertTrue(key)
+        self.assertEqual(summary.get("application_server_key"), key)
+
 
 if __name__ == "__main__":
     unittest.main()

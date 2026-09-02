@@ -21,3 +21,5 @@ artifacts/
 companion/node_modules/
 companion-native/node_modules/
 companion/dist/
+examples/*.png
+examples/*.jpg

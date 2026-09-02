@@ -8,6 +8,7 @@ import {
   saveSettings,
   type Settings,
 } from "./api/client";
+import { ensureWebPushRegistration } from "./push";
 import {
   canApprove,
   canEnroll,
@@ -43,6 +44,7 @@ export default function App() {
   const [inbox, setInbox] = useState<OwnerRequest[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [projectDetail, setProjectDetail] = useState<Record<string, unknown> | null>(null);
+  const [pushStatus, setPushStatus] = useState<string | null>(null);
 
   const scopes = settings.scopes;
   const api = useMemo(() => new ApiClient(settings), [settings]);
@@ -113,6 +115,17 @@ export default function App() {
     const id = setInterval(refresh, 15000);
     return () => clearInterval(id);
   }, [refresh, settings.token]);
+
+  useEffect(() => {
+    const manualOwnerToken = Boolean(settings.token) && !scopes?.length;
+    if (!settings.token || (!canPause(scopes) && !manualOwnerToken)) {
+      setPushStatus(null);
+      return;
+    }
+    ensureWebPushRegistration(api)
+      .then((msg) => setPushStatus(msg))
+      .catch((e) => setPushStatus(e instanceof Error ? e.message : String(e)));
+  }, [api, settings.token, scopes]);
 
   useEffect(() => {
     if (!selectedProject || !settings.token) {
@@ -335,7 +348,8 @@ export default function App() {
             <p className="muted">Scopes: {settings.scopes.join(", ")}</p>
           ) : null}
           <p className="muted">Pair a new device from the CEO desk QR, or clear token below and scan again.</p>
-          <p className="muted">Push notifications: the API records HTTPS subscriptions and fail-closes live send until VAPID keys are configured. The PWA still polls every 15s.</p>
+          {pushStatus ? <p className="muted">{pushStatus}</p> : null}
+          <p className="muted">Push uses the owner bearer token (CEO-only on the API). Paired devices without pause scope keep polling.</p>
           <div className="actions">
             <button type="button" onClick={refresh}>Test connection</button>
             <button type="button" onClick={() => save({ baseUrl: settings.baseUrl, token: "" })}>Clear token</button>

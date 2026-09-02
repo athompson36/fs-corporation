@@ -1,5 +1,6 @@
 """Web Push (VAPID) delivery. Keys stay in env, never in SQLite or prompts."""
 from __future__ import annotations
+import base64
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,24 @@ def vapid_contact() -> str:
     return (os.environ.get("VAPID_CONTACT_EMAIL") or "mailto:owner@example.com").strip()
 
 
+def application_server_key() -> str | None:
+    """URL-safe base64 public key for browser PushManager.subscribe."""
+    pem = vapid_public_key()
+    if not pem:
+        return None
+    try:
+        from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+        key = load_pem_public_key(pem.encode())
+        numbers = key.public_numbers()
+        x = numbers.x.to_bytes(32, "big")
+        y = numbers.y.to_bytes(32, "big")
+        raw = b"\x04" + x + y
+        return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+    except Exception:
+        return None
+
+
 def status_summary() -> dict:
     if not vapid_configured():
         return {"configured": False, "live": False}
@@ -32,6 +51,9 @@ def status_summary() -> dict:
     out = {"configured": True, "live": True, "contact": vapid_contact()}
     if public:
         out["public_key"] = public
+    app_key = application_server_key()
+    if app_key:
+        out["application_server_key"] = app_key
     return out
 
 
