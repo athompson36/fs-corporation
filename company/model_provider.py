@@ -12,6 +12,14 @@ ANTHROPIC_API = "https://api.anthropic.com"
 ANTHROPIC_VERSION = "2023-06-01"
 
 
+def _raise_for_provider(response: httpx.Response, provider: str, model: str) -> None:
+    if response.status_code == 404:
+        raise LookupError(
+            f"Model {model!r} not found for {provider}; "
+            "list available model ids from the provider API (see deploy/dev/README.md)")
+    response.raise_for_status()
+
+
 def _max_tokens() -> int:
     return int(os.environ.get("MODEL_PROVIDER_MAX_TOKENS") or "512")
 
@@ -138,7 +146,7 @@ def _complete_openai(profile_id: str, profile: dict, prompt: str) -> dict:
             headers={"Authorization": f"Bearer {_openai_api_key()}"},
             json=body,
         )
-        response.raise_for_status()
+        _raise_for_provider(response, "openai", model)
         payload = response.json()
     choice = (payload.get("choices") or [{}])[0]
     text = ((choice.get("message") or {}).get("content") or "").strip()
@@ -173,7 +181,7 @@ def _complete_anthropic(profile_id: str, profile: dict, prompt: str) -> dict:
             },
             json=body,
         )
-        response.raise_for_status()
+        _raise_for_provider(response, "anthropic", model)
         payload = response.json()
     parts = payload.get("content") or []
     text = "".join(

@@ -677,7 +677,10 @@ class Company:
                 raise NotImplementedError(
                     f"Live model requires {env_name} inside the worker boundary; see docs/06-model-routing.md")
             return complete(profile_id, profile, prompt)
-        raise NotImplementedError("Live model requires configured credentials inside the worker boundary; see docs/12-security.md")
+        raise NotImplementedError(
+            f"Live model provider {provider!r} is not configured; "
+            f"use provider 'mock', 'openai', 'anthropic', or 'configure-provider' with credentials; "
+            "see docs/06-model-routing.md")
 
     def seed_catalog(self,departments_path):
         data=json.loads(Path(departments_path).read_text())

@@ -14,7 +14,11 @@ docker compose up --build -d
 
 ```bash
 ./scripts/dev-doctor.sh
+# or full integration suite (models, GitHub, VAPID, container dispatch, unit tests):
+./scripts/run_all_verifications.sh
 ```
+
+**Claude model ids:** use ids from your account (e.g. `claude-sonnet-5`). Legacy names like `claude-3-5-haiku-latest` return `LookupError`, not a generic credentials error.
 
 After changing `.env` or Python code, recreate the API container:
 

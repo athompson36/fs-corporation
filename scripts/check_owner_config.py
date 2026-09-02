@@ -40,12 +40,31 @@ def load_env_file(path: Path) -> dict[str, str]:
     return data
 
 
-def file_configured(env: dict[str, str], key: str) -> bool:
+def resolve_config_path(env: dict[str, str], key: str) -> Path | None:
     value = (env.get(key) or os.environ.get(key) or "").strip()
     if not value:
-        return False
+        return None
+    path = Path(value).expanduser()
+    if path.is_file():
+        return path
+    # Docker dev maps /run/secrets/* to ./secrets/* on the host.
+    if value.startswith("/run/secrets/"):
+        alt = ROOT / "secrets" / value.rsplit("/", 1)[-1]
+        if alt.is_file():
+            return alt
+    return path if path.is_file() else None
+
+
+def file_configured(env: dict[str, str], key: str) -> bool:
     if key.endswith("_FILE") or key.endswith("_PATH"):
-        return Path(value).expanduser().is_file()
+        return resolve_config_path(env, key) is not None
+    value = (env.get(key) or os.environ.get(key) or "").strip()
+    if not value:
+        if key == "VAPID_PUBLIC_KEY":
+            return resolve_config_path(env, "VAPID_PUBLIC_KEY_FILE") is not None
+        if key == "VAPID_PRIVATE_KEY":
+            return resolve_config_path(env, "VAPID_PRIVATE_KEY_FILE") is not None
+        return False
     return True
 
 
