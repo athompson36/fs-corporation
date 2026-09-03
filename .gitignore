@@ -20,6 +20,7 @@ artifacts/
 .DS_Store
 companion/node_modules/
 companion-native/node_modules/
+companion-native/.expo/
 companion/dist/
 examples/*.png
 examples/*.jpg

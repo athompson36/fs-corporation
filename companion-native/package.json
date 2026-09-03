@@ -1,22 +1,25 @@
 {
   "name": "fs-corporation-companion-native",
   "private": true,
-  "version": "0.3.7",
-  "main": "App.tsx",
+  "version": "0.3.8",
+  "main": "expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
     "ios": "expo start --ios"
   },
+  "engines": {
+    "node": ">=20.19.4"
+  },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "1.23.1",
-    "expo": "~52.0.0",
-    "expo-clipboard": "~7.0.0",
-    "react": "18.3.1",
-    "react-native": "0.76.3",
-    "react-native-webview": "13.12.5"
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~57.0.0",
+    "expo-clipboard": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
-    "@types/react": "~18.3.12",
-    "typescript": "~5.3.3"
+    "@types/react": "~19.2.4",
+    "typescript": "~6.0.3"
   }
 }

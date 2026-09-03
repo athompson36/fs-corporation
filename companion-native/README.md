@@ -8,11 +8,16 @@ iOS does not allow third-party apps to silently inject a Tailscale auth key. Aft
 
 ## Setup
 
+Requires **Node ≥ 20.19.4** (SDK 57). With nvm:
+
 ```bash
 cd companion-native
+nvm use 20   # or: nvm use 20.20.2
 npm install
-npx expo start --ios
+npx expo start --lan
 ```
+
+Your phone’s Expo Go must be **SDK 57** (App Store latest). Same Wi‑Fi as the Mac; enter `exp://<mac-lan-ip>:8081` in Expo Go if the project list is empty.
 
 On a physical iPhone (same LAN as fs-dev for first pair):
 
