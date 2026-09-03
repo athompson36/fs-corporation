@@ -56,6 +56,11 @@ https://192.168.4.100 {
 	import lan_site
 }
 
+# HTTP on LAN for native apps (Expo/React Native cannot trust tls internal).
+http://192.168.4.100 {
+	import lan_site
+}
+
 # Uncomment and set your tailnet IP after `tailscale ip -4`:
 # https://100.x.x.x {
 # 	import lan_site

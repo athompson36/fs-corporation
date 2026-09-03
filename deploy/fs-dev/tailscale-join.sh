@@ -69,23 +69,21 @@ patch_caddy() {
   local ip caddy=/etc/caddy/Caddyfile
   ip="$(tailscale ip -4 | head -n1 | tr -d '[:space:]')"
   [[ -f "${caddy}" ]] || { echo "tailscale-join: no ${caddy}; skip Caddy patch"; return 0; }
-  if grep -q "https://${ip}" "${caddy}"; then
-    echo "tailscale-join: Caddy already has https://${ip}"
-  else
-    # Remove prior auto-managed tailscale site block if present
-    if grep -q '# fs-corp-tailscale-site' "${caddy}"; then
-      sed -i '/# fs-corp-tailscale-site/,/# fs-corp-tailscale-site-end/d' "${caddy}"
-    fi
-    cat >> "${caddy}" <<EOF
+  if grep -q '# fs-corp-tailscale-site' "${caddy}"; then
+    sed -i '/# fs-corp-tailscale-site/,/# fs-corp-tailscale-site-end/d' "${caddy}"
+  fi
+  cat >> "${caddy}" <<EOF
 
 # fs-corp-tailscale-site
 https://${ip} {
 	import lan_site
 }
+http://${ip} {
+	import lan_site
+}
 # fs-corp-tailscale-site-end
 EOF
-    echo "tailscale-join: added Caddy site https://${ip}"
-  fi
+  echo "tailscale-join: Caddy sites https://${ip} and http://${ip}"
   caddy validate --config "${caddy}" --adapter caddyfile
   systemctl restart caddy
 }

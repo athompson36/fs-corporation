@@ -12,6 +12,7 @@ import {
 import { WebView } from "react-native-webview";
 import * as Clipboard from "expo-clipboard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { httpOriginIfPrivate } from "./network";
 
 const STORAGE_KEY = "fs-corp-native-session";
 const TAILSCALE_APP = "tailscale://";
@@ -55,7 +56,7 @@ function ticketFromText(raw: string): { origin: string; ticket: string } | null 
 }
 
 async function redeem(origin: string, ticket: string): Promise<RedeemResponse> {
-  const base = origin.replace(/\/$/, "");
+  const base = httpOriginIfPrivate(origin.replace(/\/$/, ""));
   const r = await fetch(`${base}/api/v1/remote-access/redeem`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -66,7 +67,7 @@ async function redeem(origin: string, ticket: string): Promise<RedeemResponse> {
 }
 
 async function waitForCompanion(url: string, token: string, attempts = 40): Promise<boolean> {
-  const health = `${url.replace(/\/$/, "")}/api/v1/health`;
+  const health = `${httpOriginIfPrivate(url)}/api/v1/health`;
   for (let i = 0; i < attempts; i++) {
     try {
       const r = await fetch(health, {
@@ -115,13 +116,13 @@ export default function App() {
     try {
       const parsed = ticketFromText(paste);
       if (!parsed?.ticket) throw new Error("Paste the pair URL from the CEO desk QR (…/#fs-pair=…).");
-      const origin = parsed.origin || "https://192.168.4.100";
+      const origin = parsed.origin || "http://192.168.4.100";
       setStatus("Redeeming pairing ticket…");
       const data = await redeem(origin, parsed.ticket);
-      const companion = (data.companion_url || data.base_url || origin).replace(/\/$/, "");
+      const companion = httpOriginIfPrivate(data.companion_url || data.base_url || origin);
       const next: Session = {
         token: data.token,
-        baseUrl: (data.base_url || origin).replace(/\/$/, ""),
+        baseUrl: httpOriginIfPrivate(data.base_url || origin),
         companionUrl: companion,
         accessLevel: data.access_level,
         label: data.label,
@@ -182,7 +183,7 @@ export default function App() {
           </TouchableOpacity>
         </View>
         <WebView
-          source={{ uri: webviewUrl }}
+          source={{ uri: httpOriginIfPrivate(webviewUrl) }}
           style={styles.web}
           injectedJavaScriptBeforeContentLoaded={injected}
           // tls internal on fs-dev
