@@ -1,21 +1,27 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.27. State: **iOS Tailscale VPN + pairing verified.**
+Date: 2026-09-02. Version: 0.3.27. State: **iOS Tailscale + live pilot on fs-dev.**
 
 ## Delivered
 
-- fs-dev on Tailscale `100.118.234.20`; Caddy HTTP+HTTPS on LAN and tailnet.
-- Native iOS: pair URL → redeem → Tailscale auth key → companion WebView.
-- Container default, `.101` gateway egress, VAPID contact configured.
+- iOS: pair → Tailscale → companion on `http://100.118.234.20`.
+- Live pilot on fs-dev: GitHub App + OpenAI/Anthropic + container dispatch `produced`.
+- `scripts/verify_fs_dev_pilot.sh` — repeatable host check.
 
-## Owner — continue from here
+## Owner daily use
 
-1. In the Expo app, tap **Open companion** (or wait for auto-load). Companion URL: `http://100.118.234.20` (off-LAN over Tailscale).
-2. Optional push: Safari → `http://100.118.234.20` → **Add to Home Screen** → **Enable push** in settings (iOS requires home-screen PWA).
-3. CEO desk pairing QR (on LAN): `https://192.168.4.100/desk`
+- **Off-LAN:** Tailscale on → companion `http://100.118.234.20` (or home-screen PWA).
+- **On LAN:** desk `https://192.168.4.100/desk`, push via home-screen PWA.
 
-## Next implementation (deferred)
+## Verify on host
 
-- Android native handoff; TailscaleKit one-tap join.
-- Dedicated worker host.
-- Furnished HQ room art.
+```bash
+# copy owner token to readable path if needed
+FS_CORP_TOKEN_FILE=/tmp/owner.token.exercise bash /opt/fs-corporation/scripts/verify_fs_dev_pilot.sh
+```
+
+## Next implementation
+
+- GitHub pilot write (enroll disposable repo + first PR) — needs repo IDs in owner checklist.
+- Android native handoff; dedicated worker host (optional).
+- Furnished HQ room art deferred.
