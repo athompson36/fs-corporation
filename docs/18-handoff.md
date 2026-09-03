@@ -1,31 +1,21 @@
 # Current handoff
 
-Date: 2026-09-02. Version: 0.3.27. State: **Tailscale join + iOS native VPN handoff.**
+Date: 2026-09-02. Version: 0.3.27. State: **iOS Tailscale VPN + pairing verified.**
 
 ## Delivered
 
-- `deploy/fs-dev/tailscale-join.sh` installs/joins Tailscale; Caddy serves tailnet IP.
-- Auth key staged via `secrets.env` (never in QR). Redeem returns `companion_url` + `ios_handoff`.
-- `companion-native`: paste pair URL → redeem → clipboard auth key → open Tailscale → poll → WebView.
+- fs-dev on Tailscale `100.118.234.20`; Caddy HTTP+HTTPS on LAN and tailnet.
+- Native iOS: pair URL → redeem → Tailscale auth key → companion WebView.
+- Container default, `.101` gateway egress, VAPID contact configured.
 
-## Owner steps (iOS)
+## Owner — continue from here
 
-1. Deploy/install (auth key already in local `.env`).
-2. On home Wi‑Fi: desk QR → paste URL into native app → **Pair & join VPN**.
-3. In Tailscale: **Use an auth key** → Paste (key already copied).
-4. Return to app; companion loads on Tailscale HTTPS.
+1. In the Expo app, tap **Open companion** (or wait for auto-load). Companion URL: `http://100.118.234.20` (off-LAN over Tailscale).
+2. Optional push: Safari → `http://100.118.234.20` → **Add to Home Screen** → **Enable push** in settings (iOS requires home-screen PWA).
+3. CEO desk pairing QR (on LAN): `https://192.168.4.100/desk`
 
-## Next
+## Next implementation (deferred)
 
-- Android handoff, or TailscaleKit userspace (true in-app VPN) if one-paste is not enough.
-- Dedicated worker host (deferred).
-- Furnished HQ room art remains deferred.
-
-```bash
-./scripts/deploy_to_fs_dev.sh
-ssh andrew@192.168.4.100 'sudo bash ~/fs-corporation-deploy/run-install.sh'
-# expect: tailscale ip -4 prints 100.x; remote-access shows auth_key_configured
-cd companion-native && npm install && npx expo start --ios
-```
-
-See [superpowers/specs/2026-09-02-tailscale-ios-pairing-design.md](superpowers/specs/2026-09-02-tailscale-ios-pairing-design.md).
+- Android native handoff; TailscaleKit one-tap join.
+- Dedicated worker host.
+- Furnished HQ room art.
