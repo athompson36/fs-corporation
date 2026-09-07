@@ -2958,6 +2958,20 @@ class Company:
                 "response_body": response_body,
             }
 
+    def prune_idempotency_keys(self, actor, older_than_days=None):
+        """Delete idempotency rows older than the retention window (default 7 days)."""
+        self._ceo_or_admin_companion(actor)
+        from company.idempotency_prune import prune_command_idempotency, retention_days_from_env
+        days = retention_days_from_env() if older_than_days is None else int(older_than_days)
+        with self.tx():
+            deleted = prune_command_idempotency(self.db, older_than_days=days, now_dt=now())
+            self._event(
+                "ops.idempotency_pruned",
+                {"deleted": deleted, "older_than_days": days},
+                actor_id=actor,
+            )
+        return {"deleted": deleted, "older_than_days": days}
+
     def _hardware_catalog(self, path=None):
         path=Path(path or Path(__file__).resolve().parents[1]/"config"/"hardware-skills.json")
         return json.loads(path.read_text())

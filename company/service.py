@@ -1631,6 +1631,22 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         payload = envelope(ident, body)
         return run(ident, idempotency_key, payload, lambda: (company.pause(ident["principal_id"], False) or {"paused": False}, 200))
 
+    @app.post("/api/v1/ops/idempotency/prune")
+    def idempotency_prune(
+            body: Command, authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        unknown = payload.keys() - {"older_than_days"}
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"Unknown fields: {sorted(unknown)}")
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (company.prune_idempotency_keys(
+                ident["principal_id"], payload.get("older_than_days")), 200),
+        )
+
     @app.get("/api/v1/departments")
     def departments(authorization: str | None = Header(default=None)):
         ident = principal(authorization)
