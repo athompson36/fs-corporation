@@ -1,7 +1,9 @@
 """Opt-in ChatDev SDK bridge. No ChatDev package dependency."""
 from __future__ import annotations
 import importlib.util
+import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Callable
@@ -186,6 +188,51 @@ def run_work_order(order, *, allow_control_plane: bool | None = None) -> dict:
     return normalize_result(raw, session_name=session, max_cost_cents=order.max_cost_cents)
 
 
+LABEL_CHATDEV_ENABLE = "org.fs_corporation.chatdev_enable"
+LABEL_CHATDEV_PIN = "org.fs_corporation.chatdev_pin"
+DEFAULT_WORKER_IMAGE = "fs-corporation-worker:local"
+
+
+def worker_image() -> str:
+    return (os.environ.get("FS_CORP_WORKER_IMAGE") or DEFAULT_WORKER_IMAGE).strip()
+
+
+def worker_image_chatdev_summary() -> dict | None:
+    """Probe worker image ChatDev labels via docker image inspect; fail-closed."""
+    image = worker_image()
+    docker = shutil.which("docker")
+    if not docker:
+        return None
+    try:
+        proc = subprocess.run(
+            [docker, "image", "inspect", image, "--format", "{{json .Config.Labels}}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        labels = json.loads((proc.stdout or "").strip() or "{}")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(labels, dict):
+        return None
+    enable_raw = labels.get(LABEL_CHATDEV_ENABLE)
+    pin_raw = labels.get(LABEL_CHATDEV_PIN)
+    out: dict = {"image": image}
+    if enable_raw is not None:
+        out["enabled"] = str(enable_raw).strip() == "1"
+    else:
+        out["enabled"] = False
+    if pin_raw:
+        out["pin"] = str(pin_raw).strip()
+    return out
+
+
 def status_summary() -> dict:
     home = chatdev_home()
     ready = chatdev_home_ready()
@@ -198,6 +245,7 @@ def status_summary() -> dict:
         "control_plane_allowed": _control_plane_allowed(),
         "worker_live_ready": ready,
         "workflow": str(workflow_path()),
+        "worker_image_chatdev": worker_image_chatdev_summary(),
     }
     if skipped:
         out["pin_check_skipped"] = True

@@ -55,8 +55,9 @@ Contract tests in `tests/test_chatdev_adapter.py` use a fake SDK and `fixtures/c
 | `CHATDEV_WORKFLOW` | Optional absolute path to workflow YAML; default: `fixtures/chatdev/minimal_workflow.yaml` |
 | `CHATDEV_SKIP_PIN_CHECK` | Test/dev escape hatch: set to `1` to skip git pin verification (status reports `pin_check_skipped`) |
 | `CHATDEV_ALLOW_CONTROL_PLANE` | Set to `1` to allow live SDK in the API process (desk/dev only; workers pass `allow_control_plane=True` internally) |
+| `FS_CORP_WORKER_IMAGE` | Worker image tag probed for ChatDev build labels (default `fs-corporation-worker:local`) |
 
-Probe readiness with `GET /api/v1/chatdev/status` (requires `company.read`): `{pin, home_set, configured, pin_verified, control_plane_allowed, worker_live_ready, workflow}` plus optional `pin_check_skipped` — no secrets returned. `worker_live_ready` mirrors pin-verified home readiness; `control_plane_allowed` reflects the escape hatch env.
+Probe readiness with `GET /api/v1/chatdev/status` (requires `company.read`): `{pin, home_set, configured, pin_verified, control_plane_allowed, worker_live_ready, workflow, worker_image_chatdev}` plus optional `pin_check_skipped` — no secrets returned. `worker_live_ready` mirrors pin-verified home readiness; `control_plane_allowed` reflects the escape hatch env. `worker_image_chatdev` is `null` when Docker is unavailable or `docker image inspect` fails on `FS_CORP_WORKER_IMAGE` (default `fs-corporation-worker:local`); otherwise `{image, enabled, pin?}` from labels `org.fs_corporation.chatdev_enable` and `org.fs_corporation.chatdev_pin` set at worker image build time.
 
 ## Upgrades
 

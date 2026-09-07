@@ -259,7 +259,15 @@ build_worker_image() {
     return
   fi
   log "Building container worker image fs-corporation-worker:local"
+  local build_args=()
+  if [[ "${FS_CORP_WORKER_CHATDEV:-0}" == "1" ]]; then
+    build_args+=(--build-arg "CHATDEV_ENABLE=1")
+    if [[ -n "${CHATDEV_REF:-}" ]]; then
+      build_args+=(--build-arg "CHATDEV_REF=${CHATDEV_REF}")
+    fi
+  fi
   docker build -f "${INSTALL_DIR}/deploy/fs-dev/Dockerfile.worker" \
+    "${build_args[@]}" \
     -t fs-corporation-worker:local "${INSTALL_DIR}"
 }
 

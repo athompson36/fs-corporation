@@ -60,7 +60,7 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | GET /github/status | GitHub App connectivity + `webhook_secret_configured` (no secrets returned) | company.read |
 | POST /github/webhooks | Signed GitHub App webhook ingress (HMAC; no bearer) | webhook secret |
 | GET /model/status | Model provider connectivity (no secrets returned) | company.read |
-| GET /chatdev/status | ChatDev opt-in readiness: pin, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, workflow path; optional `pin_check_skipped` (no secrets) | company.read |
+| GET /chatdev/status | ChatDev opt-in readiness: pin, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, `worker_image_chatdev`, workflow path; optional `pin_check_skipped` (no secrets) | company.read |
 | GET /feeds | List CEO-approved market feed sources | company.read |
 | POST /feeds | Approve an HTTPS feed URL (`payload.id`, `payload.url`) | project.enroll (CEO) |
 | POST /feeds/{id}/poll | Poll an approved feed and ingest signals | company.pause (CEO) |

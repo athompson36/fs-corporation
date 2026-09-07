@@ -278,4 +278,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Live github.com webhooks via Funnel** (ping + push + pull_request on `fs-corp-comp`). ChatDev adapter slice 2 delivered (worker live path when opted in; control-plane deny; status fields). Next optional: TailscaleKit; dedicated worker host; ChatDev in Docker worker image; furnished HQ room art deferred.
+**Live github.com webhooks via Funnel** (ping + push + pull_request on `fs-corp-comp`). ChatDev adapter slice 3 delivered (optional ChatDev in worker image; label probe on `/chatdev/status`). Next optional: TailscaleKit; dedicated worker host; full ChatDev deps in worker image for egress; furnished HQ room art deferred.

@@ -79,6 +79,50 @@ class ChatDevAdapterTests(unittest.TestCase):
         self.assertFalse(s["pin_verified"])
         self.assertFalse(s["control_plane_allowed"])
         self.assertFalse(s["worker_live_ready"])
+        self.assertIn("worker_image_chatdev", s)
+
+    def test_worker_image_chatdev_unavailable_without_docker(self):
+        from company.chatdev_runtime import worker_image_chatdev_summary
+        with patch("company.chatdev_runtime.shutil.which", return_value=None):
+            self.assertIsNone(worker_image_chatdev_summary())
+
+    def test_worker_image_chatdev_inspect_failure(self):
+        from company.chatdev_runtime import worker_image_chatdev_summary
+        with patch("company.chatdev_runtime.shutil.which", return_value="/usr/bin/docker"):
+            with patch("company.chatdev_runtime.subprocess.run") as run:
+                run.return_value = SimpleNamespace(returncode=1, stdout="", stderr="missing")
+                self.assertIsNone(worker_image_chatdev_summary())
+
+    def test_worker_image_chatdev_from_inspect_labels(self):
+        from company.chatdev_runtime import worker_image_chatdev_summary
+        labels_json = (
+            '{"org.fs_corporation.chatdev_enable":"1",'
+            '"org.fs_corporation.chatdev_pin":"4fb2db0ea90375ce1059f44fe03ffbd191a7a169"}'
+        )
+        with patch("company.chatdev_runtime.shutil.which", return_value="/usr/bin/docker"):
+            with patch("company.chatdev_runtime.subprocess.run") as run:
+                run.return_value = SimpleNamespace(returncode=0, stdout=labels_json)
+                summary = worker_image_chatdev_summary()
+        self.assertIsNotNone(summary)
+        self.assertTrue(summary["enabled"])
+        self.assertEqual(summary["pin"], PINNED_COMMIT)
+        self.assertEqual(summary["image"], "fs-corporation-worker:local")
+        run.assert_called_once()
+        cmd = run.call_args[0][0]
+        self.assertEqual(cmd[0], "/usr/bin/docker")
+        self.assertEqual(cmd[1:4], ["image", "inspect", "fs-corporation-worker:local"])
+
+    def test_worker_image_chatdev_disabled_label(self):
+        from company.chatdev_runtime import worker_image_chatdev_summary
+        labels_json = (
+            '{"org.fs_corporation.chatdev_enable":"0",'
+            '"org.fs_corporation.chatdev_pin":"4fb2db0ea90375ce1059f44fe03ffbd191a7a169"}'
+        )
+        with patch("company.chatdev_runtime.shutil.which", return_value="/usr/bin/docker"):
+            with patch("company.chatdev_runtime.subprocess.run") as run:
+                run.return_value = SimpleNamespace(returncode=0, stdout=labels_json)
+                summary = worker_image_chatdev_summary()
+        self.assertFalse(summary["enabled"])
 
     def test_pin_mismatch_fail_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -142,6 +186,7 @@ class ChatDevAdapterTests(unittest.TestCase):
         )
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["pin"], PINNED_COMMIT)
+        self.assertIn("worker_image_chatdev", r.json())
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from company.core import Company
-from company.worker import build_worker_envelope, run_isolated_work
+from company.worker import ContainerWorkerRuntime, build_worker_envelope, run_isolated_work
 from tests.test_core import install, policy
 
 
@@ -101,6 +101,42 @@ class WorkerChatDevTests(unittest.TestCase):
         with patch("company.worker.chatdev_home_ready", return_value=False):
             out = run_isolated_work(env, Path(self.scratch.name), request)
         self.assertEqual(out["type"], "error")
+
+    def test_container_dispatch_omits_chatdev_allow_env_from_host(self):
+        os.environ["CHATDEV_ALLOW_CONTROL_PLANE"] = "1"
+        self.addCleanup(lambda: os.environ.pop("CHATDEV_ALLOW_CONTROL_PLANE", None))
+        self.c.queue_task("head", "app", "draft", 10, "t-container-env")
+        self.c.claim_lease("w1", "t-container-env")
+        recorded: dict = {}
+
+        class FakeProc:
+            returncode = 0
+
+            def communicate(self, timeout=None):
+                return ("", "")
+
+            def poll(self):
+                return 0
+
+            def kill(self):
+                pass
+
+        def fake_popen(cmd, **kwargs):
+            recorded["cmd"] = cmd
+            return FakeProc()
+
+        fake_docker = Path(self.scratch.name) / "fake-docker"
+        fake_docker.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        fake_docker.chmod(0o755)
+        with patch("subprocess.Popen", fake_popen):
+            with patch(
+                "company.worker.pump_file_gateway",
+                return_value={"status": "produced", "id": "t-container-env"},
+            ):
+                ContainerWorkerRuntime().dispatch(
+                    self.c, "w1", "t-container-env", Path(self.scratch.name), docker_path=str(fake_docker))
+        cmd_blob = " ".join(recorded["cmd"])
+        self.assertNotIn("CHATDEV_ALLOW_CONTROL_PLANE", cmd_blob)
 
 
 if __name__ == "__main__":

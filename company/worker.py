@@ -239,6 +239,11 @@ class ContainerWorkerRuntime:
             return str(Path(host_base) / scratch_task_dir.name)
         return str(scratch_task_dir.resolve())
 
+    @staticmethod
+    def _docker_run_env_args() -> list[str]:
+        """Docker -e flags for container workers. Never forward host CHATDEV_ALLOW_CONTROL_PLANE."""
+        return ["-e", "COMPANY_WORKER_MODE=container"]
+
     def dispatch(self, company, worker_id: str, task_id: str, scratch_root: Path, approval=None, docker_path=None):
         docker = docker_path or shutil.which("docker")
         if not docker:
@@ -256,7 +261,7 @@ class ContainerWorkerRuntime:
         cmd = [
             docker, "run", "--rm", "--network", "none",
             "-v", f"{mount_src}:/work:rw",
-            "-e", "COMPANY_WORKER_MODE=container",
+            *self._docker_run_env_args(),
             "--label", "fs.corp.runtime=container",
         ]
         if worker_nic:

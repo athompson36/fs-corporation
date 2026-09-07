@@ -1,9 +1,10 @@
 # Current handoff
 
-Date: 2026-09-07. Version: 0.3.39. State: **Live github.com → Funnel → host (ping, push, pull_request).**
+Date: 2026-09-07. Version: 0.3.40. State: **Live github.com → Funnel → host (ping, push, pull_request).**
 
 ## Delivered
 
+- ChatDev adapter slice 3: optional ChatDev in worker Docker image (`CHATDEV_ENABLE=1`); entrypoint sets `CHATDEV_HOME` when sdk present; no `CHATDEV_ALLOW_CONTROL_PLANE` leak into containers; `GET /api/v1/chatdev/status` adds `worker_image_chatdev` via fail-closed `docker image inspect` on `FS_CORP_WORKER_IMAGE`.
 - ChatDev adapter slice 2: worker subprocess live path when `chatdev: true` + pin-verified `CHATDEV_HOME`; control-plane deny unless `CHATDEV_ALLOW_CONTROL_PLANE=1`; status adds `control_plane_allowed`, `worker_live_ready`.
 - ChatDev adapter slice 1: opt-in `ChatDevAdapter` + `company/chatdev_runtime.py`, fixture digest tests, `GET /api/v1/chatdev/status`.
 - Funnel: `https://fs-dev.tail824ab1.ts.net/api/v1/github/webhooks`
@@ -15,7 +16,7 @@ Date: 2026-09-07. Version: 0.3.39. State: **Live github.com → Funnel → host 
 ## Verify
 
 ```bash
-.venv/bin/python -m unittest tests.test_worker_chatdev tests.test_chatdev_adapter tests.test_m2 tests.test_workers -v
+.venv/bin/python -m unittest tests.test_worker_chatdev tests.test_chatdev_adapter tests.test_worker_dockerfile_chatdev tests.test_m2 tests.test_workers -v
 python3 scripts/check_bundle.py
 ```
 
@@ -27,4 +28,4 @@ FS_CORP_TOKEN_FILE=~/Desktop/fs-corp-owner.token \
 
 ## Next implementation
 
-- Optional: TailscaleKit; dedicated worker host; ChatDev inside Docker worker image; furnished HQ room art deferred.
+- Optional: TailscaleKit; dedicated worker host; full ChatDev deps inside worker image for billed model calls; furnished HQ room art deferred.

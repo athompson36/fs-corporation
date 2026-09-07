@@ -218,8 +218,14 @@ Build on the host when skipping `install.sh` image step:
 
 ```bash
 docker build -f deploy/fs-dev/Dockerfile.worker -t fs-corporation-worker:local .
+# optional ChatDev embed (needs build network):
+docker build -f deploy/fs-dev/Dockerfile.worker \
+  --build-arg CHATDEV_ENABLE=1 \
+  -t fs-corporation-worker:chatdev .
 docker compose -f deploy/fs-dev/docker-compose.workers.yml build
 ```
+
+Or set **`FS_CORP_WORKER_CHATDEV=1`** before `install.sh` / `run-install.sh` to pass `--build-arg CHATDEV_ENABLE=1`. Labels `org.fs_corporation.chatdev_enable` and `org.fs_corporation.chatdev_pin` are readable via `GET /api/v1/chatdev/status` → `worker_image_chatdev` (null when Docker inspect is unavailable).
 
 `ContainerWorkerRuntime` pumps a scratch-directory gateway (`gw-request.json` / `gw-response.json`) so the image can complete mock work without a control-plane database. Live model/GitHub adapters inside that gateway remain fail-closed until the owner supplies credentials in `/etc/fs-corporation/secrets.env`. See [23-isolated-workers.md](23-isolated-workers.md).
 

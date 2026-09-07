@@ -1,17 +1,37 @@
 # Build: docker build -f deploy/fs-dev/Dockerfile.worker -t fs-corporation-worker:local .
+# Opt-in ChatDev: --build-arg CHATDEV_ENABLE=1
+ARG CHATDEV_ENABLE=0
+ARG CHATDEV_REF=4fb2db0ea90375ce1059f44fe03ffbd191a7a169
+
 FROM python:3.12-slim
+
+ARG CHATDEV_ENABLE
+ARG CHATDEV_REF
 
 WORKDIR /src
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md /src/
 COPY company /src/company
+COPY fixtures /src/fixtures
 
 RUN pip install --no-cache-dir /src
 
-WORKDIR /work
+# Optional: embed pinned ChatDev (source + label). Full uv sync may be added when build network allows.
+RUN if [ "$CHATDEV_ENABLE" = "1" ]; then \
+      git clone --depth 1 https://github.com/OpenBMB/ChatDev.git /opt/chatdev \
+      && cd /opt/chatdev && git fetch --depth 1 origin "$CHATDEV_REF" && git checkout "$CHATDEV_REF" \
+      && test -f /opt/chatdev/runtime/sdk.py; \
+    fi
 
-ENTRYPOINT ["python", "-m", "company.worker"]
+LABEL org.fs_corporation.chatdev_enable="${CHATDEV_ENABLE}"
+LABEL org.fs_corporation.chatdev_pin="${CHATDEV_REF}"
+
+COPY deploy/fs-dev/worker-entrypoint.sh /usr/local/bin/worker-entrypoint.sh
+RUN chmod +x /usr/local/bin/worker-entrypoint.sh
+
+WORKDIR /work
+ENTRYPOINT ["/usr/local/bin/worker-entrypoint.sh"]
