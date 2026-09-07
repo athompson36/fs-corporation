@@ -39,7 +39,9 @@ class ModelLiveTests(AmbientEnvIsolatedTestCase):
     @patch("company.model_provider.model_configured", return_value=True)
     @patch("company.model_provider.complete")
     def test_invoke_model_live(self, mock_complete, _configured):
-        mock_complete.return_value = {"text": "pilot", "profile_id": "live", "cost_cents": 1, "provider": "openai"}
+        mock_complete.return_value = {
+            "text": "pilot", "profile_id": "live", "usage_tokens": 1, "cost_cents": 0, "provider": "openai",
+        }
         with patch.dict("os.environ", {"MODEL_PROVIDER_API_KEY": "test-key"}, clear=False):
             out = self.c.invoke_model("live", "hello", self.registry)
         self.assertEqual(out["text"], "pilot")
@@ -56,7 +58,22 @@ class ModelLiveTests(AmbientEnvIsolatedTestCase):
         with patch.dict("os.environ", {"MODEL_PROVIDER_API_KEY": "test-key"}, clear=False):
             out = complete("live", {"provider": "openai", "model": "gpt-4o-mini"}, "hi")
         self.assertEqual(out["text"], "ok")
-        self.assertEqual(out["cost_cents"], 12)
+        self.assertEqual(out["usage_tokens"], 12)
+        self.assertEqual(out["cost_cents"], 0)
+
+    @patch("company.model_provider.httpx.Client")
+    def test_complete_openai_priced(self, client_cls):
+        response = client_cls.return_value.__enter__.return_value.post.return_value
+        response.raise_for_status = lambda: None
+        response.json.return_value = {
+            "choices": [{"message": {"content": "ok"}}],
+            "usage": {"total_tokens": 2000},
+        }
+        env = {"MODEL_PROVIDER_API_KEY": "test-key", "FS_CORP_MODEL_CENTS_PER_1K_TOKENS": "3"}
+        with patch.dict("os.environ", env, clear=False):
+            out = complete("live", {"provider": "openai", "model": "gpt-4o-mini"}, "hi")
+        self.assertEqual(out["usage_tokens"], 2000)
+        self.assertEqual(out["cost_cents"], 6)
 
     @patch("company.model_provider.httpx.Client")
     def test_complete_anthropic_shape(self, client_cls):
@@ -69,7 +86,8 @@ class ModelLiveTests(AmbientEnvIsolatedTestCase):
         with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-ant-test"}, clear=False):
             out = complete("claude", {"provider": "anthropic", "model": "claude-3-5-haiku-latest"}, "hi")
         self.assertEqual(out["text"], "claude ok")
-        self.assertEqual(out["cost_cents"], 12)
+        self.assertEqual(out["usage_tokens"], 12)
+        self.assertEqual(out["cost_cents"], 0)
 
     def test_invoke_model_anthropic_fail_closed_without_key(self):
         registry = {"profiles": {

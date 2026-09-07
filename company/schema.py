@@ -154,6 +154,13 @@ CREATE TABLE IF NOT EXISTS pairing_tickets(
 CREATE TABLE IF NOT EXISTS github_webhook_deliveries(
   delivery_id TEXT PRIMARY KEY, event TEXT NOT NULL, repo_id TEXT,
   summary TEXT NOT NULL, received_at TEXT NOT NULL, status TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS billed_costs(
+  id TEXT PRIMARY KEY, recorded_at TEXT NOT NULL, amount_cents INTEGER NOT NULL,
+  usage_tokens INTEGER NOT NULL, provider TEXT NOT NULL, profile_id TEXT NOT NULL,
+  source TEXT NOT NULL, task_id TEXT);
+CREATE TABLE IF NOT EXISTS revenue(
+  id TEXT PRIMARY KEY, recorded_at TEXT NOT NULL, amount_cents INTEGER NOT NULL,
+  source TEXT NOT NULL, note TEXT NOT NULL DEFAULT '');
 """
 
 SLO_DEFINITIONS = (

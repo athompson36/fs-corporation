@@ -293,15 +293,13 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
 
 ### M10-03: Financial model completeness
 
-- [ ] **Separate actual billed cost from simulated credits.** The schema has simulated
-      credits (`ledger`), estimates (`work_orders.max_cost_cents`), and reservations, but no
-      billed-cost table, so the required separation is incomplete. `invoke_model` returns
-      `cost_cents` that is never persisted.
-      *Acceptance:* a billed-cost record in integer minor units, written when a live provider
-      call returns, distinct from simulated spend in `/api/v1/company` and the budget view.
-- [ ] **Model real revenue.** No revenue table exists.
-      *Acceptance:* a revenue record in integer minor units, never mixed with simulated
-      credits in any total.
+- [x] **Separate actual billed cost from simulated credits** (0.3.48). Tables
+      `billed_costs` / Alembic `0013`; live `invoke_model` writes a row with honest
+      `amount_cents` (0 until priced) and `usage_tokens`. Mock does not write. Provider
+      no longer labels token counts as cents. `status()` / desk expose `billed_cost_cents`
+      separately from `simulated_spend_cents`.
+- [x] **Model real revenue** (0.3.48). `revenue` table + CEO `record_revenue`;
+      `revenue_cents` on status, never mixed into simulated totals.
 - [ ] **Give `benchmark_results` and `model_profiles` a read path or remove them.** Both are
       written and never read by application code; live routing reads JSON config instead.
       *Acceptance:* either a consumer with a test, or removal with a migration note.
@@ -377,9 +375,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Companion PWA build hang is fixed (0.3.47).** Next: **M10-03 financial model
-completeness** (billed cost / revenue tables), or remaining **M10-04** UI items
-(status surface, version display, desk keyboard access, `window.prompt` replacement).
+**M10-03 billed cost / revenue tables shipped (0.3.48).** Next: remaining M10-03
+(benchmark read path or removal; role fixtures), or **M10-04** UI items (status surface,
+version display, desk keyboard access, `window.prompt` replacement).
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
 dependencies plus controlled egress in the worker image; furnished HQ room art.

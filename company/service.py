@@ -143,7 +143,7 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 <section class="glass" id="people"><h2>People</h2><ul id="people-list"></ul></section>
 <section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="budget"><h2>Budget</h2>
-<p class="muted">Simulated credits, not billed cost.</p>
+<p class="muted">Simulated credits, billed cost, and revenue are separate totals.</p>
 <pre id="budget-json">Loading…</pre>
 </section>
 <section class="glass" id="activity"><h2>Activity</h2><ul id="activity-list"></ul></section>
@@ -380,8 +380,10 @@ async function load() {
   document.getElementById('metric-departments').textContent = pad((dj.departments||[]).length);
   document.getElementById('budget-json').textContent = JSON.stringify({
     simulated_spend_cents: company.simulated_spend_cents,
+    billed_cost_cents: company.billed_cost_cents,
+    revenue_cents: company.revenue_cents,
     reserved_cents: company.reserved_cents,
-    note: 'Simulated credits, not billed cost'
+    note: 'Simulated credits stay separate from billed cost and revenue'
   });
   const svg = document.getElementById('floor');
   svg.innerHTML = '';

@@ -27,6 +27,7 @@
 | ADR-023 | 2026-09-07 | Same-host worker plane on `.101` with a soft health signal | `.101` is a second address on the control-plane host, reported as `worker_plane`; degraded state warns but never blocks dispatch, because `--network none` workers never bind it. |
 | ADR-024 | 2026-09-07 | ChatDev adapter in three opt-in slices, denied in the control plane by default | Live SDK runs only inside a worker; the control plane refuses it unless `CHATDEV_ALLOW_CONTROL_PLANE` is set; the image pin is verified and surfaced through image labels. |
 | ADR-025 | 2026-09-07 | Companion PWA uses generateSW + importScripts for push | Vite 6 + injectManifest hung building `src/sw.ts`; generateSW emits `dist/sw.js`; push lives in `public/sw-push.js`; Node 18 needs a crypto polyfill and Workbox development mode to avoid terser. |
+| ADR-026 | 2026-09-07 | Billed cost and revenue tables separate from simulated ledger | Live invoke writes `billed_costs` with honest cents + usage_tokens; revenue via CEO `record_revenue`; status exposes separate sums (ADR-007). |
 
 ### ADR-010 detail
 
@@ -205,5 +206,19 @@
 - Drop the PWA plugin: rejected — offline shell and autoUpdate registration are still wanted.
 
 **Consequences.** Builds exit and emit `dist/sw.js` plus copied `sw-push.js`. Workbox assets are unminified in development mode (acceptable for a private companion). Phone offline / update-on-reload needs an owner smoke check after the next fs-dev companion rebuild. Expo/`companion-native` audit findings remain a separate tree.
+
+### ADR-026 detail
+
+**Context.** R12 and ADR-007 require estimated, reserved, actual billed cost, and simulated credits to stay separate. Through 0.3.47 the schema had ledger/reservations/estimates only; live `invoke_model` returned a mislabeled token count as `cost_cents` and never persisted it. No revenue table existed.
+
+**Decision.** Add `billed_costs` and `revenue` (Alembic `0013`). On successful live invoke, insert a billed row with `usage_tokens` and `amount_cents` from optional pricing (`cents_per_1k_tokens` / `FS_CORP_MODEL_CENTS_PER_1K_TOKENS`), else `0`. Mock writes nothing. CEO `record_revenue` writes revenue only. `status()` exposes `billed_cost_cents` and `revenue_cents` beside `simulated_spend_cents`.
+
+**Alternatives considered.**
+
+- Persist token counts as cents: rejected — dishonest minor units.
+- Insert billed rows only when priced: rejected — loses the audit trail of live calls.
+- Full invoice/refund engine: deferred.
+
+**Consequences.** Spec: `docs/superpowers/specs/2026-09-07-billed-cost-revenue-design.md`. HTTP command for revenue can follow; core writer is the authority. Benchmark dead-table cleanup remains a separate M10-03 item.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

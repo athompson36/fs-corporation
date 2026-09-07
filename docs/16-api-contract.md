@@ -160,8 +160,8 @@ of them.
   `scopes` and `summary`), and `paired_devices`. `paired_devices` is populated for the CEO and
   an empty list otherwise.
 - **`GET /company`** — the `company.status()` fields (`mode`, `policy_version`, counts,
-  `simulated_spend_cents`, `rooms`, `audit_valid`) merged with `paused`.
-
+  `simulated_spend_cents`, `billed_cost_cents`, `revenue_cents`, `rooms`, `audit_valid`)
+  merged with `paused`. Simulated, billed, and revenue totals are never summed together.
 ## Command envelope
 
 Each mutation uses an Idempotency-Key header plus a body containing expected resource/policy version and typed payload. Derive requester identity from the session/service token. Approval commands include proposal digest, decision and reason. Reject changed payloads under the same idempotency key.

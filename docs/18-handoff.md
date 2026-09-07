@@ -1,30 +1,30 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.47**. State: **M10-04 companion PWA build fixed**.
+Date: 2026-09-07. Version: **0.3.48**. State: **M10-03 billed cost / revenue tables shipped**.
 
-## Delivered in 0.3.47
+## Delivered in 0.3.48
 
-- Companion build no longer hangs: switched from `injectManifest`/`src/sw.ts` to
-  `generateSW` with push handlers in `public/sw-push.js` (`importScripts`).
-- `vite-plugin-pwa` ^1.2.0; Workbox `mode: "development"` plus a Node 18
-  `crypto` polyfill so SW generation exits on fs-dev's Node.
-- Verified: `cd companion && npm run build` exits and emits `dist/sw.js` +
-  `dist/sw-push.js` (companion **0.3.7**).
+- `billed_costs` and `revenue` tables (Alembic `0013_billed_cost_revenue`)
+- Live `invoke_model` persists billed rows; tokens in `usage_tokens`; `cost_cents` only when
+  priced via profile `cents_per_1k_tokens` or `FS_CORP_MODEL_CENTS_PER_1K_TOKENS`
+- `record_revenue` (CEO-only); `status()` exposes `billed_cost_cents` / `revenue_cents`
+  separate from `simulated_spend_cents`
+- Desk budget panel shows the three totals distinctly
 
 ## Prior
 
-- 0.3.46 M10-02 test gaps; 0.3.42–0.3.45 M10-01 correctness.
+- 0.3.47 companion PWA generateSW; 0.3.46 M10-02; 0.3.42–0.3.45 M10-01
 
 ## Verify
 
 ```bash
-cd companion && npm run build && test -f dist/sw.js && test -f dist/sw-push.js
+.venv/bin/python -m unittest tests.test_m10_finance tests.test_model_feed_live -v
 .venv/bin/python -m unittest discover -s tests
 python3 scripts/check_bundle.py
 ```
 
 ## Next implementation
 
-**M10-03** financial model (billed cost / revenue tables), or remaining **M10-04** UI
-items (status surface, version display, desk keyboard access, `window.prompt`
-replacement).
+Remaining **M10-03**: benchmark_results / model_profiles read path or removal; role
+benchmark fixtures. Or **M10-04** UI (status surface, version display, desk keyboard,
+`window.prompt` replacement).

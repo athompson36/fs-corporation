@@ -24,6 +24,23 @@ def _max_tokens() -> int:
     return int(os.environ.get("MODEL_PROVIDER_MAX_TOKENS") or "512")
 
 
+def price_tokens(usage_tokens: int, profile: dict | None = None) -> int:
+    """Convert usage tokens to integer USD cents when a rate is configured; else 0."""
+    if type(usage_tokens) is not int or usage_tokens < 0:
+        raise ValueError("usage_tokens must be a nonnegative int")
+    rate = None
+    if profile is not None and profile.get("cents_per_1k_tokens") is not None:
+        rate = profile.get("cents_per_1k_tokens")
+    else:
+        raw = (os.environ.get("FS_CORP_MODEL_CENTS_PER_1K_TOKENS") or "").strip()
+        rate = int(raw) if raw else 0
+    if type(rate) is not int or rate < 0:
+        raise ValueError("cents_per_1k_tokens must be a nonnegative int")
+    if rate == 0:
+        return 0
+    return (usage_tokens * rate) // 1000
+
+
 def openai_configured() -> bool:
     return bool((os.environ.get("MODEL_PROVIDER_API_KEY") or "").strip())
 
@@ -151,11 +168,12 @@ def _complete_openai(profile_id: str, profile: dict, prompt: str) -> dict:
     choice = (payload.get("choices") or [{}])[0]
     text = ((choice.get("message") or {}).get("content") or "").strip()
     usage = payload.get("usage") or {}
-    cost = int(usage.get("total_tokens") or 0)
+    usage_tokens = int(usage.get("total_tokens") or 0)
     return {
         "text": text,
         "profile_id": profile_id,
-        "cost_cents": cost,
+        "usage_tokens": usage_tokens,
+        "cost_cents": price_tokens(usage_tokens, profile),
         "provider": profile.get("provider"),
         "model": model,
     }
@@ -188,11 +206,12 @@ def _complete_anthropic(profile_id: str, profile: dict, prompt: str) -> dict:
         block.get("text", "") for block in parts if isinstance(block, dict) and block.get("type") == "text"
     ).strip()
     usage = payload.get("usage") or {}
-    cost = int(usage.get("input_tokens") or 0) + int(usage.get("output_tokens") or 0)
+    usage_tokens = int(usage.get("input_tokens") or 0) + int(usage.get("output_tokens") or 0)
     return {
         "text": text,
         "profile_id": profile_id,
-        "cost_cents": cost,
+        "usage_tokens": usage_tokens,
+        "cost_cents": price_tokens(usage_tokens, profile),
         "provider": profile.get("provider"),
         "model": model,
     }

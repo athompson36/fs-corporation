@@ -444,6 +444,10 @@ class Company:
                 for table in ("tasks","completions","signals","events")}
         return {"mode":"offline_mock","policy_version":self.policy()["version"],**counts,
             "simulated_spend_cents":self.db.execute("SELECT COALESCE(SUM(cost),0) FROM ledger").fetchone()[0],
+            "billed_cost_cents":self.db.execute(
+                "SELECT COALESCE(SUM(amount_cents),0) FROM billed_costs").fetchone()[0],
+            "revenue_cents":self.db.execute(
+                "SELECT COALESCE(SUM(amount_cents),0) FROM revenue").fetchone()[0],
             "rooms":1+self.db.execute("SELECT COUNT(*) FROM expansions WHERE status='built'").fetchone()[0],
             "audit_valid":self.verify_audit()}
 
@@ -807,11 +811,43 @@ class Company:
             if not (os.environ.get(env_name) or "").strip():
                 raise NotImplementedError(
                     f"Live model requires {env_name} inside the worker boundary; see docs/06-model-routing.md")
-            return complete(profile_id, profile, prompt)
+            result = complete(profile_id, profile, prompt)
+            usage_tokens = result.get("usage_tokens", 0)
+            if type(usage_tokens) is not int or usage_tokens < 0:
+                raise ValueError("usage_tokens must be a nonnegative int")
+            amount_cents = money(result.get("cost_cents", 0))
+            with self.tx():
+                bid = str(uuid.uuid4())
+                self.db.execute(
+                    "INSERT INTO billed_costs VALUES(?,?,?,?,?,?,?,?)",
+                    (bid, now().isoformat(), amount_cents, usage_tokens,
+                     str(result.get("provider") or provider), profile_id, "invoke_model", None))
+                self._event("cost.billed", {
+                    "id": bid, "amount_cents": amount_cents, "usage_tokens": usage_tokens,
+                    "profile_id": profile_id, "provider": result.get("provider") or provider,
+                })
+            return result
         raise NotImplementedError(
             f"Live model provider {provider!r} is not configured; "
             f"use provider 'mock', 'openai', 'anthropic', or 'configure-provider' with credentials; "
             "see docs/06-model-routing.md")
+
+    def record_revenue(self, actor, amount_cents, source, note=""):
+        self._ceo(actor)
+        if not isinstance(source, str) or not source.strip():
+            raise ValueError("source required")
+        if not isinstance(note, str):
+            raise ValueError("note must be a string")
+        amount = money(amount_cents)
+        with self.tx():
+            rid = str(uuid.uuid4())
+            self.db.execute(
+                "INSERT INTO revenue VALUES(?,?,?,?,?)",
+                (rid, now().isoformat(), amount, source.strip(), note))
+            self._event("revenue.recorded", {
+                "id": rid, "amount_cents": amount, "source": source.strip(),
+            }, actor_id=actor)
+        return rid
 
     def seed_catalog(self,departments_path):
         data=json.loads(Path(departments_path).read_text())
