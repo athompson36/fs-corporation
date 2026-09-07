@@ -25,3 +25,4 @@ companion/dist/
 examples/*.png
 examples/*.jpg
 .worktrees/
+.superpowers/

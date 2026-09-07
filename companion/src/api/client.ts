@@ -164,9 +164,14 @@ export class ApiClient {
     return this.post(`/api/v1/projects/${projectId}/github-assign`, { upstream }, `gh-assign-${projectId}`);
   }
 
-  dispatchBrief(projectId: string, brief: string, departments: string[], acceptance_criteria: string, budget_cents: number) {
+  dispatchBrief(
+    projectId: string,
+    brief: string,
+    departmentBudgets: Record<string, number>,
+    acceptance_criteria: string,
+  ) {
     return this.post(`/api/v1/projects/${projectId}/dispatch-brief`, {
-      brief, departments, acceptance_criteria, budget_cents,
+      brief, department_budgets: departmentBudgets, acceptance_criteria,
     }, `dispatch-${projectId}`);
   }
 

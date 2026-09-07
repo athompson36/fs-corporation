@@ -454,8 +454,10 @@ export default function App() {
                     const brief = window.prompt("Brief for heads", String(projectDetail.brief));
                     const criteria = window.prompt("Acceptance criteria", "Deliverable reviewed");
                     if (!depts || !brief || !criteria) return;
-                    await api.dispatchBrief(selectedProject, brief, depts.split(",").map((s) => s.trim()),
-                      criteria, 500);
+                    const departmentBudgets = Object.fromEntries(
+                      depts.split(",").map((s) => [s.trim(), 500]).filter(([id]) => id),
+                    );
+                    await api.dispatchBrief(selectedProject, brief, departmentBudgets, criteria);
                     await refresh();
                     setSelectedProject(null);
                   }}>Dispatch to heads</button>

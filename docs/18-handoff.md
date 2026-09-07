@@ -10,6 +10,8 @@ Date: 2026-09-07. Version: **0.3.50**. State: **org dispatch rules on feature br
   `blocked_vacant_head` for a vacancy; specialist assignment and head inbox are not yet implemented.
 - Optional grant department scopes are inherited by delegated grants and fail closed on mismatch.
 - Roster appointment/vacancy/assignment/release accept admin-companion actors; strangers remain denied.
+- Critical review fix: companion dispatch now sends the required per-department budget
+  mapping; the desk service route already used that contract.
 
 ## Delivered in 0.3.50
 
@@ -27,6 +29,7 @@ Date: 2026-09-07. Version: **0.3.50**. State: **org dispatch rules on feature br
 ```bash
 .venv/bin/python -m unittest tests.test_org_roster tests.test_production_slice tests.test_companion_api tests.test_m6 -v
 .venv/bin/python -m unittest discover -s tests
+cd companion && npm run build
 ```
 
 ## Next implementation

@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from company import __version__
 from company.core import Company, now
@@ -37,7 +38,6 @@ class CompanionApiTests(unittest.TestCase):
         self.c.approve_policy("human-ceo", pid)
 
     def test_dispatch_brief_creates_work_orders(self):
-        from pathlib import Path
         self.c.seed_catalog(Path(__file__).resolve().parents[1] / "config" / "departments.json")
         self.c.enroll_project("human-ceo", "dash", "Dashboard rollout")
         activated = self.client.post(
@@ -64,6 +64,13 @@ class CompanionApiTests(unittest.TestCase):
         self.assertEqual(set(detail.json()["departments"]), {"engineering", "product"})
         events = self.c.db.execute("SELECT kind FROM events WHERE kind='project.dispatched'").fetchall()
         self.assertEqual(len(events), 2)
+
+    def test_companion_dispatch_client_sends_department_budgets(self):
+        client_source = (
+            Path(__file__).resolve().parents[1] / "companion" / "src" / "api" / "client.ts"
+        ).read_text()
+        self.assertIn("department_budgets: departmentBudgets", client_source)
+        self.assertNotIn("brief, departments, acceptance_criteria, budget_cents", client_source)
 
     def test_dashboard_unauthenticated(self):
         self.assertEqual(self.client.get("/api/v1/dashboard").status_code, 401)
