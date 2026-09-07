@@ -3055,6 +3055,7 @@ class Company:
                     for row in self.db.execute(
                         "SELECT key FROM company_settings ORDER BY key"
                     )
+                    if row["key"] in EDITABLE_KEYS
                 ]
             for key in changed:
                 self.db.execute("DELETE FROM company_settings WHERE key=?", (key,))

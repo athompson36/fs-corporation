@@ -32,8 +32,19 @@ Date: 2026-09-07. Version: **0.3.53**. State: **P1 Settings platform slice A don
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: run before merge (Task 5).
-- `cd companion && npm run build`: run before merge (Task 5).
+- `.venv/bin/python -m unittest discover -s tests`: **382 passed** (2026-09-07).
+- `cd companion && npm run build`: **passed** (2026-09-07).
+
+## Final branch review fixes
+
+- Restored the local/default worker runtime to `subprocess`; fs-dev remains explicitly
+  configured for `container`.
+- Rate-limit overlays now seed the policy on app startup; these settings remain
+  restart-required.
+- Public URL validation requires HTTPS with a host and rejects userinfo/fragments.
+- Settings listing falls back per invalid item instead of failing the entire request.
+- ChatDev status no longer implies an overlay controls the isolated-worker gate.
+- Reset-all deletes editable overlays only.
 
 ## Production roadmap
 

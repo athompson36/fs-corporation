@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 from company.core import money
-from company.model_provider import LIVE_PROVIDERS, status_summary
+from company import model_provider
 
 BUDGET_PRESETS_CENTS = (100, 300, 500, 1000, 5000)
 
@@ -205,7 +205,7 @@ def _pick_live_profile(registry: dict) -> str | None:
     for profile_id, profile in (registry.get("profiles") or {}).items():
         if not profile.get("enabled"):
             continue
-        if profile.get("provider") in LIVE_PROVIDERS:
+        if profile.get("provider") in model_provider.LIVE_PROVIDERS:
             return profile_id
     return None
 
@@ -230,7 +230,7 @@ def live_recommend(company, project_id: str) -> tuple[str, dict | None]:
 
     Returns (status, payload) where status is ``ok``, ``unavailable``, or ``unusable``.
     """
-    summary = status_summary(probe=False)
+    summary = model_provider.status_summary(probe=False)
     if not (summary.get("configured") and summary.get("live")):
         return "unavailable", None
     opts = build_dispatch_options(company, project_id)

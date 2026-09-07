@@ -78,7 +78,21 @@ def effective(company, key: str) -> dict:
 
 
 def list_settings(company) -> list[dict]:
-    return [effective(company, key) for key in sorted(CATALOG)]
+    items = []
+    for key in sorted(CATALOG):
+        try:
+            items.append(effective(company, key))
+        except ValueError:
+            # One stale overlay or malformed environment value must not hide the catalog.
+            meta = CATALOG[key]
+            items.append(
+                {
+                    **_meta_public(meta),
+                    "value": meta["default"],
+                    "source": "default",
+                }
+            )
+    return items
 
 
 def _secret_configured(name: str) -> bool:

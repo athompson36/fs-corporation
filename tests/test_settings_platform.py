@@ -8,6 +8,7 @@ from unittest.mock import patch
 from company.core import Company, canonical, now
 from company.settings_catalog import EDITABLE_KEYS, READONLY_KEYS, validate_value
 from company.settings_runtime import effective, list_settings, secrets_status
+from company.worker_status import status_summary as worker_status_summary
 from tests.test_api import owner_client
 from tests.test_core import install, policy
 
@@ -45,6 +46,17 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(validate_value("FS_CORP_PUBLIC_URL", ""), "")
         self.assertEqual(validate_value("FS_CORP_PUBLIC_URL", "https://x"), "https://x")
 
+    def test_public_url_requires_safe_https_origin(self):
+        for bad in (
+            "http://example.com",
+            "https:///missing-host",
+            "https://user@example.com",
+            "https://example.com/path#fragment",
+        ):
+            with self.subTest(value=bad):
+                with self.assertRaises(ValueError):
+                    validate_value("FS_CORP_PUBLIC_URL", bad)
+
     def test_float_rejects_nan_and_inf(self):
         for bad in (float("nan"), float("inf"), float("-inf")):
             with self.subTest(value=bad):
@@ -78,6 +90,33 @@ class CatalogTests(unittest.TestCase):
             )
         with self.assertRaises(ValueError):
             effective(c, "FS_CORP_IDEMPOTENCY_RETENTION_DAYS")
+
+    def test_list_settings_falls_back_for_invalid_env_item(self):
+        c = Company()
+        install(c, policy(c))
+        self.addCleanup(c.close)
+        with patch.dict(
+            os.environ, {"FS_CORP_IDEMPOTENCY_RETENTION_DAYS": "not-an-int"}, clear=False
+        ):
+            items = list_settings(c)
+        item = next(
+            row for row in items if row["key"] == "FS_CORP_IDEMPOTENCY_RETENTION_DAYS"
+        )
+        self.assertEqual(item["value"], 7)
+        self.assertEqual(item["source"], "default")
+
+    def test_worker_runtime_defaults_to_subprocess_with_company(self):
+        c = Company()
+        install(c, policy(c))
+        self.addCleanup(c.close)
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                effective(c, "FS_CORP_DEFAULT_WORKER_RUNTIME")["value"], "subprocess"
+            )
+            with patch("company.worker_status.shutil.which", return_value=None):
+                self.assertEqual(
+                    worker_status_summary(company=c)["default_runtime"], "subprocess"
+                )
 
     def test_effective_overlay_wins(self):
         c = Company()
@@ -179,6 +218,43 @@ class SettingsApiTests(unittest.TestCase):
         )
         self.assertEqual(r.status_code, 200, r.text)
         self.assertNotEqual(r.json()["result"]["items"][0]["source"], "overlay")
+
+    def test_rate_limit_overlay_applies_when_app_restarts(self):
+        from company.service import create_app
+
+        self.c.patch_company_settings(
+            "human-ceo",
+            {
+                "FS_CORP_RATE_LIMIT_AUTH": 11,
+                "FS_CORP_RATE_LIMIT_UNAUTH": 7,
+                "FS_CORP_RATE_LIMIT_WINDOW_SEC": 3.5,
+            },
+        )
+        limiter = create_app(self.c).state.rate_limiter
+        self.assertEqual(limiter.policy.authenticated_limit, 11)
+        self.assertEqual(limiter.policy.unauthenticated_limit, 7)
+        self.assertEqual(limiter.policy.window_sec, 3.5)
+
+    def test_reset_all_preserves_noneditable_rows(self):
+        with self.c.tx():
+            self.c.db.execute(
+                "INSERT OR REPLACE INTO company_settings VALUES(?,?,?,?)",
+                (
+                    "FS_CORP_LAN_IP",
+                    canonical("192.168.4.100"),
+                    now().isoformat(),
+                    "migration",
+                ),
+            )
+        self.c.patch_company_settings("human-ceo", {"FS_CORP_SSE_IDLE_SEC": 2})
+
+        self.c.reset_company_settings("human-ceo", all_overlay=True)
+
+        rows = {
+            row["key"]
+            for row in self.c.db.execute("SELECT key FROM company_settings ORDER BY key")
+        }
+        self.assertEqual(rows, {"FS_CORP_LAN_IP"})
 
     def test_unknown_key_422(self):
         p = self.client.patch(

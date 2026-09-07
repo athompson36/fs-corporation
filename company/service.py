@@ -1420,9 +1420,15 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
     app.state.company = company
     if rate_limit is None:
         rate_limit = RateLimitPolicy(
-            authenticated_limit=int(os.environ.get("FS_CORP_RATE_LIMIT_AUTH") or "120"),
-            unauthenticated_limit=int(os.environ.get("FS_CORP_RATE_LIMIT_UNAUTH") or "60"),
-            window_sec=float(os.environ.get("FS_CORP_RATE_LIMIT_WINDOW_SEC") or "60"),
+            authenticated_limit=int(
+                company.effective_setting("FS_CORP_RATE_LIMIT_AUTH")
+            ),
+            unauthenticated_limit=int(
+                company.effective_setting("FS_CORP_RATE_LIMIT_UNAUTH")
+            ),
+            window_sec=float(
+                company.effective_setting("FS_CORP_RATE_LIMIT_WINDOW_SEC")
+            ),
         )
     limiter = RateLimiter(policy=coerce_policy(rate_limit))
     app.state.rate_limiter = limiter

@@ -248,7 +248,9 @@ def status_summary(*, company=None) -> dict:
         "home_set": home is not None,
         "configured": ready,
         "pin_verified": pin_verified(home),
-        "control_plane_allowed": _control_plane_allowed(company=company),
+        # Isolated workers intentionally force their own gate and cannot read Company.
+        # Do not imply that a company overlay governs that production worker path.
+        "control_plane_allowed": _control_plane_allowed(),
         "worker_live_ready": ready,
         "workflow": str(workflow_path()),
         "worker_image_chatdev": worker_image_chatdev_summary(),

@@ -188,6 +188,18 @@ class ChatDevAdapterTests(unittest.TestCase):
         self.assertEqual(r.json()["pin"], PINNED_COMMIT)
         self.assertIn("worker_image_chatdev", r.json())
 
+    def test_status_does_not_claim_overlay_controls_isolated_worker_gate(self):
+        from company.core import Company
+        from company.chatdev_runtime import status_summary
+        from tests.test_core import install, policy
+
+        c = Company()
+        install(c, policy(c))
+        self.addCleanup(c.close)
+        c.patch_company_settings("human-ceo", {"CHATDEV_ALLOW_CONTROL_PLANE": True})
+
+        self.assertFalse(status_summary(company=c)["control_plane_allowed"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 from typing import Any, TypedDict
+from urllib.parse import urlsplit
 
 
 class SettingDef(TypedDict, total=False):
@@ -65,7 +66,7 @@ CATALOG: dict[str, SettingDef] = {
     "FS_CORP_DEFAULT_WORKER_RUNTIME": {
         "key": "FS_CORP_DEFAULT_WORKER_RUNTIME",
         "type": "enum",
-        "default": "container",
+        "default": "subprocess",
         "enum_values": ("subprocess", "container"),
         "editable": True,
         "restart_required": False,
@@ -204,6 +205,22 @@ def validate_value(key: str, raw: Any) -> Any:
     if kind == "string":
         if not isinstance(raw, str):
             raise ValueError("invalid string")
+        if key == "FS_CORP_PUBLIC_URL" and raw:
+            try:
+                parsed = urlsplit(raw)
+                host = parsed.hostname
+            except ValueError as exc:
+                raise ValueError("invalid public URL") from exc
+            if (
+                parsed.scheme != "https"
+                or not host
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.fragment
+            ):
+                raise ValueError(
+                    "public URL must use https with a host, no userinfo, and no fragment"
+                )
         return raw
     if kind == "bool":
         return _coerce_bool(raw)
