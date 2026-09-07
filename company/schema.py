@@ -32,9 +32,17 @@ CREATE TABLE IF NOT EXISTS identities(
 CREATE TABLE IF NOT EXISTS departments(
   id TEXT PRIMARY KEY, name TEXT NOT NULL, head_title TEXT NOT NULL, mission TEXT NOT NULL,
   measures TEXT NOT NULL, room_type TEXT NOT NULL, initially_active INTEGER NOT NULL,
-  default_model_profile TEXT NOT NULL, body TEXT NOT NULL);
+  default_model_profile TEXT NOT NULL, body TEXT NOT NULL,
+  origin TEXT NOT NULL DEFAULT 'seed', status TEXT NOT NULL DEFAULT 'active',
+  display_order INTEGER NOT NULL DEFAULT 0, parent_department_id TEXT,
+  updated_at TEXT, updated_by TEXT);
 CREATE TABLE IF NOT EXISTS positions(
-  id TEXT PRIMARY KEY, department_id TEXT NOT NULL REFERENCES departments(id), title TEXT NOT NULL);
+  id TEXT PRIMARY KEY, department_id TEXT NOT NULL REFERENCES departments(id), title TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active', display_order INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT);
+CREATE TABLE IF NOT EXISTS department_revisions(
+  id TEXT PRIMARY KEY, department_id TEXT NOT NULL, version INTEGER NOT NULL,
+  body TEXT NOT NULL, changed_by TEXT NOT NULL, changed_at TEXT NOT NULL, reason TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS projects(
   id TEXT PRIMARY KEY, brief TEXT NOT NULL, classification TEXT NOT NULL,
   github_upstream_id TEXT, github_fork_id TEXT, allowed_branches TEXT NOT NULL,

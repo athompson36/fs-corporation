@@ -553,6 +553,43 @@ export default function App() {
             <>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
+                const form = event.currentTarget;
+                const data = new FormData(form);
+                try {
+                  await api.createDepartment({
+                    id: String(data.get("id") || "").trim(),
+                    name: String(data.get("name") || "").trim(),
+                    head_title: String(data.get("head_title") || "").trim(),
+                    mission: String(data.get("mission") || "").trim(),
+                    room_type: String(data.get("room_type") || "boardroom").trim(),
+                    measures: [],
+                    initially_active: data.get("initially_active") === "on",
+                    default_model_profile: "mock-text",
+                  });
+                  form.reset();
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}>
+                <h2>Create department</h2>
+                <label htmlFor="create-dept-id">Id</label>
+                <input id="create-dept-id" name="id" required />
+                <label htmlFor="create-dept-name">Name</label>
+                <input id="create-dept-name" name="name" required />
+                <label htmlFor="create-dept-head">Head title</label>
+                <input id="create-dept-head" name="head_title" required />
+                <label htmlFor="create-dept-mission">Mission</label>
+                <input id="create-dept-mission" name="mission" required />
+                <label htmlFor="create-dept-room">Room type</label>
+                <input id="create-dept-room" name="room_type" defaultValue="boardroom" required />
+                <label htmlFor="create-dept-active">
+                  <input id="create-dept-active" name="initially_active" type="checkbox" /> Initially active
+                </label>
+                <div className="actions"><button className="primary" type="submit">Create department</button></div>
+              </form>
+              <form className="card" onSubmit={async (event) => {
+                event.preventDefault();
                 try {
                   await api.appointHead(appointHeadDepartment.trim(), appointHeadPrincipal.trim());
                   setAppointHeadDepartment("");

@@ -159,6 +159,16 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass" id="departments"><h2>Organization</h2>
 <p class="muted">Catalog, persisted seat status, and roster. Vacant and dormant seats are not active workers.</p>
 <ul id="org-list"></ul>
+<form id="create-department-form" class="compact">
+<h3>Create department</h3>
+<label for="desk-dept-id">Id</label><input id="desk-dept-id" required/>
+<label for="desk-dept-name">Name</label><input id="desk-dept-name" required/>
+<label for="desk-dept-head">Head title</label><input id="desk-dept-head" required/>
+<label for="desk-dept-mission">Mission</label><input id="desk-dept-mission" required/>
+<label for="desk-dept-room">Room type</label><input id="desk-dept-room" value="boardroom" required/>
+<label for="desk-dept-active"><input type="checkbox" id="desk-dept-active"/> Initially active</label>
+<button type="submit" class="chip">Create department</button><span class="muted"></span>
+</form>
 <form id="appoint-head-form" class="compact">
 <h3>Appoint department head</h3>
 <label for="desk-appoint-department">Department id</label><input id="desk-appoint-department" required/>
@@ -295,6 +305,21 @@ async function submitOrgCommand(form, path, payload, success) {
   status.textContent = res.ok ? ' ' + success : ' ' + await res.text();
   if (res.ok) { form.reset(); load(); }
 }
+document.getElementById('create-department-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  await submitOrgCommand(event.target, '/api/v1/org/departments', {
+    id: document.getElementById('desk-dept-id').value.trim(),
+    name: document.getElementById('desk-dept-name').value.trim(),
+    head_title: document.getElementById('desk-dept-head').value.trim(),
+    mission: document.getElementById('desk-dept-mission').value.trim(),
+    measures: [],
+    room_type: document.getElementById('desk-dept-room').value.trim(),
+    initially_active: document.getElementById('desk-dept-active').checked,
+    default_model_profile: 'mock-text',
+  }, 'Department created.');
+  event.target.reset();
+  load();
+});
 document.getElementById('appoint-head-form').addEventListener('submit', async event => {
   event.preventDefault();
   await submitOrgCommand(event.target, '/api/v1/org/heads', {
@@ -580,8 +605,12 @@ async function load() {
   const oj = await org.json();
   fill('org-list', oj.departments||[], d => {
     const seat = d.seat || {};
+    const origin = d.origin || 'seed';
+    const status = d.status || (d.initially_active ? 'active' : 'dormant');
     const roster = listed(d.assignments, a => a.principal_id + ' (' + a.position_id + ')');
-    return d.id + ' — ' + seat.status + ' — ' + (seat.principal_id || 'vacant') + ' — roster: ' + roster;
+    return d.id + ' — ' + d.name + ' — ' + status + ' (' + origin + ') — seat ' +
+      (seat.status || 'vacant') + ' — ' + (seat.principal_id || 'vacant') +
+      ' — order ' + (d.display_order ?? 0) + ' — roster: ' + roster;
   });
   const headInbox = await fetch('/api/v1/inbox/head', {headers});
   const hij = await headInbox.json();
@@ -965,6 +994,85 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 payload.get("reports_to_seat_id")), 200
 
         return run(ident, idempotency_key, payload, go)
+
+    @app.post("/api/v1/org/departments")
+    def org_departments_create(body: Command, authorization: str | None = Header(default=None),
+                               idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_department(
+                ident["principal_id"],
+                department_id=payload.get("id") or payload.get("department_id"),
+                name=payload["name"],
+                head_title=payload["head_title"],
+                mission=payload["mission"],
+                measures=payload.get("measures") or [],
+                room_type=payload["room_type"],
+                initially_active=bool(payload.get("initially_active", False)),
+                default_model_profile=payload.get("default_model_profile", "mock-text"),
+                parent_department_id=payload.get("parent_department_id"),
+                display_order=payload.get("display_order"),
+            ), 200))
+
+    @app.patch("/api/v1/org/departments/{department_id}")
+    def org_departments_update(department_id: str, body: Command,
+                               authorization: str | None = Header(default=None),
+                               idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        reason = payload.pop("reason", "update")
+        payload.pop("id", None)
+        payload.pop("department_id", None)
+        return run(ident, idempotency_key, payload | {"department_id": department_id}, lambda: (
+            company.update_department(
+                ident["principal_id"], department_id, reason=reason, **payload), 200))
+
+    @app.post("/api/v1/org/departments/{department_id}/retire")
+    def org_departments_retire(department_id: str, body: Command,
+                               authorization: str | None = Header(default=None),
+                               idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"department_id": department_id}, lambda: (
+            company.retire_department(ident["principal_id"], department_id), 200))
+
+    @app.post("/api/v1/org/departments/reorder")
+    def org_departments_reorder(body: Command, authorization: str | None = Header(default=None),
+                                idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.reorder_departments(ident["principal_id"], payload["items"]), 200))
+
+    @app.post("/api/v1/org/positions")
+    def org_positions_create(body: Command, authorization: str | None = Header(default=None),
+                             idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_position(
+                ident["principal_id"],
+                department_id=payload["department_id"],
+                title=payload["title"],
+                display_order=payload.get("display_order"),
+            ), 200))
+
+    @app.patch("/api/v1/org/positions/{position_id:path}")
+    def org_positions_update(position_id: str, body: Command,
+                             authorization: str | None = Header(default=None),
+                             idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        fields = {k: payload[k] for k in ("title", "display_order", "status") if k in payload}
+        return run(ident, idempotency_key, payload | {"position_id": position_id}, lambda: (
+            company.update_position(ident["principal_id"], position_id, **fields), 200))
 
     @app.post("/api/v1/projects/{project_id}/departments/{department_id}/activate")
     def activate_project_department(

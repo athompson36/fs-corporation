@@ -63,6 +63,16 @@ export class ApiClient {
     return r.json();
   }
 
+  async patch<T>(path: string, payload: object, idempotency?: string): Promise<T> {
+    const r = await fetch(this.url(path), {
+      method: "PATCH",
+      headers: { ...headers(this.settings.token, idempotency), "Content-Type": "application/json" },
+      body: JSON.stringify({ payload }),
+    });
+    if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+    return r.json();
+  }
+
   dashboard() {
     return this.get<Record<string, unknown>>("/api/v1/dashboard");
   }
@@ -123,6 +133,30 @@ export class ApiClient {
 
   org() {
     return this.get<{ departments: OrgDepartment[] }>("/api/v1/org");
+  }
+
+  createDepartment(payload: Record<string, unknown>) {
+    return this.post("/api/v1/org/departments", payload, `create-dept-${Date.now()}`);
+  }
+
+  updateDepartment(departmentId: string, payload: Record<string, unknown>) {
+    return this.patch(`/api/v1/org/departments/${departmentId}`, payload, `update-dept-${Date.now()}`);
+  }
+
+  retireDepartment(departmentId: string) {
+    return this.post(
+      `/api/v1/org/departments/${departmentId}/retire`,
+      {},
+      `retire-dept-${Date.now()}`,
+    );
+  }
+
+  createPosition(departmentId: string, title: string) {
+    return this.post(
+      "/api/v1/org/positions",
+      { department_id: departmentId, title },
+      `create-pos-${Date.now()}`,
+    );
   }
 
   appointHead(departmentId: string, principalId: string) {
@@ -312,6 +346,10 @@ export type OrgDepartment = {
   id: string;
   name: string;
   initially_active: number | boolean;
+  origin?: string;
+  status?: string;
+  display_order?: number;
+  parent_department_id?: string | null;
   seat: {
     id?: string;
     status: string;
@@ -319,6 +357,7 @@ export type OrgDepartment = {
     title: string;
   };
   assignments: OrgAssignment[];
+  positions?: { id: string; title: string; status: string }[];
 };
 
 export type HeadDispatch = {

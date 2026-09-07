@@ -868,39 +868,336 @@ class Company:
 
     def seed_catalog(self,departments_path):
         data=json.loads(Path(departments_path).read_text())
+        created=updated=preserved=0
         with self.tx():
-            for d in data["departments"]:
-                self.db.execute("INSERT OR REPLACE INTO departments VALUES(?,?,?,?,?,?,?,?,?)",
-                    (d["id"],d["name"],d["head"],d["mission"],canonical(d["measures"]),d["room_type"],
-                     1 if d["initially_active"] else 0,d["default_model_profile"],canonical(d)))
-                seat_status = "vacant" if d["initially_active"] else "dormant"
-                seat_id = f"seat:{d['id']}"
+            for idx, d in enumerate(data["departments"]):
                 existing = self.db.execute(
+                    "SELECT id, origin, updated_by, name FROM departments WHERE id=?",
+                    (d["id"],)).fetchone()
+                seat_status = "vacant" if d["initially_active"] else "dormant"
+                dept_status = "active" if d["initially_active"] else "dormant"
+                if existing and (existing["origin"] == "custom" or existing["updated_by"]):
+                    preserved += 1
+                else:
+                    if existing:
+                        updated += 1
+                        self.db.execute(
+                            """UPDATE departments SET name=?, head_title=?, mission=?, measures=?,
+                               room_type=?, initially_active=?, default_model_profile=?, body=?,
+                               origin='seed', status=?, display_order=?
+                               WHERE id=? AND (updated_by IS NULL OR updated_by='')""",
+                            (d["name"], d["head"], d["mission"], canonical(d["measures"]),
+                             d["room_type"], 1 if d["initially_active"] else 0,
+                             d["default_model_profile"], canonical(d), dept_status, idx, d["id"]))
+                    else:
+                        created += 1
+                        self.db.execute(
+                            """INSERT INTO departments(
+                                   id,name,head_title,mission,measures,room_type,initially_active,
+                                   default_model_profile,body,origin,status,display_order,
+                                   parent_department_id,updated_at,updated_by)
+                               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                            (d["id"], d["name"], d["head"], d["mission"], canonical(d["measures"]),
+                             d["room_type"], 1 if d["initially_active"] else 0,
+                             d["default_model_profile"], canonical(d), "seed", dept_status, idx,
+                             None, None, None))
+                seat_id = f"seat:{d['id']}"
+                seat = self.db.execute(
                     "SELECT id, principal_id, status FROM department_seats WHERE department_id=?",
                     (d["id"],)).fetchone()
-                if not existing:
+                if not seat:
                     self.db.execute(
                         "INSERT INTO department_seats VALUES(?,?,?,?,?,?,?,?)",
                         (seat_id, d["id"], None, d["head"], seat_status, None, None, None))
-                elif existing["principal_id"] is None and existing["status"] in {"vacant", "dormant"}:
+                elif seat["principal_id"] is None and seat["status"] in {"vacant", "dormant"}:
                     self.db.execute(
                         "UPDATE department_seats SET title=?, status=? WHERE department_id=?",
                         (d["head"], seat_status, d["id"]))
-                for title in d["positions"]:
-                    pid=f"{d['id']}:{title}"
-                    self.db.execute("INSERT OR REPLACE INTO positions VALUES(?,?,?)",(pid,d["id"],title))
-            self._event("catalog.seeded",{"departments":len(data["departments"])})
+                for pidx, title in enumerate(d["positions"]):
+                    pid = f"{d['id']}:{title}"
+                    pos = self.db.execute(
+                        "SELECT id, status FROM positions WHERE id=?", (pid,)).fetchone()
+                    if not pos:
+                        self.db.execute(
+                            """INSERT INTO positions(id,department_id,title,status,display_order,updated_at)
+                               VALUES(?,?,?,?,?,?)""",
+                            (pid, d["id"], title, "active", pidx, None))
+                    elif pos["status"] != "retired":
+                        self.db.execute(
+                            """UPDATE positions SET title=?, display_order=? WHERE id=? AND status!='retired'""",
+                            (title, pidx, pid))
+            self._event("catalog.seeded", {
+                "departments": len(data["departments"]),
+                "created": created, "updated": updated, "preserved": preserved,
+            })
+
+    def _department_row(self, department_id):
+        row = self.db.execute("SELECT * FROM departments WHERE id=?", (department_id,)).fetchone()
+        if not row:
+            raise ValueError("Unknown department")
+        return dict(row)
+
+    def _record_department_revision(self, department_id, actor, reason):
+        body = self._department_row(department_id)
+        version = 1 + (self.db.execute(
+            "SELECT COALESCE(MAX(version),0) FROM department_revisions WHERE department_id=?",
+            (department_id,)).fetchone()[0])
+        rid = str(uuid.uuid4())
+        self.db.execute(
+            "INSERT INTO department_revisions VALUES(?,?,?,?,?,?,?)",
+            (rid, department_id, version, canonical(body), actor, now().isoformat(),
+             (reason or "").strip() or "update"))
+
+    def create_department(self, actor, *, department_id, name, head_title, mission, measures,
+                          room_type, initially_active, default_model_profile="mock-text",
+                          parent_department_id=None, display_order=None):
+        self._ceo_or_admin_companion(actor)
+        department_id = str(department_id or "").strip()
+        if not department_id or not name or not head_title or not mission or not room_type:
+            raise ValueError("id, name, head_title, mission and room_type required")
+        if not isinstance(measures, list):
+            raise ValueError("measures must be a list")
+        if parent_department_id and not self.db.execute(
+                "SELECT 1 FROM departments WHERE id=?", (parent_department_id,)).fetchone():
+            raise ValueError("Unknown parent_department_id")
+        if self.db.execute("SELECT 1 FROM departments WHERE id=?", (department_id,)).fetchone():
+            raise ValueError("Department already exists")
+        status = "active" if initially_active else "dormant"
+        seat_status = "vacant" if initially_active else "dormant"
+        if display_order is None:
+            display_order = 1 + (self.db.execute(
+                "SELECT COALESCE(MAX(display_order),-1) FROM departments").fetchone()[0])
+        stamp = now().isoformat()
+        body = {
+            "id": department_id, "name": name, "head": head_title, "mission": mission,
+            "measures": measures, "room_type": room_type,
+            "initially_active": bool(initially_active),
+            "default_model_profile": default_model_profile,
+        }
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO departments(
+                       id,name,head_title,mission,measures,room_type,initially_active,
+                       default_model_profile,body,origin,status,display_order,
+                       parent_department_id,updated_at,updated_by)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (department_id, name.strip(), head_title.strip(), mission.strip(),
+                 canonical(measures), room_type.strip(), 1 if initially_active else 0,
+                 default_model_profile, canonical(body), "custom", status, int(display_order),
+                 parent_department_id, stamp, actor))
+            self.db.execute(
+                "INSERT INTO department_seats VALUES(?,?,?,?,?,?,?,?)",
+                (f"seat:{department_id}", department_id, None, head_title.strip(),
+                 seat_status, None, None, None))
+            self._record_department_revision(department_id, actor, "created")
+            self._event("org.department_created", {"id": department_id}, actor_id=actor)
+        return self._department_row(department_id)
+
+    def update_department(self, actor, department_id, *, reason="update", **fields):
+        self._ceo_or_admin_companion(actor)
+        row = self._department_row(department_id)
+        if row.get("status") == "retired":
+            raise ValueError("Cannot update retired department")
+        allowed = {
+            "name", "head_title", "mission", "measures", "room_type",
+            "initially_active", "default_model_profile", "parent_department_id",
+            "display_order", "status",
+        }
+        unknown = set(fields) - allowed
+        if unknown:
+            raise ValueError(f"Unknown fields: {sorted(unknown)}")
+        if not fields:
+            raise ValueError("No fields to update")
+        if "parent_department_id" in fields and fields["parent_department_id"]:
+            if fields["parent_department_id"] == department_id:
+                raise ValueError("Department cannot parent itself")
+            if not self.db.execute(
+                    "SELECT 1 FROM departments WHERE id=?",
+                    (fields["parent_department_id"],)).fetchone():
+                raise ValueError("Unknown parent_department_id")
+        if "status" in fields and fields["status"] not in {"active", "dormant"}:
+            raise ValueError("status must be active or dormant")
+        stamp = now().isoformat()
+        with self.tx():
+            name = fields.get("name", row["name"])
+            head_title = fields.get("head_title", row["head_title"])
+            mission = fields.get("mission", row["mission"])
+            measures = fields.get("measures", json.loads(row["measures"]))
+            if not isinstance(measures, list):
+                raise ValueError("measures must be a list")
+            room_type = fields.get("room_type", row["room_type"])
+            initially_active = fields.get(
+                "initially_active", bool(row["initially_active"]))
+            default_model_profile = fields.get(
+                "default_model_profile", row["default_model_profile"])
+            parent_department_id = fields.get(
+                "parent_department_id", row["parent_department_id"])
+            display_order = fields.get("display_order", row["display_order"])
+            status = fields.get("status", row["status"])
+            body = {
+                "id": department_id, "name": name, "head": head_title, "mission": mission,
+                "measures": measures, "room_type": room_type,
+                "initially_active": bool(initially_active),
+                "default_model_profile": default_model_profile,
+            }
+            self.db.execute(
+                """UPDATE departments SET name=?, head_title=?, mission=?, measures=?,
+                   room_type=?, initially_active=?, default_model_profile=?, body=?,
+                   status=?, display_order=?, parent_department_id=?,
+                   updated_at=?, updated_by=? WHERE id=?""",
+                (name, head_title, mission, canonical(measures), room_type,
+                 1 if initially_active else 0, default_model_profile, canonical(body),
+                 status, int(display_order), parent_department_id, stamp, actor,
+                 department_id))
+            if "head_title" in fields:
+                self.db.execute(
+                    """UPDATE department_seats SET title=?
+                       WHERE department_id=? AND principal_id IS NULL""",
+                    (head_title, department_id))
+            self._record_department_revision(department_id, actor, reason)
+            self._event("org.department_updated", {"id": department_id}, actor_id=actor)
+        return self._department_row(department_id)
+
+    def retire_department(self, actor, department_id):
+        self._ceo_or_admin_companion(actor)
+        self._department_row(department_id)
+        seat = self.db.execute(
+            "SELECT principal_id, status FROM department_seats WHERE department_id=?",
+            (department_id,)).fetchone()
+        if seat and seat["status"] == "active" and seat["principal_id"]:
+            raise ValueError("Cannot retire department with active seat")
+        if self.db.execute(
+                """SELECT 1 FROM position_assignments
+                   WHERE department_id=? AND status='active'""",
+                (department_id,)).fetchone():
+            raise ValueError("Cannot retire department with active assignments")
+        if self.db.execute(
+                """SELECT 1 FROM project_dispatches
+                   WHERE department_id=? AND status IN (
+                       'queued_for_head','assigned','in_progress','blocked','blocked_vacant_head')""",
+                (department_id,)).fetchone():
+            raise ValueError("Cannot retire department with open dispatches")
+        if self.db.execute(
+                """SELECT 1 FROM cross_department_requests
+                   WHERE status NOT IN ('accepted','rejected','closed','cancelled')
+                     AND (requesting_department_id=? OR delivering_department_id=?)""",
+                (department_id, department_id)).fetchone():
+            raise ValueError("Cannot retire department with open cross-department requests")
+        with self.tx():
+            self.db.execute(
+                """UPDATE departments SET status='retired', updated_at=?, updated_by=?
+                   WHERE id=?""",
+                (now().isoformat(), actor, department_id))
+            self._record_department_revision(department_id, actor, "retired")
+            self._event("org.department_retired", {"id": department_id}, actor_id=actor)
+        return self._department_row(department_id)
+
+    def create_position(self, actor, *, department_id, title, display_order=None):
+        self._ceo_or_admin_companion(actor)
+        dept = self._department_row(department_id)
+        if dept.get("status") == "retired":
+            raise ValueError("Cannot add position to retired department")
+        title = str(title or "").strip()
+        if not title:
+            raise ValueError("title required")
+        position_id = f"{department_id}:{title}"
+        if self.db.execute("SELECT 1 FROM positions WHERE id=?", (position_id,)).fetchone():
+            raise ValueError("Position already exists")
+        if display_order is None:
+            display_order = 1 + (self.db.execute(
+                "SELECT COALESCE(MAX(display_order),-1) FROM positions WHERE department_id=?",
+                (department_id,)).fetchone()[0])
+        stamp = now().isoformat()
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO positions(id,department_id,title,status,display_order,updated_at)
+                   VALUES(?,?,?,?,?,?)""",
+                (position_id, department_id, title, "active", int(display_order), stamp))
+            self._event(
+                "org.position_created",
+                {"id": position_id, "department_id": department_id},
+                actor_id=actor,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM positions WHERE id=?", (position_id,)).fetchone())
+
+    def update_position(self, actor, position_id, *, title=None, display_order=None, status=None):
+        self._ceo_or_admin_companion(actor)
+        row = self.db.execute("SELECT * FROM positions WHERE id=?", (position_id,)).fetchone()
+        if not row:
+            raise ValueError("Unknown position")
+        if row["status"] == "retired" and status != "active":
+            raise ValueError("Cannot update retired position")
+        new_title = title.strip() if title is not None else row["title"]
+        if not new_title:
+            raise ValueError("title required")
+        new_id = f"{row['department_id']}:{new_title}"
+        new_order = row["display_order"] if display_order is None else int(display_order)
+        new_status = status or row["status"]
+        if new_status not in {"active", "retired"}:
+            raise ValueError("status must be active or retired")
+        stamp = now().isoformat()
+        with self.tx():
+            if new_id != position_id:
+                if self.db.execute("SELECT 1 FROM positions WHERE id=?", (new_id,)).fetchone():
+                    raise ValueError("Position already exists")
+                self.db.execute(
+                    """UPDATE position_assignments SET position_id=? WHERE position_id=?""",
+                    (new_id, position_id))
+                self.db.execute("DELETE FROM positions WHERE id=?", (position_id,))
+                self.db.execute(
+                    """INSERT INTO positions(id,department_id,title,status,display_order,updated_at)
+                       VALUES(?,?,?,?,?,?)""",
+                    (new_id, row["department_id"], new_title, new_status, new_order, stamp))
+                position_id = new_id
+            else:
+                self.db.execute(
+                    """UPDATE positions SET title=?, display_order=?, status=?, updated_at=?
+                       WHERE id=?""",
+                    (new_title, new_order, new_status, stamp, position_id))
+            self._event("org.position_updated", {"id": position_id}, actor_id=actor)
+        return dict(self.db.execute(
+            "SELECT * FROM positions WHERE id=?", (position_id,)).fetchone())
+
+    def retire_position(self, actor, position_id):
+        return self.update_position(actor, position_id, status="retired")
+
+    def reorder_departments(self, actor, items):
+        self._ceo_or_admin_companion(actor)
+        if not isinstance(items, list) or not items:
+            raise ValueError("items required")
+        with self.tx():
+            for item in items:
+                dept_id = item.get("id")
+                order = item.get("display_order")
+                if not dept_id or order is None:
+                    raise ValueError("id and display_order required")
+                if not self.db.execute(
+                        "SELECT 1 FROM departments WHERE id=?", (dept_id,)).fetchone():
+                    raise ValueError(f"Unknown department {dept_id}")
+                self.db.execute(
+                    """UPDATE departments SET display_order=?, updated_at=?, updated_by=?
+                       WHERE id=?""",
+                    (int(order), now().isoformat(), actor, dept_id))
+            self._event(
+                "org.departments_reordered",
+                {"count": len(items)},
+                actor_id=actor,
+            )
+        return self.list_org()
 
     def appoint_head(self, actor, department_id, principal_id):
         self._ceo_or_admin_companion(actor)
         if not principal_id or not str(principal_id).strip():
             raise ValueError("principal_id required")
         dept = self.db.execute(
-            "SELECT id, head_title FROM departments WHERE id=?",
+            "SELECT id, head_title, status FROM departments WHERE id=?",
             (department_id,),
         ).fetchone()
         if not dept:
             raise ValueError("Unknown department")
+        if dept["status"] == "retired":
+            raise ValueError("Cannot appoint head for retired department")
         principal_id = str(principal_id).strip()
         with self.tx():
             seat = self.db.execute(
@@ -929,7 +1226,7 @@ class Company:
     def vacate_head(self, actor, department_id):
         self._ceo_or_admin_companion(actor)
         dept = self.db.execute(
-            "SELECT id, initially_active FROM departments WHERE id=?",
+            "SELECT id, initially_active, status FROM departments WHERE id=?",
             (department_id,),
         ).fetchone()
         if not dept:
@@ -991,11 +1288,13 @@ class Company:
     def assign_position(self, actor, position_id, principal_id, reports_to_seat_id=None):
         self._ceo_or_admin_companion(actor)
         position = self.db.execute(
-            "SELECT id, department_id FROM positions WHERE id=?",
+            "SELECT id, department_id, status FROM positions WHERE id=?",
             (position_id,),
         ).fetchone()
         if not position:
             raise ValueError("Unknown position")
+        if position["status"] == "retired":
+            raise ValueError("Cannot assign retired position")
         if not principal_id or not str(principal_id).strip():
             raise ValueError("principal_id required")
         if reports_to_seat_id and not self.db.execute(
@@ -1065,8 +1364,12 @@ class Company:
     def list_org(self):
         departments = []
         for department in self.db.execute(
-                """SELECT id, name, head_title, mission, room_type, initially_active
-                   FROM departments ORDER BY id"""):
+                """SELECT id, name, head_title, mission, room_type, initially_active,
+                          origin, status, display_order, parent_department_id,
+                          updated_at, updated_by
+                   FROM departments
+                   WHERE COALESCE(status, 'active') != 'retired'
+                   ORDER BY COALESCE(display_order, 0), id"""):
             seat = self.db.execute(
                 "SELECT * FROM department_seats WHERE department_id=?",
                 (department["id"],),
@@ -1080,8 +1383,21 @@ class Company:
                     (department["id"],),
                 )
             ]
+            positions = [
+                dict(row)
+                for row in self.db.execute(
+                    """SELECT id, department_id, title, status, display_order
+                       FROM positions WHERE department_id=? AND COALESCE(status,'active')!='retired'
+                       ORDER BY COALESCE(display_order,0), title""",
+                    (department["id"],),
+                )
+            ]
             departments.append({
                 **dict(department),
+                "origin": department["origin"] or "seed",
+                "status": department["status"] or (
+                    "active" if department["initially_active"] else "dormant"),
+                "display_order": department["display_order"] or 0,
                 "seat": dict(seat) if seat else {
                     "department_id": department["id"],
                     "principal_id": None,
@@ -1089,6 +1405,7 @@ class Company:
                     "title": department["head_title"],
                 },
                 "assignments": assignments,
+                "positions": positions,
             })
         return {"departments": departments}
 
@@ -1097,9 +1414,12 @@ class Company:
         if not self.db.execute(
                 "SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
             raise ValueError("Project not found")
-        if not self.db.execute(
-                "SELECT 1 FROM departments WHERE id=?", (department_id,)).fetchone():
+        dept = self.db.execute(
+            "SELECT id, status FROM departments WHERE id=?", (department_id,)).fetchone()
+        if not dept:
             raise ValueError("Unknown department")
+        if dept["status"] == "retired":
+            raise ValueError("Cannot activate retired department")
         with self.tx():
             self.db.execute(
                 """INSERT OR REPLACE INTO project_department_activations
@@ -1117,10 +1437,10 @@ class Company:
 
     def department_dispatchable(self, project_id, department_id):
         department = self.db.execute(
-            "SELECT initially_active FROM departments WHERE id=?",
+            "SELECT initially_active, status FROM departments WHERE id=?",
             (department_id,),
         ).fetchone()
-        if not department:
+        if not department or department["status"] == "retired":
             return False
         if department["initially_active"]:
             return True
