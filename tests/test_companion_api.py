@@ -117,6 +117,57 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("'/api/v1/org/heads'", desk_source)
         self.assertIn("'/api/v1/org/assignments'", desk_source)
 
+    def test_desk_and_companion_wire_hq_phase_surfaces(self):
+        desk_source = (
+            Path(__file__).resolve().parents[1] / "company" / "service.py"
+        ).read_text()
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        client_source = (root / "api" / "client.ts").read_text()
+        app_source = (root / "App.tsx").read_text()
+        for needle in (
+            'id="default-floorplan-btn"',
+            "'/api/v1/floorplans/default'",
+            'id="create-position-form"',
+            "'/api/v1/org/positions'",
+            'id="reorder-departments-form"',
+            "'/api/v1/org/departments/reorder'",
+            'id="cross-dept-create-form"',
+            "'/api/v1/cross-department-requests'",
+            "'/api/v1/cross-department-requests/' + item.id + '/accept'",
+            'id="staffing-scan-btn"',
+            "'/api/v1/staffing-proposals/scan'",
+            "'/api/v1/promotions/' + promotion.id + '/decision'",
+            "'/api/v1/scorecard'",
+            "'/api/v1/activity'",
+        ):
+            self.assertIn(needle, desk_source)
+        for needle in (
+            "/api/v1/scorecard",
+            "/api/v1/objectives",
+            '"/api/v1/industry-packs"',
+            '"/api/v1/divisions"',
+            "/api/v1/promotions",
+            '"/api/v1/staffing-proposals/scan"',
+            '"/api/v1/cross-department-requests"',
+            "/api/v1/activity",
+            '"/api/v1/floorplans/default"',
+            '"/api/v1/org/departments/reorder"',
+            "createPosition(",
+            "workerCard(",
+        ):
+            self.assertIn(needle, client_source)
+        for needle in (
+            '"corporate"',
+            'htmlFor="create-pos-dept"',
+            'htmlFor="reorder-items"',
+            'htmlFor="worker-lookup-id"',
+            'htmlFor="objective-title"',
+            'htmlFor="xd-project"',
+            "Scan staffing gaps",
+            "Create default floorplan",
+        ):
+            self.assertIn(needle, app_source)
+
     def test_dashboard_unauthenticated(self):
         self.assertEqual(self.client.get("/api/v1/dashboard").status_code, 401)
 

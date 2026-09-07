@@ -179,6 +179,137 @@ export class ApiClient {
     );
   }
 
+  reorderDepartments(items: { id: string; display_order: number }[]) {
+    return this.post(
+      "/api/v1/org/departments/reorder",
+      { items },
+      `reorder-depts-${Date.now()}`,
+    );
+  }
+
+  scorecard(periodStart?: string, periodEnd?: string) {
+    const params = new URLSearchParams();
+    if (periodStart) params.set("period_start", periodStart);
+    if (periodEnd) params.set("period_end", periodEnd);
+    const q = params.toString();
+    return this.get<{ metrics: Record<string, unknown> }>(
+      `/api/v1/scorecard${q ? `?${q}` : ""}`,
+    );
+  }
+
+  objectives(status?: string) {
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    return this.get<{ items: ObjectiveItem[] }>(`/api/v1/objectives${q}`);
+  }
+
+  createObjective(payload: Record<string, unknown>) {
+    return this.post("/api/v1/objectives", payload, `objective-${Date.now()}`);
+  }
+
+  closeObjective(objectiveId: string) {
+    return this.post(
+      `/api/v1/objectives/${objectiveId}/close`,
+      {},
+      `objective-close-${objectiveId}`,
+    );
+  }
+
+  industryPacks() {
+    return this.get<{ industry_packs: IndustryPack[] }>("/api/v1/industry-packs");
+  }
+
+  divisions() {
+    return this.get<{ divisions: DivisionItem[] }>("/api/v1/divisions");
+  }
+
+  proposeDivision(industryPackId: string, name: string, mode: string) {
+    return this.post(
+      "/api/v1/divisions/proposals",
+      { pack_id: industryPackId, name, mode },
+      `division-propose-${Date.now()}`,
+    );
+  }
+
+  activateDivision(divisionId: string) {
+    return this.post(
+      `/api/v1/divisions/${divisionId}/activate`,
+      {},
+      `division-activate-${divisionId}`,
+    );
+  }
+
+  deactivateDivision(divisionId: string) {
+    return this.post(
+      `/api/v1/divisions/${divisionId}/deactivate`,
+      {},
+      `division-deactivate-${divisionId}`,
+    );
+  }
+
+  promotions(status?: string) {
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    return this.get<{ items: PromotionItem[] }>(`/api/v1/promotions${q}`);
+  }
+
+  decidePromotion(promotionId: string, decision: string) {
+    return this.post(
+      `/api/v1/promotions/${promotionId}/decision`,
+      { decision },
+      `promo-${promotionId}-${decision}`,
+    );
+  }
+
+  staffingProposals(status?: string) {
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    return this.get<{ items: StaffingProposal[] }>(`/api/v1/staffing-proposals${q}`);
+  }
+
+  scanStaffingGaps() {
+    return this.post("/api/v1/staffing-proposals/scan", {}, `staffing-scan-${Date.now()}`);
+  }
+
+  decideStaffingProposal(proposalId: string, decision: string) {
+    return this.post(
+      `/api/v1/staffing-proposals/${proposalId}/decision`,
+      { decision },
+      `staffing-${proposalId}-${decision}`,
+    );
+  }
+
+  crossDepartmentRequests() {
+    return this.get<{ items: CrossDeptRequest[] }>("/api/v1/cross-department-requests");
+  }
+
+  createCrossDepartmentRequest(payload: Record<string, unknown>) {
+    return this.post(
+      "/api/v1/cross-department-requests",
+      payload,
+      `cross-dept-${Date.now()}`,
+    );
+  }
+
+  acceptCrossDepartmentRequest(requestId: string) {
+    return this.post(
+      `/api/v1/cross-department-requests/${requestId}/accept`,
+      {},
+      `cross-dept-accept-${requestId}`,
+    );
+  }
+
+  activity(status = "open") {
+    return this.get<{ items: ActivityItem[] }>(
+      `/api/v1/activity?status=${encodeURIComponent(status)}`,
+    );
+  }
+
+  headquarters() {
+    return this.get<{ rooms: Record<string, unknown>[] }>("/api/v1/headquarters");
+  }
+
+  createDefaultFloorplan() {
+    return this.post("/api/v1/floorplans/default", {}, `floorplan-default-${Date.now()}`);
+  }
+
   appointHead(departmentId: string, principalId: string) {
     return this.post(
       "/api/v1/org/heads",
@@ -389,6 +520,62 @@ export type HeadDispatch = {
   acceptance_criteria: string;
   budget_cents: number;
   status: string;
+};
+
+export type ObjectiveItem = {
+  id: string;
+  title: string;
+  due_at: string;
+  status: string;
+  division_id?: string | null;
+};
+
+export type IndustryPack = {
+  id: string;
+  industry: string;
+  minimal_departments: unknown[];
+  full_departments: unknown[];
+};
+
+export type DivisionItem = {
+  id: string;
+  name: string;
+  industry_pack_id: string;
+  mode: string;
+  status: string;
+};
+
+export type PromotionItem = {
+  id: string;
+  employee_id: string;
+  from_level: string;
+  to_level: string;
+  status: string;
+};
+
+export type StaffingProposal = {
+  id: string;
+  kind: string;
+  position_id: string;
+  cost_estimate_cents: number;
+  rationale: string;
+  status: string;
+};
+
+export type CrossDeptRequest = {
+  id: string;
+  project_id: string;
+  requesting_department_id: string;
+  delivering_department_id: string;
+  subject: string;
+  status: string;
+};
+
+export type ActivityItem = {
+  id: string;
+  kind: string;
+  status: string;
+  room_id?: string | null;
 };
 
 export type WorkerCard = {

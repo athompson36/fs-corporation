@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ApiClient,
+  ActivityItem,
+  CrossDeptRequest,
   DecisionItem,
+  DivisionItem,
   HeadDispatch,
+  IndustryPack,
+  ObjectiveItem,
   OrgDepartment,
   OwnerRequest,
+  PromotionItem,
+  StaffingProposal,
+  WorkerCard,
   loadSettings,
   redeemPairing,
   saveSettings,
@@ -21,7 +29,15 @@ import {
   canResume,
 } from "./scopes";
 
-type Tab = "dashboard" | "projects" | "organization" | "decisions" | "inbox" | "diagnostics" | "settings";
+type Tab =
+  | "dashboard"
+  | "projects"
+  | "organization"
+  | "corporate"
+  | "decisions"
+  | "inbox"
+  | "diagnostics"
+  | "settings";
 
 type LocalCandidate = {
   id: string;
@@ -85,6 +101,17 @@ export default function App() {
   const [dispatchBrief, setDispatchBrief] = useState("");
   const [dispatchCriteria, setDispatchCriteria] = useState("");
   const [dispatchBudgets, setDispatchBudgets] = useState("");
+  const [scorecardMetrics, setScorecardMetrics] = useState<Record<string, unknown> | null>(null);
+  const [objectives, setObjectives] = useState<ObjectiveItem[]>([]);
+  const [industryPacks, setIndustryPacks] = useState<IndustryPack[]>([]);
+  const [divisions, setDivisions] = useState<DivisionItem[]>([]);
+  const [promotions, setPromotions] = useState<PromotionItem[]>([]);
+  const [staffingProposals, setStaffingProposals] = useState<StaffingProposal[]>([]);
+  const [crossDept, setCrossDept] = useState<CrossDeptRequest[]>([]);
+  const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
+  const [hqRoomCount, setHqRoomCount] = useState(0);
+  const [workerLookupId, setWorkerLookupId] = useState("");
+  const [workerCard, setWorkerCard] = useState<WorkerCard | null>(null);
 
   const scopes = settings.scopes;
   const api = useMemo(() => new ApiClient(settings), [settings]);
@@ -133,21 +160,40 @@ export default function App() {
     setError(null);
     setOffline(false);
     try {
-      const [d, p, dec, own, org, heads, local] = await Promise.all([
-        api.dashboard(),
-        api.projects(),
-        api.decisions(),
-        api.ownerInbox("open"),
-        api.org(),
-        api.headInbox(),
-        api.localRepos().catch(() => null),
-      ]);
+      const [d, p, dec, own, org, heads, local, score, objs, packs, divs, promos, staffing, xd, act, hq] =
+        await Promise.all([
+          api.dashboard(),
+          api.projects(),
+          api.decisions(),
+          api.ownerInbox("open"),
+          api.org(),
+          api.headInbox(),
+          api.localRepos().catch(() => null),
+          api.scorecard().catch(() => null),
+          api.objectives().catch(() => ({ items: [] as ObjectiveItem[] })),
+          api.industryPacks().catch(() => ({ industry_packs: [] as IndustryPack[] })),
+          api.divisions().catch(() => ({ divisions: [] as DivisionItem[] })),
+          api.promotions("pending").catch(() => ({ items: [] as PromotionItem[] })),
+          api.staffingProposals("pending").catch(() => ({ items: [] as StaffingProposal[] })),
+          api.crossDepartmentRequests().catch(() => ({ items: [] as CrossDeptRequest[] })),
+          api.activity().catch(() => ({ items: [] as ActivityItem[] })),
+          api.headquarters().catch(() => ({ rooms: [] as Record<string, unknown>[] })),
+        ]);
       setDashboard(d);
       setProjects(p.projects);
       setDecisions(dec.items);
       setInbox(own.items);
       setOrganization(org.departments);
       setHeadInbox(heads.items);
+      setScorecardMetrics(score?.metrics ?? null);
+      setObjectives(objs.items);
+      setIndustryPacks(packs.industry_packs);
+      setDivisions(divs.divisions);
+      setPromotions(promos.items);
+      setStaffingProposals(staffing.items);
+      setCrossDept(xd.items);
+      setActivityItems(act.items);
+      setHqRoomCount((hq.rooms || []).length);
       if (local) {
         setLocalReposRoot(local.root);
         setLocalCandidates(local.candidates);
@@ -672,6 +718,51 @@ export default function App() {
               </form>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
+                const form = event.currentTarget;
+                const data = new FormData(form);
+                try {
+                  await api.createPosition(
+                    String(data.get("department_id") || "").trim(),
+                    String(data.get("title") || "").trim(),
+                  );
+                  form.reset();
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}>
+                <h2>Create position</h2>
+                <label htmlFor="create-pos-dept">Department id</label>
+                <input id="create-pos-dept" name="department_id" required />
+                <label htmlFor="create-pos-title">Title</label>
+                <input id="create-pos-title" name="title" required />
+                <div className="actions"><button className="primary" type="submit">Create position</button></div>
+              </form>
+              <form className="card" onSubmit={async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const data = new FormData(form);
+                try {
+                  const items = JSON.parse(String(data.get("items") || "[]"));
+                  await api.reorderDepartments(items);
+                  form.reset();
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}>
+                <h2>Reorder departments</h2>
+                <label htmlFor="reorder-items">Items JSON</label>
+                <textarea
+                  id="reorder-items"
+                  name="items"
+                  required
+                  placeholder='[{"id":"engineering","display_order":10}]'
+                />
+                <div className="actions"><button className="primary" type="submit">Reorder</button></div>
+              </form>
+              <form className="card" onSubmit={async (event) => {
+                event.preventDefault();
                 try {
                   await api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim());
                   setActivateProjectId("");
@@ -692,6 +783,30 @@ export default function App() {
               </form>
             </>
           )}
+          <form className="card" onSubmit={async (event) => {
+            event.preventDefault();
+            try {
+              const card = await api.workerCard(workerLookupId.trim());
+              setWorkerCard(card);
+            } catch (e) {
+              setWorkerCard(null);
+              setError(String(e));
+            }
+          }}>
+            <h2>Worker card</h2>
+            <label htmlFor="worker-lookup-id">Employee id</label>
+            <input id="worker-lookup-id" required value={workerLookupId}
+              onChange={(e) => setWorkerLookupId(e.target.value)} />
+            <div className="actions"><button className="primary" type="submit">Load card</button></div>
+            {workerCard && (
+              <div className="muted" style={{ marginTop: "0.75rem" }}>
+                <strong>{workerCard.identity.display_name}</strong>
+                <div>{workerCard.identity.headline || "No headline"}</div>
+                <div>Position: {workerCard.identity.position_id}</div>
+                <div>Sprite: {workerCard.sprite?.sprite_set || workerCard.sprite_placeholder.label}</div>
+              </div>
+            )}
+          </form>
           <h2>Head inbox</h2>
           {headInbox.map((dispatch) => (
             <div key={dispatch.id} className="card">
@@ -740,6 +855,350 @@ export default function App() {
               </div>
             </form>
           )}
+        </section>
+      )}
+
+      {tab === "corporate" && (
+        <section>
+          <p className="lede">Scorecard, staffing, packs, divisions, and cross-department work from persisted state.</p>
+          <div className="card">
+            <h2>CEO scorecard</h2>
+            <p className="muted">Measured from persisted operations — not simulated. HQ rooms: {hqRoomCount}</p>
+            <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem" }}>
+              {JSON.stringify(scorecardMetrics || {}, null, 2)}
+            </pre>
+            {canManageOrg && (
+              <div className="actions">
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={async () => {
+                    try {
+                      await api.createDefaultFloorplan();
+                      await refresh();
+                    } catch (e) {
+                      setError(String(e));
+                    }
+                  }}
+                >
+                  Create default floorplan
+                </button>
+              </div>
+            )}
+          </div>
+          <h2>Objectives</h2>
+          {objectives.map((objective) => (
+            <div key={objective.id} className="card">
+              <strong>{objective.title}</strong>
+              <div className="muted">{objective.status} · due {objective.due_at}</div>
+              {canManageOrg && objective.status === "open" && (
+                <div className="actions">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await api.closeObjective(objective.id);
+                        await refresh();
+                      } catch (e) {
+                        setError(String(e));
+                      }
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {!objectives.length && <p className="muted">No objectives.</p>}
+          {canManageOrg && (
+            <form
+              className="card"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const data = new FormData(form);
+                try {
+                  const dueLocal = String(data.get("due_at") || "");
+                  const payload: Record<string, unknown> = {
+                    title: String(data.get("title") || "").trim(),
+                    due_at: dueLocal ? new Date(dueLocal).toISOString() : "",
+                  };
+                  const division = String(data.get("division_id") || "").trim();
+                  if (division) payload.division_id = division;
+                  const targetRaw = String(data.get("target") || "").trim();
+                  if (targetRaw) payload.target = JSON.parse(targetRaw);
+                  await api.createObjective(payload);
+                  form.reset();
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}
+            >
+              <h2>Create objective</h2>
+              <label htmlFor="objective-title">Title</label>
+              <input id="objective-title" name="title" required />
+              <label htmlFor="objective-due">Due at</label>
+              <input id="objective-due" name="due_at" type="datetime-local" required />
+              <label htmlFor="objective-division">Division id (optional)</label>
+              <input id="objective-division" name="division_id" />
+              <label htmlFor="objective-target">Target JSON (optional)</label>
+              <textarea id="objective-target" name="target" placeholder='{"accepted_artifacts": 5}' />
+              <div className="actions"><button className="primary" type="submit">Create</button></div>
+            </form>
+          )}
+          <h2>Industry packs</h2>
+          {industryPacks.map((pack) => (
+            <div key={pack.id} className="card muted">
+              {pack.id} — {pack.industry} — minimal {pack.minimal_departments.length} / full {pack.full_departments.length}
+            </div>
+          ))}
+          {!industryPacks.length && <p className="muted">No industry packs.</p>}
+          <h2>Divisions</h2>
+          {divisions.map((division) => (
+            <div key={division.id} className="card">
+              <strong>{division.name}</strong>
+              <div className="muted">{division.industry_pack_id} · {division.mode} · {division.status}</div>
+              {canManageOrg && division.status === "proposed" && (
+                <div className="actions">
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={async () => {
+                      try {
+                        await api.activateDivision(division.id);
+                        await refresh();
+                      } catch (e) {
+                        setError(String(e));
+                      }
+                    }}
+                  >
+                    Activate
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {!divisions.length && <p className="muted">No divisions.</p>}
+          {canManageOrg && (
+            <form
+              className="card"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const data = new FormData(form);
+                try {
+                  await api.proposeDivision(
+                    String(data.get("pack_id") || "").trim(),
+                    String(data.get("name") || "").trim(),
+                    String(data.get("mode") || "minimal"),
+                  );
+                  form.reset();
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}
+            >
+              <h2>Propose division</h2>
+              <label htmlFor="division-pack">Industry pack id</label>
+              <input id="division-pack" name="pack_id" required />
+              <label htmlFor="division-name">Name</label>
+              <input id="division-name" name="name" required />
+              <label htmlFor="division-mode">Mode</label>
+              <select id="division-mode" name="mode" defaultValue="minimal">
+                <option value="minimal">Minimal</option>
+                <option value="full">Full</option>
+              </select>
+              <div className="actions"><button className="primary" type="submit">Propose</button></div>
+            </form>
+          )}
+          <h2>Pending promotions</h2>
+          {promotions.map((promotion) => (
+            <div key={promotion.id} className="card">
+              <strong>{promotion.employee_id}</strong>
+              <div className="muted">{promotion.from_level} → {promotion.to_level} · {promotion.status}</div>
+              {canManageOrg && (
+                <div className="actions">
+                  <button
+                    type="button"
+                    className="approve"
+                    onClick={async () => {
+                      try {
+                        await api.decidePromotion(promotion.id, "approved");
+                        await refresh();
+                      } catch (e) {
+                        setError(String(e));
+                      }
+                    }}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={async () => {
+                      try {
+                        await api.decidePromotion(promotion.id, "rejected");
+                        await refresh();
+                      } catch (e) {
+                        setError(String(e));
+                      }
+                    }}
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {!promotions.length && <p className="muted">No pending promotions.</p>}
+          <h2>Staffing proposals</h2>
+          {canManageOrg && (
+            <div className="actions" style={{ marginBottom: "0.75rem" }}>
+              <button
+                type="button"
+                className="primary"
+                onClick={async () => {
+                  try {
+                    await api.scanStaffingGaps();
+                    await refresh();
+                  } catch (e) {
+                    setError(String(e));
+                  }
+                }}
+              >
+                Scan staffing gaps
+              </button>
+            </div>
+          )}
+          {staffingProposals.map((proposal) => (
+            <div key={proposal.id} className="card">
+              <strong>{proposal.kind} · {proposal.position_id}</strong>
+              <div className="muted">{proposal.cost_estimate_cents}¢ · {proposal.rationale}</div>
+              {canManageOrg && (
+                <div className="actions">
+                  <button
+                    type="button"
+                    className="approve"
+                    onClick={async () => {
+                      try {
+                        await api.decideStaffingProposal(proposal.id, "approved");
+                        await refresh();
+                      } catch (e) {
+                        setError(String(e));
+                      }
+                    }}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={async () => {
+                      try {
+                        await api.decideStaffingProposal(proposal.id, "rejected");
+                        await refresh();
+                      } catch (e) {
+                        setError(String(e));
+                      }
+                    }}
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {!staffingProposals.length && <p className="muted">No pending staffing proposals.</p>}
+          <h2>Cross-department requests</h2>
+          {crossDept.map((item) => (
+            <div key={item.id} className="card">
+              <strong>{item.subject}</strong>
+              <div className="muted">
+                {item.requesting_department_id} → {item.delivering_department_id} · {item.status}
+              </div>
+              {canManageOrg && item.status === "pending_acceptance" && (
+                <div className="actions">
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={async () => {
+                      try {
+                        await api.acceptCrossDepartmentRequest(item.id);
+                        await refresh();
+                      } catch (e) {
+                        setError(String(e));
+                      }
+                    }}
+                  >
+                    Accept
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+          {!crossDept.length && <p className="muted">No cross-department requests.</p>}
+          {canManageOrg && (
+            <form
+              className="card"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const data = new FormData(form);
+                try {
+                  const dueLocal = String(data.get("due_at") || "");
+                  await api.createCrossDepartmentRequest({
+                    project_id: String(data.get("project_id") || "").trim(),
+                    requesting_department_id: String(data.get("requesting") || "").trim(),
+                    delivering_department_id: String(data.get("delivering") || "").trim(),
+                    subject: String(data.get("subject") || "").trim(),
+                    brief: String(data.get("brief") || "").trim(),
+                    acceptance_criteria: String(data.get("acceptance") || "").trim(),
+                    budget_owner: String(data.get("budget_owner") || "").trim(),
+                    budget_cents: Number(data.get("budget_cents") || 0),
+                    due_at: dueLocal ? new Date(dueLocal).toISOString() : "",
+                    escalation_path: String(data.get("escalation") || "owner").trim(),
+                  });
+                  form.reset();
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}
+            >
+              <h2>Create cross-department request</h2>
+              <label htmlFor="xd-project">Project id</label>
+              <input id="xd-project" name="project_id" required />
+              <label htmlFor="xd-requesting">Requesting department</label>
+              <input id="xd-requesting" name="requesting" required />
+              <label htmlFor="xd-delivering">Delivering department</label>
+              <input id="xd-delivering" name="delivering" required />
+              <label htmlFor="xd-subject">Subject</label>
+              <input id="xd-subject" name="subject" required />
+              <label htmlFor="xd-brief">Brief</label>
+              <textarea id="xd-brief" name="brief" required />
+              <label htmlFor="xd-acceptance">Acceptance criteria</label>
+              <textarea id="xd-acceptance" name="acceptance" required />
+              <label htmlFor="xd-budget-owner">Budget owner</label>
+              <input id="xd-budget-owner" name="budget_owner" required />
+              <label htmlFor="xd-budget">Budget cents</label>
+              <input id="xd-budget" name="budget_cents" type="number" min="0" required />
+              <label htmlFor="xd-due">Due at</label>
+              <input id="xd-due" name="due_at" type="datetime-local" required />
+              <label htmlFor="xd-escalation">Escalation path</label>
+              <input id="xd-escalation" name="escalation" defaultValue="owner" required />
+              <div className="actions"><button className="primary" type="submit">Create request</button></div>
+            </form>
+          )}
+          <h2>Open activity</h2>
+          {activityItems.map((item) => (
+            <div key={item.id} className="card muted">
+              {item.kind} · {item.status}{item.room_id ? ` · room ${item.room_id}` : ""}
+            </div>
+          ))}
+          {!activityItems.length && <p className="muted">No open activity sessions.</p>}
         </section>
       )}
 
@@ -884,6 +1343,7 @@ export default function App() {
           ["dashboard", "Home"],
           ["projects", "Projects"],
           ["organization", "Org"],
+          ["corporate", "Corporate"],
           ["decisions", "Decisions"],
           ["inbox", "Inbox"],
           ["diagnostics", "Diagnostics"],

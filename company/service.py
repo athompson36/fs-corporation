@@ -102,6 +102,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <a href="#hq">Headquarters</a>
 <a href="#projects">Projects</a>
 <a href="#departments">Departments</a>
+<a href="#cross-department">Cross-department</a>
 <a href="#corporate-upgrades">Corporate upgrades</a>
 <a href="#people">People</a>
 <a href="#intelligence">Intelligence</a>
@@ -143,6 +144,10 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <h2>Headquarters</h2>
 <p class="muted">Persisted department rooms when planned; expansion events remain the fallback.</p>
 <div id="unmet-requirements" class="row" aria-label="Unmet room requirements"></div>
+<div class="row">
+<button type="button" class="chip" id="default-floorplan-btn">Create default floorplan</button>
+<span id="default-floorplan-status" class="muted"></span>
+</div>
 <div class="row" role="group" aria-label="Headquarters view">
 <button type="button" class="chip active" data-hq-view="iso">Isometric</button>
 <button type="button" class="chip" data-hq-view="plan">Plan</button>
@@ -220,6 +225,37 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <label for="desk-release-assignment">Assignment id</label><input id="desk-release-assignment" required/>
 <button type="submit" class="chip">Release assignment</button><span class="muted"></span>
 </form>
+<form id="create-position-form" class="compact">
+<h3>Create position</h3>
+<label for="desk-create-pos-dept">Department id</label><input id="desk-create-pos-dept" required/>
+<label for="desk-create-pos-title">Title</label><input id="desk-create-pos-title" required/>
+<button type="submit" class="chip">Create position</button><span class="muted"></span>
+</form>
+<form id="reorder-departments-form" class="compact">
+<h3>Reorder departments</h3>
+<label for="desk-reorder-items">Items JSON</label>
+<textarea id="desk-reorder-items" placeholder='[{"id":"engineering","display_order":10},{"id":"art","display_order":5}]' required></textarea>
+<button type="submit" class="chip">Reorder</button><span class="muted"></span>
+</form>
+</section>
+<section class="glass" id="cross-department">
+<h2>Cross-department requests</h2>
+<p class="muted">Governed work between departments. List is scoped to the delivering head or CEO.</p>
+<ul id="cross-dept-list"></ul>
+<form id="cross-dept-create-form" class="compact">
+<h3>Create request</h3>
+<label for="xd-project">Project id</label><input id="xd-project" required/>
+<label for="xd-requesting">Requesting department</label><input id="xd-requesting" required/>
+<label for="xd-delivering">Delivering department</label><input id="xd-delivering" required/>
+<label for="xd-subject">Subject</label><input id="xd-subject" required/>
+<label for="xd-brief">Brief</label><textarea id="xd-brief" required></textarea>
+<label for="xd-accept">Acceptance criteria</label><textarea id="xd-accept" required></textarea>
+<label for="xd-budget-owner">Budget owner</label><input id="xd-budget-owner" required/>
+<label for="xd-budget">Budget cents</label><input id="xd-budget" type="number" min="0" required/>
+<label for="xd-due">Due at</label><input id="xd-due" type="datetime-local" required/>
+<label for="xd-escalation">Escalation path</label><input id="xd-escalation" value="owner" required/>
+<button type="submit" class="chip">Create request</button><span class="muted"></span>
+</form>
 </section>
 <section class="glass" id="corporate-upgrades">
 <h2>Corporate upgrades</h2>
@@ -242,6 +278,10 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass" id="people">
 <h2>People</h2><ul id="people-list"></ul>
 <h3>Pending promotions</h3><ul id="promotion-list"></ul>
+<div class="row">
+<button type="button" class="chip" id="staffing-scan-btn">Scan staffing gaps</button>
+<span id="staffing-scan-status" class="muted"></span>
+</div>
 <h3>Pending staffing proposals</h3><ul id="staffing-proposal-list"></ul>
 </section>
 <section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
@@ -433,6 +473,134 @@ document.getElementById('release-assignment-form').addEventListener('submit', as
     assignment_id: document.getElementById('desk-release-assignment').value.trim(),
     release: true
   }, 'Assignment released.');
+});
+document.getElementById('create-position-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  await submitOrgCommand(event.target, '/api/v1/org/positions', {
+    department_id: document.getElementById('desk-create-pos-dept').value.trim(),
+    title: document.getElementById('desk-create-pos-title').value.trim()
+  }, 'Position created.');
+});
+document.getElementById('reorder-departments-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const status = event.target.querySelector('span');
+  let items;
+  try {
+    items = JSON.parse(document.getElementById('desk-reorder-items').value);
+  } catch (err) {
+    status.textContent = ' Invalid JSON';
+    return;
+  }
+  await submitOrgCommand(event.target, '/api/v1/org/departments/reorder', {items}, 'Departments reordered.');
+});
+document.getElementById('default-floorplan-btn').addEventListener('click', async () => {
+  const status = document.getElementById('default-floorplan-status');
+  const res = await fetch('/api/v1/floorplans/default', {
+    method: 'POST',
+    headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'desk-floor-default-' + Date.now()},
+    body: JSON.stringify({payload: {}})
+  });
+  status.textContent = res.ok ? ' Default floorplan created.' : ' ' + await res.text();
+  if (res.ok) load();
+});
+document.getElementById('staffing-scan-btn').addEventListener('click', async () => {
+  const status = document.getElementById('staffing-scan-status');
+  const res = await fetch('/api/v1/staffing-proposals/scan', {
+    method: 'POST',
+    headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'desk-staffing-scan-' + Date.now()},
+    body: JSON.stringify({payload: {}})
+  });
+  status.textContent = res.ok ? ' Scan complete.' : ' ' + await res.text();
+  if (res.ok) load();
+});
+function renderCrossDept(items) {
+  const list = document.getElementById('cross-dept-list');
+  list.innerHTML = '';
+  if (!(items || []).length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No cross-department requests.';
+    list.appendChild(li);
+    return;
+  }
+  (items || []).forEach(item => {
+    const li = document.createElement('li');
+    li.appendChild(document.createTextNode(
+      item.id.slice(0, 8) + ' — ' + item.requesting_department_id + ' → ' +
+      item.delivering_department_id + ' — ' + item.status + ' — ' + item.subject + ' '));
+    if (item.status === 'pending_acceptance') {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip';
+      btn.textContent = 'Accept';
+      btn.addEventListener('click', async () => {
+        const res = await fetch('/api/v1/cross-department-requests/' + item.id + '/accept', {
+          method: 'POST',
+          headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'xd-accept-' + item.id},
+          body: JSON.stringify({payload: {}})
+        });
+        if (!res.ok) { alert(await res.text()); return; }
+        load();
+      });
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  });
+}
+function renderPromotions(items) {
+  const list = document.getElementById('promotion-list');
+  list.innerHTML = '';
+  if (!(items || []).length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No pending promotions.';
+    list.appendChild(li);
+    return;
+  }
+  items.forEach(promotion => {
+    const li = document.createElement('li');
+    li.appendChild(document.createTextNode(
+      promotion.employee_id + ' — ' + promotion.from_level + ' → ' +
+      promotion.to_level + ' — ' + promotion.status + ' '));
+    ['approved', 'rejected'].forEach(decision => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip';
+      button.textContent = decision === 'approved' ? 'Approve' : 'Reject';
+      button.addEventListener('click', async () => {
+        const res = await fetch(
+          '/api/v1/promotions/' + promotion.id + '/decision',
+          {
+            method: 'POST',
+            headers: {...headers, 'Content-Type': 'application/json',
+              'Idempotency-Key': 'desk-promo-' + promotion.id + '-' + decision},
+            body: JSON.stringify({payload: {decision}})
+          }
+        );
+        if (!res.ok) { alert(await res.text()); return; }
+        load();
+      });
+      li.appendChild(button);
+    });
+    list.appendChild(li);
+  });
+}
+document.getElementById('cross-dept-create-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const dueLocal = document.getElementById('xd-due').value;
+  const dueAt = dueLocal ? new Date(dueLocal).toISOString() : '';
+  await submitOrgCommand(event.target, '/api/v1/cross-department-requests', {
+    project_id: document.getElementById('xd-project').value.trim(),
+    requesting_department_id: document.getElementById('xd-requesting').value.trim(),
+    delivering_department_id: document.getElementById('xd-delivering').value.trim(),
+    subject: document.getElementById('xd-subject').value.trim(),
+    brief: document.getElementById('xd-brief').value.trim(),
+    acceptance_criteria: document.getElementById('xd-accept').value.trim(),
+    budget_owner: document.getElementById('xd-budget-owner').value.trim(),
+    budget_cents: Number(document.getElementById('xd-budget').value),
+    due_at: dueAt,
+    escalation_path: document.getElementById('xd-escalation').value.trim()
+  }, 'Cross-department request created.');
 });
 document.getElementById('division-proposal-form').addEventListener('submit', async event => {
   event.preventDefault();
@@ -906,13 +1074,14 @@ async function load() {
   fill('people-list', peoplej.employees || peoplej.assignments || [], p => (p.display_name || p.employee_id || p.id) + ' — ' + (p.position_id || p.status || ''));
   const promotions = await fetch('/api/v1/promotions?status=pending', {headers});
   const promotionsj = await promotions.json();
-  fill('promotion-list', promotionsj.items || [], promotion =>
-    promotion.employee_id + ' — ' + promotion.from_level + ' → ' +
-      promotion.to_level + ' — ' + promotion.status);
+  renderPromotions(promotionsj.items || []);
   const staffing = await fetch(
     '/api/v1/staffing-proposals?status=pending', {headers});
   const staffingj = await staffing.json();
   renderStaffingProposals(staffingj.items || []);
+  const crossDept = await fetch('/api/v1/cross-department-requests', {headers});
+  const crossDeptj = await crossDept.json();
+  renderCrossDept(crossDeptj.items || []);
   const briefs = await fetch('/api/v1/impact-briefs', {headers});
   const bj = await briefs.json();
   fill('intelligence-list', bj.briefs||[], b => {
