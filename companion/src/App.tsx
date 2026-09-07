@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ApiClient,
   ActivityItem,
@@ -127,6 +127,12 @@ export default function App() {
     Record<string, { checked: boolean; budget: number }>
   >({});
   const [dispatchRecommendSource, setDispatchRecommendSource] = useState<string | null>(null);
+  const [ownerResponseDrafts, setOwnerResponseDrafts] = useState<Record<string, string>>({});
+  const [escalateDepartment, setEscalateDepartment] = useState("engineering");
+  const [escalateSubject, setEscalateSubject] = useState("");
+  const [escalateBody, setEscalateBody] = useState("");
+  const [enrollProjectId, setEnrollProjectId] = useState("");
+  const [enrollBrief, setEnrollBrief] = useState("");
   const [scorecardMetrics, setScorecardMetrics] = useState<Record<string, unknown> | null>(null);
   const [objectives, setObjectives] = useState<ObjectiveItem[]>([]);
   const [industryPacks, setIndustryPacks] = useState<IndustryPack[]>([]);
@@ -401,18 +407,43 @@ export default function App() {
   }
 
   async function respond(req: OwnerRequest) {
-    const response = window.prompt(`Response to: ${req.subject}`);
-    if (!response) return;
-    await runAction(`owner-${req.id}`, "Response recorded.", () => api.respondOwner(req.id, response));
+    const response = (ownerResponseDrafts[req.id] || "").trim();
+    if (!response) {
+      setFormStatus((prev) => ({
+        ...prev,
+        [`owner-${req.id}`]: { ok: false, text: "Enter a response before submitting." },
+      }));
+      return;
+    }
+    const ok = await runAction(`owner-${req.id}`, "Response recorded.", () =>
+      api.respondOwner(req.id, response));
+    if (ok) {
+      setOwnerResponseDrafts((prev) => {
+        const next = { ...prev };
+        delete next[req.id];
+        return next;
+      });
+    }
   }
 
-  async function escalate() {
-    const departmentId = window.prompt("Department id", "engineering");
-    const subject = window.prompt("Subject");
-    const body = window.prompt("Message");
-    if (!departmentId || !subject || !body) return;
-    await runAction("escalate", "Escalation sent.", () =>
+  async function escalate(event: FormEvent) {
+    event.preventDefault();
+    const departmentId = escalateDepartment.trim();
+    const subject = escalateSubject.trim();
+    const body = escalateBody.trim();
+    if (!departmentId || !subject || !body) {
+      setFormStatus((prev) => ({
+        ...prev,
+        escalate: { ok: false, text: "Department, subject, and message are required." },
+      }));
+      return;
+    }
+    const ok = await runAction("escalate", "Escalation sent.", () =>
       api.escalateOwner(departmentId, "escalation", subject, body));
+    if (ok) {
+      setEscalateSubject("");
+      setEscalateBody("");
+    }
   }
 
   function save(s: Settings) {
@@ -655,17 +686,45 @@ export default function App() {
                 </div>
               )}
               {canEnroll(scopes) && (
-                <>
+                <form className="card" onSubmit={async (event) => {
+                  event.preventDefault();
+                  const id = enrollProjectId.trim();
+                  const brief = enrollBrief.trim();
+                  if (!id || !brief) {
+                    setFormStatus((prev) => ({
+                      ...prev,
+                      "enroll-manual": { ok: false, text: "Project id and brief are required." },
+                    }));
+                    return;
+                  }
+                  const ok = await runAction("enroll-manual", "Project enrolled.", () =>
+                    api.enrollProject(id, brief));
+                  if (ok) {
+                    setEnrollProjectId("");
+                    setEnrollBrief("");
+                  }
+                }}>
+                  <h3>Enroll project</h3>
+                  <label htmlFor="enroll-project-id">Project id</label>
+                  <input
+                    id="enroll-project-id"
+                    type="text"
+                    required
+                    value={enrollProjectId}
+                    onChange={(e) => setEnrollProjectId(e.target.value)}
+                  />
+                  <label htmlFor="enroll-project-brief">Brief</label>
+                  <textarea
+                    id="enroll-project-brief"
+                    required
+                    value={enrollBrief}
+                    onChange={(e) => setEnrollBrief(e.target.value)}
+                  />
                   <div className="actions">
-                    <button className="primary" type="button" onClick={async () => {
-                      const id = window.prompt("Project id");
-                      const brief = window.prompt("Brief");
-                      if (!id || !brief) return;
-                      await runAction("enroll-manual", "Project enrolled.", () => api.enrollProject(id, brief));
-                    }}>Enroll project</button>
+                    <button className="primary" type="submit">Enroll project</button>
                   </div>
                   {status("enroll-manual")}
-                </>
+                </form>
               )}
             </>
           ) : projectDetail && (
@@ -1515,12 +1574,36 @@ export default function App() {
       {tab === "inbox" && (
         <section>
           {canEscalate(scopes) && (
-            <>
-              <div className="actions" style={{ marginBottom: "0.75rem" }}>
-                <button className="primary" type="button" onClick={escalate}>New escalation</button>
+            <form className="card" onSubmit={escalate}>
+              <h3>New escalation</h3>
+              <label htmlFor="escalate-department">Department id</label>
+              <input
+                id="escalate-department"
+                type="text"
+                required
+                value={escalateDepartment}
+                onChange={(e) => setEscalateDepartment(e.target.value)}
+              />
+              <label htmlFor="escalate-subject">Subject</label>
+              <input
+                id="escalate-subject"
+                type="text"
+                required
+                value={escalateSubject}
+                onChange={(e) => setEscalateSubject(e.target.value)}
+              />
+              <label htmlFor="escalate-body">Message</label>
+              <textarea
+                id="escalate-body"
+                required
+                value={escalateBody}
+                onChange={(e) => setEscalateBody(e.target.value)}
+              />
+              <div className="actions">
+                <button className="primary" type="submit">Send escalation</button>
               </div>
               {status("escalate")}
-            </>
+            </form>
           )}
           {inbox.map((req) => (
             <div key={req.id} className="card">
@@ -1528,9 +1611,24 @@ export default function App() {
               <strong>{req.subject}</strong>
               <p>{req.body}</p>
               {canRespondInbox(scopes) && (
-                <div className="actions">
-                  <button className="primary" type="button" onClick={() => respond(req)}>Respond</button>
-                </div>
+                <form onSubmit={(event) => {
+                  event.preventDefault();
+                  void respond(req);
+                }}>
+                  <label htmlFor={`owner-response-${req.id}`}>Response</label>
+                  <textarea
+                    id={`owner-response-${req.id}`}
+                    required
+                    value={ownerResponseDrafts[req.id] || ""}
+                    onChange={(e) => setOwnerResponseDrafts((prev) => ({
+                      ...prev,
+                      [req.id]: e.target.value,
+                    }))}
+                  />
+                  <div className="actions">
+                    <button className="primary" type="submit">Respond</button>
+                  </div>
+                </form>
               )}
               {status(`owner-${req.id}`)}
             </div>

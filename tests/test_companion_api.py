@@ -84,6 +84,15 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("dispatch-brief-template", app)
         self.assertIn("Valid values", app)
 
+    def test_companion_replaces_window_prompt_ops_forms(self):
+        app = (
+            Path(__file__).resolve().parents[1] / "companion" / "src" / "App.tsx"
+        ).read_text()
+        self.assertNotIn("window.prompt", app)
+        self.assertIn('id="enroll-project-id"', app)
+        self.assertIn('id="escalate-department"', app)
+        self.assertIn("owner-response-", app)
+
     def test_desk_surfaces_org_head_inbox_assignment_and_budget_map(self):
         desk_source = (
             Path(__file__).resolve().parents[1] / "company" / "service.py"
