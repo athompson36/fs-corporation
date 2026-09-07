@@ -1,9 +1,9 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.53**. State: **P0.2 M10 ops on `feature/p0-m10-ops`
-(ready to merge): idempotency prune, model/benchmark reads, companion forms, learning fetch.**
+Date: 2026-09-07. Version: **0.3.53**. State: **P0.2 M10 ops merged to `main` (local;
+ahead of origin; not yet deployed).**
 
-## P0.2 on this branch
+## P0.2 (merged)
 
 - Idempotency retention default **7 days** (`FS_CORP_IDEMPOTENCY_RETENTION_DAYS`);
   `POST /api/v1/ops/idempotency/prune`.
@@ -12,17 +12,15 @@ Date: 2026-09-07. Version: **0.3.53**. State: **P0.2 M10 ops on `feature/p0-m10-
 - Companion: enroll / escalate / owner-respond are labeled forms (no `window.prompt`).
 - `LearningAdapter.fetch` allowlists HTTPS prefixes from
   `config/learning-sources.example.json` (or `FS_CORP_LEARNING_SOURCES_FILE`).
-- Plan: [docs/superpowers/plans/2026-09-07-p0-m10-ops.md](superpowers/plans/2026-09-07-p0-m10-ops.md).
 
-## Already on main
+## Also on main
 
 - Dispatch options + recommend autofill (ADR-035).
 - Companion iPhone scopes / paired-admin ops / five-tab layout (ADR-034).
 
 ## Verification
 
-- Run `.venv/bin/python -m unittest discover -s tests` and `cd companion && npm run build`
-  before merge.
+- `.venv/bin/python -m unittest discover -s tests`: **360 passed** (post-merge)
 
 ## Production roadmap
 
@@ -31,7 +29,7 @@ Settings **C** + horizon everything:
 
 ## Next
 
-1. Merge `feature/p0-m10-ops` → `main`; optional push/deploy.
+1. Optional: `git push origin main` and deploy with `scripts/deploy_to_fs_dev.sh`.
 2. Start **P1 Settings platform** (spec/plan for GET/PATCH settings + secrets-status).
 3. Remaining M10-04 chrome (version in primary UI, HQ tile keyboard) deferred with P5.
 4. Do not commit `local repos/service-department/`.
