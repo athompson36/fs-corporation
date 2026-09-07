@@ -138,18 +138,49 @@ def _coerce_bool(raw: Any) -> bool:
     raise ValueError("invalid bool")
 
 
+def _coerce_int(raw: Any) -> int:
+    if isinstance(raw, bool):
+        raise ValueError("invalid int")
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float):
+        if raw != int(raw):
+            raise ValueError("invalid int")
+        return int(raw)
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        if not stripped:
+            raise ValueError("invalid int")
+        numeric = stripped[1:] if stripped.startswith(("+", "-")) else stripped
+        if not numeric.isdigit():
+            raise ValueError("invalid int")
+        return int(stripped)
+    raise ValueError("invalid int")
+
+
+def _coerce_float(raw: Any) -> float:
+    if isinstance(raw, bool):
+        raise ValueError("invalid float")
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        if not stripped:
+            raise ValueError("invalid float")
+        try:
+            return float(stripped)
+        except ValueError as exc:
+            raise ValueError("invalid float") from exc
+    raise ValueError("invalid float")
+
+
 def validate_value(key: str, raw: Any) -> Any:
     if key not in CATALOG:
         raise ValueError(f"Unknown setting key: {key}")
     meta = CATALOG[key]
     kind = meta["type"]
     if kind == "int":
-        try:
-            value = int(raw)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("invalid int") from exc
-        if not isinstance(value, int) or isinstance(raw, bool):
-            raise ValueError("invalid int")
+        value = _coerce_int(raw)
         minimum = meta.get("min")
         if minimum is not None and value < minimum:
             raise ValueError("below minimum")
@@ -158,17 +189,12 @@ def validate_value(key: str, raw: Any) -> Any:
             raise ValueError("above maximum")
         return value
     if kind == "float":
-        try:
-            value = float(raw)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("invalid float") from exc
+        value = _coerce_float(raw)
+        if meta["key"] == "FS_CORP_RATE_LIMIT_WINDOW_SEC" and value <= 0:
+            raise ValueError("must be positive")
         minimum = meta.get("min")
-        if minimum is not None:
-            if meta["key"] == "FS_CORP_RATE_LIMIT_WINDOW_SEC":
-                if value <= 0:
-                    raise ValueError("must be positive")
-            elif value < minimum:
-                raise ValueError("below minimum")
+        if minimum is not None and value < minimum:
+            raise ValueError("below minimum")
         return value
     if kind == "string":
         return str(raw)

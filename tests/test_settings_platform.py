@@ -17,6 +17,48 @@ class CatalogTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_value("NOT_A_KEY", 1)
 
+    def test_rate_limit_window_rejects_zero(self):
+        with self.assertRaises(ValueError):
+            validate_value("FS_CORP_RATE_LIMIT_WINDOW_SEC", 0)
+        with self.assertRaises(ValueError):
+            validate_value("FS_CORP_RATE_LIMIT_WINDOW_SEC", -1.0)
+        self.assertEqual(validate_value("FS_CORP_RATE_LIMIT_WINDOW_SEC", 60.0), 60.0)
+
+    def test_validate_rejects_wrong_types(self):
+        with self.assertRaises(ValueError):
+            validate_value("FS_CORP_IDEMPOTENCY_RETENTION_DAYS", True)
+        with self.assertRaises(ValueError):
+            validate_value("FS_CORP_IDEMPOTENCY_RETENTION_DAYS", 3.5)
+        with self.assertRaises(ValueError):
+            validate_value("FS_CORP_SSE_IDLE_SEC", True)
+        with self.assertRaises(ValueError):
+            validate_value("FS_CORP_IDEMPOTENCY_RETENTION_DAYS", "3.5")
+
+    def test_bool_garbage_env_rejected(self):
+        c = Company()
+        install(c, policy(c))
+        self.addCleanup(c.close)
+        with patch.dict(os.environ, {"CHATDEV_ALLOW_CONTROL_PLANE": "maybe"}, clear=False):
+            with self.assertRaises(ValueError):
+                effective(c, "CHATDEV_ALLOW_CONTROL_PLANE")
+
+    def test_malformed_overlay_rejected(self):
+        c = Company()
+        install(c, policy(c))
+        self.addCleanup(c.close)
+        with c.tx():
+            c.db.execute(
+                "INSERT OR REPLACE INTO company_settings VALUES(?,?,?,?)",
+                (
+                    "FS_CORP_IDEMPOTENCY_RETENTION_DAYS",
+                    json.dumps(True),
+                    "2026-09-07T00:00:00+00:00",
+                    "human-ceo",
+                ),
+            )
+        with self.assertRaises(ValueError):
+            effective(c, "FS_CORP_IDEMPOTENCY_RETENTION_DAYS")
+
     def test_effective_overlay_wins(self):
         c = Company()
         install(c, policy(c))

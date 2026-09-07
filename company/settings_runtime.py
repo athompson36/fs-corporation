@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-from company.settings_catalog import CATALOG, validate_value
+from company.settings_catalog import CATALOG, _coerce_bool, validate_value
 
 SECRET_NAMES = (
     "MODEL_PROVIDER_API_KEY",
@@ -43,7 +43,7 @@ def _meta_public(meta: dict) -> dict:
 def _parse_env(meta: dict, raw: str) -> object:
     kind = meta["type"]
     if kind == "bool":
-        return raw.strip().lower() in ("1", "true", "yes", "on")
+        return _coerce_bool(raw)
     if kind in ("int", "float"):
         return raw.strip()
     return raw
@@ -59,7 +59,7 @@ def effective(company, key: str) -> dict:
     if row:
         return {
             **_meta_public(meta),
-            "value": json.loads(row["value_json"]),
+            "value": validate_value(key, json.loads(row["value_json"])),
             "source": "overlay",
         }
     env_name = meta.get("env_name") or key
