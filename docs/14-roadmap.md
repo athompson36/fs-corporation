@@ -222,6 +222,8 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Dashboard read API aggregating company, projects, decisions, queues, owner inbox
 - [x] Project list/detail and dispatch-brief with per-department budgets; dormant
       departments require project activation and vacant heads remain explicitly blocked
+- [x] Head inbox read and grant/roster-checked dispatch assignment into the specialist queue;
+      desk and companion presentation remains the next UI task
 - [x] Owner inbox (`owner_requests`) with head escalation and CEO response
 - [x] Unified decisions inbox; reuse existing approve/reject endpoints
 - [x] SSE event stream; PWA polls as fallback

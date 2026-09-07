@@ -29,6 +29,7 @@
 | ADR-025 | 2026-09-07 | Companion PWA uses generateSW + importScripts for push | Vite 6 + injectManifest hung building `src/sw.ts`; generateSW emits `dist/sw.js`; push lives in `public/sw-push.js`; Node 18 needs a crypto polyfill and Workbox development mode to avoid terser. |
 | ADR-026 | 2026-09-07 | Billed cost and revenue tables separate from simulated ledger | Live invoke writes `billed_costs` with honest cents + usage_tokens; revenue via CEO `record_revenue`; status exposes separate sums (ADR-007). |
 | ADR-027 | 2026-09-07 | Phone GitHub assign by address with same-owner -corp write repo | Companion pastes upstream URL; API creates/reuses `{repo}-corp`; enrolls both ids; companion-admin may act as CEO mobile for enroll/dispatch. |
+| ADR-028 | 2026-09-07 | Department heads assign only through seat, grant, roster, and queue gates | Inbox reads persisted dispatches; assignment requires `work.assign` scope and queues work under the specialist's own grant; head vacancy blocks open work and cancels linked queues. |
 
 ### ADR-010 detail
 
@@ -231,5 +232,29 @@
 **Alternatives considered.** Silently split one budget was rejected because allocation would be invented. Auto-activating departments on dispatch was rejected because activation is an explicit owner decision. Treating vacant seats as queued was rejected because no head can receive the work.
 
 **Consequences.** The dispatch API is intentionally breaking for callers using `departments` plus one `budget_cents`; all in-repository callers now send explicit per-department amounts. Task 4 stores routing status and head identity but does not assign specialists or create the Task 5 head inbox.
+
+### ADR-028 detail
+
+**Context.** Task 4 persisted which occupied head should receive a project dispatch, but
+it did not provide an inbox, authorize specialist selection, or create executable queue
+work. Treating `queued_for_head` as specialist assignment would bypass both roster and
+worker-grant controls.
+
+**Decision.** Read head inboxes from persisted open dispatches. A non-CEO assigner must
+occupy the department's active head seat and hold a current `work.assign` grant for the
+project and, when present, department. The assignee must be active on that department's
+roster or hold a project grant; `queue_task` independently enforces the assignee's action,
+budget, skills, and training gates. Vacating a head blocks that head's unassigned
+dispatches and cancels queue rows linked through `dispatch_assignments`.
+
+**Alternatives considered.** Prompt-only head authority was rejected because prompts are
+not access controls. Queueing under the head identity was rejected because it would charge
+and authorize the wrong principal. Automatically re-opening vacancy-blocked dispatches on
+appointment was deferred because reassignment should be an explicit state transition.
+
+**Consequences.** The API exposes scoped inbox read and assignment commands, while core
+authorization remains authoritative. The queue write precedes the assignment transaction
+so queue validation failure cannot mark a dispatch assigned; callers should use the API's
+idempotency key for retry-safe command execution.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

@@ -1,17 +1,20 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.50**. State: **org dispatch rules on feature branch**.
+Date: 2026-09-07. Version: **0.3.50**. State: **head dispatch handoff on feature branch**.
 
-## Task 4 delivered
+## Task 5 delivered
 
-- Project department activation is persistent and restricted to CEO/admin-companion actors.
-- Dispatch requires explicit per-department budgets and rejects dormant departments.
-- Dispatch status is `queued_for_head` for an occupied active seat or
-  `blocked_vacant_head` for a vacancy; specialist assignment and head inbox are not yet implemented.
-- Optional grant department scopes are inherited by delegated grants and fail closed on mismatch.
-- Roster appointment/vacancy/assignment/release accept admin-companion actors; strangers remain denied.
-- Critical review fix: companion dispatch now sends the required per-department budget
-  mapping; the desk service route already used that contract.
+- `list_head_inbox` returns open dispatches for the seated head; CEO/admin companions
+  can read all open dispatches.
+- `assign_dispatch` requires an assignable dispatch, a live head seat plus
+  `work.assign`/project/department grant (unless CEO/admin companion), and a rostered
+  specialist or project-granted contractor. Successful assignment creates a real queue row.
+- `GET /api/v1/inbox/head` and `POST /api/v1/dispatches/{id}/assign` enforce
+  authenticated organization read/write scopes before core authorization.
+- Vacating a head blocks that head's remaining open dispatches and cancels queue rows
+  linked through `dispatch_assignments`.
+- Added `tests/test_org_handoff.py` for inbox isolation, grant and roster denials,
+  assignment queueing, vacancy cancellation, and API scope gates.
 
 ## Delivered in 0.3.50
 
@@ -27,12 +30,12 @@ Date: 2026-09-07. Version: **0.3.50**. State: **org dispatch rules on feature br
 ## Verify
 
 ```bash
-.venv/bin/python -m unittest tests.test_org_roster tests.test_production_slice tests.test_companion_api tests.test_m6 -v
+.venv/bin/python -m unittest tests.test_org_handoff tests.test_org_roster tests.test_production_slice -v
 .venv/bin/python -m unittest discover -s tests
-cd companion && npm run build
 ```
 
 ## Next implementation
 
-Implement Task 5 head inbox and `assign_dispatch` with department grant, occupied-head,
-roster, budget, and queue gates. Do not infer assignment from Task 4 dispatch status.
+Implement Task 6 desk/companion organization and head-inbox UI, then update the
+version and remaining capability/roadmap documentation. Do not invent occupancy or
+queue state in the UI.

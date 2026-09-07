@@ -687,6 +687,38 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "organization.read")
         return company.list_org()
 
+    @app.get("/api/v1/inbox/head")
+    def head_inbox(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        return company.list_head_inbox(ident["principal_id"])
+
+    @app.post("/api/v1/dispatches/{dispatch_id}/assign")
+    def dispatch_assign(
+            dispatch_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        command_payload = payload | {"dispatch_id": dispatch_id}
+        return run(
+            ident,
+            idempotency_key,
+            command_payload,
+            lambda: (
+                company.assign_dispatch(
+                    ident["principal_id"],
+                    dispatch_id,
+                    payload["assignee"],
+                    action=payload["action"],
+                    cost_cents=payload["cost_cents"],
+                ),
+                200,
+            ),
+        )
+
     @app.post("/api/v1/org/heads")
     def org_heads(body: Command, authorization: str | None = Header(default=None),
                   idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):

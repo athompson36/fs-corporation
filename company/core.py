@@ -946,6 +946,31 @@ class Company:
                     "UPDATE queue SET status='cancelled' WHERE actor=? AND status='queued'",
                     (seat["principal_id"],),
                 )
+            self.db.execute(
+                """UPDATE queue SET status='cancelled'
+                   WHERE status='queued' AND task_id IN (
+                       SELECT da.queue_task_id
+                       FROM dispatch_assignments da
+                       JOIN project_dispatches pd ON pd.id=da.dispatch_id
+                       WHERE pd.department_id=? AND da.queue_task_id IS NOT NULL
+                   )""",
+                (department_id,),
+            )
+            self.db.execute(
+                """UPDATE dispatch_assignments SET status='cancelled'
+                   WHERE dispatch_id IN (
+                       SELECT id FROM project_dispatches WHERE department_id=?
+                   ) AND status='assigned'""",
+                (department_id,),
+            )
+            self.db.execute(
+                """UPDATE project_dispatches
+                   SET status='blocked_vacant_head', head_principal_id=NULL,
+                       head_inbox_at=NULL
+                   WHERE department_id=? AND head_principal_id=?
+                     AND status='queued_for_head'""",
+                (department_id, seat["principal_id"]),
+            )
             status = "vacant" if dept["initially_active"] else "dormant"
             self.db.execute(
                 """UPDATE department_seats
@@ -2229,6 +2254,102 @@ class Company:
                     "budget_cents": budget_cents,
                 })
         return dispatches
+
+    def list_head_inbox(self, actor):
+        open_statuses = ("queued_for_head", "blocked_vacant_head", "blocked")
+        if actor == self.ceo or str(actor).startswith("companion-admin-"):
+            rows = self.db.execute(
+                """SELECT * FROM project_dispatches
+                   WHERE status IN (?,?,?)
+                   ORDER BY created_at, id""",
+                open_statuses,
+            )
+        else:
+            rows = self.db.execute(
+                """SELECT * FROM project_dispatches
+                   WHERE head_principal_id=? AND status IN (?,?,?)
+                   ORDER BY created_at, id""",
+                (actor, *open_statuses),
+            )
+        return {"items": [dict(row) for row in rows]}
+
+    def assign_dispatch(self, actor, dispatch_id, assignee, *, action, cost_cents):
+        money(cost_cents)
+        row = self.db.execute(
+            "SELECT * FROM project_dispatches WHERE id=?", (dispatch_id,)).fetchone()
+        if not row:
+            raise ValueError("Dispatch not found")
+        if row["status"] != "queued_for_head":
+            raise ValueError("Dispatch is not assignable")
+        seat = self.db.execute(
+            "SELECT * FROM department_seats WHERE department_id=?",
+            (row["department_id"],),
+        ).fetchone()
+        is_ceo = actor == self.ceo or str(actor).startswith("companion-admin-")
+        if not is_ceo:
+            if not seat or seat["status"] != "active" or seat["principal_id"] != actor:
+                raise PermissionError("Seated head required")
+            self._scope(
+                actor,
+                row["project_id"],
+                "work.assign",
+                0,
+                department_id=row["department_id"],
+            )
+        rostered = self.db.execute(
+            """SELECT 1 FROM position_assignments
+               WHERE department_id=? AND principal_id=? AND status='active'""",
+            (row["department_id"], assignee),
+        ).fetchone()
+        assignee_grant = self._effective_grant(assignee)
+        contractor = bool(
+            assignee_grant and row["project_id"] in assignee_grant["projects"])
+        if not rostered and not contractor:
+            raise PermissionError(
+                "Assignee not on department roster and has no project grant")
+
+        queue_task_id = f"dispatch-assign-{dispatch_id[:8]}-{assignee}"
+        queued = self.queue_task(
+            assignee, row["project_id"], action, cost_cents, queue_task_id)
+        assignment_id = str(uuid.uuid4())
+        with self.tx():
+            current = self.db.execute(
+                "SELECT status FROM project_dispatches WHERE id=?",
+                (dispatch_id,),
+            ).fetchone()
+            if not current or current["status"] != "queued_for_head":
+                raise ValueError("Dispatch is not assignable")
+            self.db.execute(
+                """INSERT INTO dispatch_assignments
+                   (id, dispatch_id, assignee, assigned_by, assigned_at,
+                    queue_task_id, status)
+                   VALUES(?,?,?,?,?,?,?)""",
+                (
+                    assignment_id, dispatch_id, assignee, actor, now().isoformat(),
+                    queued["task_id"], "assigned",
+                ),
+            )
+            self.db.execute(
+                "UPDATE project_dispatches SET status='assigned' WHERE id=?",
+                (dispatch_id,),
+            )
+            self._event(
+                "project.dispatch_assigned",
+                {
+                    "dispatch_id": dispatch_id,
+                    "assignment_id": assignment_id,
+                    "assignee": assignee,
+                    "queue_task_id": queued["task_id"],
+                },
+                actor_id=actor,
+                project_id=row["project_id"],
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM project_dispatches WHERE id=?", (dispatch_id,)).fetchone()) | {
+                "assignment_id": assignment_id,
+                "assignee": assignee,
+                "queue_task_id": queued["task_id"],
+            }
 
     def backup(self,dest):
         dest=Path(dest);dest.parent.mkdir(parents=True,exist_ok=True)
