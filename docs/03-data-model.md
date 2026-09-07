@@ -21,10 +21,11 @@
 | Signal | Canonical source, source/observed time, fingerprint | Deduped and explicitly untrusted |
 | Expansion | Source milestone, plan, budget, contractor, inspection | Completion cannot be counted twice |
 | Event | Sequence, actor, correlation ID, payload, timestamp | Persist with state transaction |
+| ActivitySession | Kind, project/department/room, participants, start/end events | Must originate from a persisted event; replay is idempotent by start event |
 
 ## Reference tables
 
-`company/schema.py` and Alembic revisions `0001_initial` through `0015_cross_dept_work_orders`
+`company/schema.py` and Alembic revisions `0001_initial` through `0019_activity_projection`
 create settings, policies, proposals, approvals, tasks, ledger, completions, signals,
 expansions, events (with envelope columns that do not change the audit hash),
 consultant_proposals, identities, departments, positions, **department_seats**,
@@ -35,7 +36,8 @@ enrollment/effects/webhook deliveries, impact
 briefs, budget periods, memories, command idempotency, benchmark results, consultant
 review cooldowns, skills, acquired_skills, project_capabilities, learning_assignments,
 qc_inspections, employees, training_records, performance_goals and performance_reviews,
-**billed_costs**, and **revenue**. JSON configurations remain seed templates via
+**billed_costs**, **revenue**, floorplans/rooms, worker sprites, and
+**activity_sessions**. JSON configurations remain seed templates via
 `seed_catalog` / `seed_models` / `seed_hardware_skills` / `seed_development_skills`.
 
 The ledger records synthetic integer costs for mock actions. `billed_costs` records live provider usage in integer USD cents (`amount_cents`, often 0 until a pricing rate is set) plus `usage_tokens`. `revenue` records real income separately. Policy changes never reset simulated ledger totals. Refunds and period rollover of billed amounts remain future work.

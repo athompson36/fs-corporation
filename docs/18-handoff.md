@@ -1,26 +1,25 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.52** (unchanged). State: **Corporate HQ Phase 3 implemented on feature/corporate-hq-phases**.
+Date: 2026-09-07. Version: **0.3.52** (unchanged). State: **Corporate HQ Phase 4 implemented on feature/corporate-hq-phases**.
 
-## Corporate HQ Phase 3 (no version bump)
+## Corporate HQ Phase 4 (no version bump)
 
-- Alembic `0018_worker_identity`: employee profile fields, `sprite_sets`, and
-  `worker_sprites`; two validated sets seed from `config/sprite-sets.json`
-- HR/CEO-only sprite and profile mutations, with catalog validation for body, palette,
-  accessory layer, and accessory value
-- Worker cards join persisted identity, strengths/viewpoint, acquired skills, active
-  position assignments, and an optional sprite; missing sprites remain null with explicit
-  neutral-placeholder metadata
-- Authenticated organization-read card API and organization-write sprite/profile APIs;
-  core HR/CEO authorization remains authoritative
-- Headquarters floorplan rooms expose department employees and optional sprites; Desk
-  renders clickable SVG markers and fetches worker cards
-- Companion `ApiClient` exposes card, sprite, and profile methods
-- Tests: 21 focused integration tests and 284 full-discovery tests pass on Python 3.14.3;
-  companion production build passes
+- Alembic `0019_activity_projection` adds event-bound `activity_sessions`; unique
+  `started_event_id` and event foreign keys prevent replay duplication and orphan sessions
+- `_event` transactionally reduces queue leases, worker starts, quality inspections,
+  dispatch assignment/blocking, cross-department requests, and owner context requests
+- acceptance/response/worker/task terminal events close matching sessions; explicit
+  `close_stale_sessions()` reconciles terminal queue/task/request state
+- `GET /api/v1/activity` requires `company.read`; SSE frames retain `seq`/`kind`/`at`
+  and add `room_id` only when a projected room exists
+- Desk polls open activity every 10 seconds and draws persisted room badges; pulse classes
+  are omitted when `prefers-reduced-motion` is active
+- Tests: 40 focused integration/regression tests and 291 full-discovery tests pass on
+  Python 3.14.3
 
 ## Prior
 
+- Corporate HQ Phase 3 added validated worker sprites and joined worker cards
 - Corporate HQ Phase 2 persisted floorplans/rooms and requirement warnings
 - 0.3.52 Phase 1 runtime department/position editing and `0016_department_editing`
 - 0.3.51 org roster, head handoff, cross-department requests
@@ -28,12 +27,12 @@ Date: 2026-09-07. Version: **0.3.52** (unchanged). State: **Corporate HQ Phase 3
 ## Verify
 
 ```bash
-.venv/bin/python -m unittest tests.test_worker_identity tests.test_floorplans tests.test_migrate -v
+.venv/bin/python -m unittest tests.test_activity_projection tests.test_worker_identity tests.test_floorplans tests.test_cross_department_requests tests.test_owner_requests tests.test_migrate tests.test_service_edges -v
 .venv/bin/python -m unittest discover -s tests
-(cd companion && npm run build)
+PYTHONPATH=. .venv/bin/alembic heads
 ```
 
 ## Next
 
-Define the next Corporate HQ phase before extending room furnishing or sprite animation;
-continue projecting only persisted workers and operational state.
+Define Corporate HQ Phase 5 before extending furnishing or movement; keep any visual
+presence derived from persisted activity sessions rather than inferred model availability.

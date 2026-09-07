@@ -1,6 +1,6 @@
 # Verification record
 
-Updated 2026-09-07 for **0.3.52** plus Corporate HQ Phase 2 floorplans (no version bump).
+Updated 2026-09-07 for **0.3.52** plus Corporate HQ Phase 4 live activity (no version bump).
 Prior: 0.3.52 runtime department editing; 0.3.51 desk + companion organization/head handoff UI; 0.3.50 local-repos +
 Diagnostics; 0.3.49 GitHub assign; 0.3.48 billed
 cost/revenue; 0.3.47 companion PWA. Run on Python 3.14.3 in `.venv`
@@ -11,14 +11,15 @@ Earlier records: 0.2.0 ZIP (2026-09-01, Python 3.12.13) and 0.3.13 cosmic-glass 
 
 ## Verified in this workspace
 
-- **276 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`, including
-  floorplan default generation, grid overlap denial, requirement gaps, expansion-bound room
-  protection, authenticated API CRUD, events, and prior organization behavior.
+- **291 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`, including
+  idempotent activity replay, event foreign-key enforcement, blocked-dispatch context
+  projection, stale-session closure, authenticated activity reads, room-aware SSE frames,
+  floorplans, worker identity, and prior organization behavior.
 - `python3 scripts/check_bundle.py` reaches the pre-existing nested local repository and
   fails on `local repos/service-department/README.md` → missing `./LICENSE`; no Task 7
   bundle link/config failure was reported before that point.
 - Alembic revision chain is linear and single-headed: `0001_initial` through
-  `0017_floorplans`.
+  `0019_activity_projection`.
 - Companion **0.3.51** build completes (`generateSW`) and emits `dist/sw.js` /
   `dist/sw-push.js`.
 
@@ -51,5 +52,5 @@ not a check any clone can repeat.
 - A locally built `fs-corporation-worker:local` image can predate the current
   `Dockerfile.worker`. Rebuild to pick up labels and entrypoint changes.
 
-Metrics and HQ tiles remain bound to persisted events; no UI surface invents operational
-state. Furnished room art is deferred.
+Metrics, HQ tiles, and activity badges remain bound to persisted state; no UI surface
+invents operational activity. Furnished room art is deferred.

@@ -200,6 +200,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Corporate HQ Phase 1 — runtime department/position editing and revision history
 - [x] Corporate HQ Phase 2 — migration `0017_floorplans`, persisted grid rooms, department requirements, authenticated CRUD/default-plan API, overlap enforcement, and Desk warning chips; expansion isometric retained as the no-floorplan fallback
 - [x] Corporate HQ Phase 3 — migration `0018_worker_identity`, validated sprite catalogs and HR/CEO-managed identity fields, joined worker cards, authenticated APIs, and honest clickable Desk markers
+- [x] Corporate HQ Phase 4 — migration `0019_activity_projection`, idempotent event-derived work/review/meeting/context sessions, stale-session closure, company-read API, room-aware SSE frames, and reduced-motion-safe Desk badges
 
 **Acceptance:** one accepted project earns progress; justified expansion is approved and provisioned; a room opens real department data; restart/replay keeps room identity and count. Reduced-motion and list navigation work.
 

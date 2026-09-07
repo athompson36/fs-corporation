@@ -77,7 +77,10 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 #iso, #floor { width: 100%; max-height: 16rem; }
 #iso [data-room-id], #floor [data-room-id], #floor [data-worker-id] { cursor: pointer; }
 .iso-rise { transform-box: fill-box; transform-origin: center bottom; animation: iso-rise 0.7s ease-out; }
+.activity-badge { fill: var(--warning); stroke: var(--soft); stroke-width: 0.7; pointer-events: none; }
+.activity-pulse { animation: activity-pulse 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes iso-rise { from { transform: translateY(8px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes activity-pulse { 50% { transform: scale(1.35); opacity: 0.7; } }
 @media (max-width: 840px) {
   .shell { grid-template-columns: 1fr; }
   .rail { position: static; height: auto; display: block; }
@@ -270,6 +273,44 @@ function listed(items, fn) {
   return arr.length ? arr.map(fn).join(', ') : 'none';
 }
 function pad(n) { return String(n).padStart(2, '0'); }
+let headquartersRooms = [];
+function renderActivityBadges(items) {
+  document.querySelectorAll('.activity-badge').forEach(node => node.remove());
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const byRoom = new Map();
+  (items || []).forEach(item => {
+    const fallback = headquartersRooms.find(
+      room => room.department_id && room.department_id === item.department_id);
+    const roomId = item.room_id || (fallback && fallback.id);
+    if (!roomId) return;
+    if (!byRoom.has(roomId)) byRoom.set(roomId, []);
+    byRoom.get(roomId).push(item);
+  });
+  byRoom.forEach((sessions, roomId) => {
+    const target = Array.from(document.querySelectorAll('#floor [data-room-id]')).find(
+      node => node.getAttribute('data-room-id') === roomId);
+    if (!target || typeof target.getBBox !== 'function') return;
+    const box = target.getBBox();
+    const badge = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    badge.setAttribute('cx', box.x + box.width - 4);
+    badge.setAttribute('cy', box.y + 4);
+    badge.setAttribute('r', Math.min(3.5, 2 + sessions.length * 0.4));
+    badge.setAttribute('class', 'activity-badge' + (reduced ? '' : ' activity-pulse'));
+    badge.setAttribute(
+      'aria-label', sessions.length + ' active session' + (sessions.length === 1 ? '' : 's'));
+    document.getElementById('floor').appendChild(badge);
+  });
+}
+async function loadActivity() {
+  const response = await fetch('/api/v1/activity', {headers});
+  if (!response.ok) return;
+  const body = await response.json();
+  const items = body.items || [];
+  fill(
+    'activity-list', items,
+    item => item.kind + ' — ' + (item.department_id || 'unassigned') + ' @ ' + item.started_at);
+  renderActivityBadges(items);
+}
 function parseDepartmentBudgets(raw) {
   const departmentBudgets = {};
   raw.split(/\\n/).forEach(line => {
@@ -570,6 +611,7 @@ async function load() {
   document.getElementById('status-json').textContent = await status.text();
   const hq = await fetch('/api/v1/headquarters', {headers});
   const data = await hq.json();
+  headquartersRooms = data.rooms || [];
   const list = document.getElementById('room-list');
   list.innerHTML = '';
   const hasFloorplan = (data.rooms || []).some(room => !!room.floorplan_id);
@@ -599,9 +641,6 @@ async function load() {
   const inbox = await fetch('/api/v1/decisions/inbox', {headers});
   const ij = await inbox.json();
   fill('proposal-list', ij.items||[], item => item.kind + ' — ' + item.title);
-  const ev = await fetch('/api/v1/events?limit=20', {headers});
-  const ej = await ev.json();
-  fill('activity-list', ej.items||[], item => item.kind + ' @ ' + item.at);
   const projects = await fetch('/api/v1/projects', {headers});
   const pj = await projects.json();
   fill('project-list', pj.projects||[], p => p.id + ' — ' + (p.brief || p.status || ''));
@@ -763,8 +802,10 @@ async function load() {
     iso.appendChild(g);
   });
   if (!hasFloorplan) setHqView('iso');
+  await loadActivity();
 }
 load().catch(err => { document.getElementById('status-json').textContent = String(err); });
+setInterval(loadActivity, 10000);
 async function loadDiagnostics() {
   const host = document.getElementById('diag-blocks');
   host.innerHTML = 'Loading…';
@@ -934,6 +975,16 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "company.read")
         return company.status() | {"paused": company.db.execute("SELECT value FROM settings WHERE key='paused'").fetchone()[0]}
+
+    @app.get("/api/v1/activity")
+    def activity(status: str = "open",
+                 authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.list_activity(status)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/api/v1/company/pause")
     def pause(body: Command, authorization: str | None = Header(default=None), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
@@ -1353,7 +1404,12 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 page = company.events_page(pos, 20)
                 for item in page["items"]:
                     pos = item["seq"]
-                    yield f"data: {json.dumps({'seq': item['seq'], 'kind': item['kind'], 'at': item['at']})}\n\n"
+                    frame = {
+                        "seq": item["seq"], "kind": item["kind"], "at": item["at"]}
+                    activity = company.activity_for_event(item["seq"])
+                    if activity and activity.get("room_id"):
+                        frame["room_id"] = activity["room_id"]
+                    yield f"data: {json.dumps(frame)}\n\n"
                 if idle <= 0:
                     return
                 if not page["items"]:

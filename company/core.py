@@ -162,9 +162,296 @@ class Company:
             policy_version=json.loads(self.db.execute("SELECT body FROM policies ORDER BY version DESC LIMIT 1").fetchone()[0])["version"]
         except Exception:
             policy_version=None
-        self.db.execute(
+        inserted = self.db.execute(
             "INSERT INTO events(at,kind,body,previous,hash,event_id,schema_version,actor_id,policy_version,correlation_id,project_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             (at,kind,canonical(body),previous,digest(value),str(uuid.uuid4()),1,actor_id,policy_version,correlation_id,project_id))
+        event_row = self.db.execute(
+            "SELECT * FROM events WHERE seq=?", (inserted.lastrowid,)).fetchone()
+        self.apply_activity_from_event(event_row)
+
+    def _activity_department(self, actor=None, task_id=None):
+        if task_id:
+            queued = self.db.execute(
+                "SELECT actor FROM queue WHERE task_id=?", (task_id,)).fetchone()
+            if queued:
+                actor = queued["actor"]
+            else:
+                task = self.db.execute(
+                    "SELECT actor FROM tasks WHERE id=?", (task_id,)).fetchone()
+                if task:
+                    actor = task["actor"]
+        if not actor:
+            return None
+        assignment = self.db.execute(
+            """SELECT department_id FROM position_assignments
+               WHERE principal_id=? AND status='active'
+               ORDER BY assigned_at DESC, id DESC LIMIT 1""",
+            (actor,),
+        ).fetchone()
+        if assignment:
+            return assignment["department_id"]
+        prefix = str(actor).split(":", 1)[0]
+        known = self.db.execute(
+            "SELECT id FROM departments WHERE id=?", (prefix,)).fetchone()
+        return known["id"] if known else None
+
+    def _activity_room(self, department_id):
+        if not department_id:
+            return None
+        row = self.db.execute(
+            """SELECT id FROM floorplan_rooms
+               WHERE department_id=? AND status='active'
+               ORDER BY created_at, id LIMIT 1""",
+            (department_id,),
+        ).fetchone()
+        return row["id"] if row else None
+
+    @staticmethod
+    def _activity_body(event_row):
+        keys = event_row.keys()
+        body = event_row["body"] if "body" in keys else event_row["event_body"]
+        return json.loads(body) if isinstance(body, str) else dict(body)
+
+    def _open_activity_for_task(self, task_id, kind):
+        if not task_id:
+            return None
+        for session in self.db.execute(
+                """SELECT activity_sessions.*, events.body AS event_body
+                   FROM activity_sessions
+                   JOIN events ON events.seq=activity_sessions.started_event_id
+                   WHERE activity_sessions.status='open' AND activity_sessions.kind=?""",
+                (kind,)):
+            source = self._activity_body(session)
+            if (source.get("task_id") or source.get("queue_task_id")) == task_id:
+                return session
+        return None
+
+    def _start_activity(self, event_row, kind, *, project_id=None,
+                        department_id=None, participants=None, task_id=None):
+        if self._open_activity_for_task(task_id, kind):
+            return
+        seq = event_row["seq"]
+        self.db.execute(
+            """INSERT OR IGNORE INTO activity_sessions(
+                   id,kind,project_id,department_id,room_id,participants,status,
+                   started_event_id,ended_event_id,started_at,ended_at)
+               VALUES(?,?,?,?,?,?,'open',?,NULL,?,NULL)""",
+            (
+                digest({"activity_started_event_id": seq})[:32],
+                kind,
+                project_id or event_row["project_id"],
+                department_id,
+                self._activity_room(department_id),
+                canonical(sorted({
+                    str(participant) for participant in (participants or [])
+                    if participant
+                })),
+                seq,
+                event_row["at"],
+            ),
+        )
+
+    def _close_activity_for_source(self, source_kind, source_id, event_row):
+        for session in self.db.execute(
+                """SELECT activity_sessions.id, events.body AS event_body
+                   FROM activity_sessions
+                   JOIN events ON events.seq=activity_sessions.started_event_id
+                   WHERE activity_sessions.status='open' AND events.kind=?""",
+                (source_kind,)):
+            source = self._activity_body(session)
+            if (source.get("id") or source.get("run_id")) == source_id:
+                self.db.execute(
+                    """UPDATE activity_sessions
+                       SET status='closed',ended_event_id=?,ended_at=?
+                       WHERE id=?""",
+                    (event_row["seq"], event_row["at"], session["id"]),
+                )
+
+    def _close_activity_for_task(self, task_id, event_row):
+        if not task_id:
+            return
+        for session in self.db.execute(
+                """SELECT activity_sessions.id, events.body AS event_body
+                   FROM activity_sessions
+                   JOIN events ON events.seq=activity_sessions.started_event_id
+                   WHERE activity_sessions.status='open'
+                     AND activity_sessions.kind IN ('work','review')"""):
+            source = self._activity_body(session)
+            if (source.get("task_id") or source.get("queue_task_id")) == task_id:
+                self.db.execute(
+                    """UPDATE activity_sessions
+                       SET status='closed',ended_event_id=?,ended_at=?
+                       WHERE id=?""",
+                    (event_row["seq"], event_row["at"], session["id"]),
+                )
+
+    def apply_activity_from_event(self, event_row):
+        """Apply one persisted event to the activity projection idempotently."""
+        if not event_row:
+            raise ValueError("Persisted event required")
+        body = self._activity_body(event_row)
+        kind = event_row["kind"]
+
+        if kind == "owner.request_responded":
+            self._close_activity_for_source(
+                "owner.request_created", body.get("id"), event_row)
+            return
+        if kind == "cross_department.request_accepted":
+            self._close_activity_for_source(
+                "cross_department.request_created", body.get("id"), event_row)
+            return
+        if kind == "worker.finished":
+            self._close_activity_for_source(
+                "worker.started", body.get("run_id"), event_row)
+            return
+        if kind in {"task.cancelled", "task.worker_completed", "project.accepted"}:
+            self._close_activity_for_task(body.get("task_id"), event_row)
+            return
+
+        if kind in {"task.leased", "task.started", "worker.started"}:
+            task_id = body.get("task_id")
+            worker = body.get("worker") or event_row["actor_id"]
+            queued = self.db.execute(
+                "SELECT project FROM queue WHERE task_id=?", (task_id,)).fetchone()
+            self._start_activity(
+                event_row, "work",
+                project_id=event_row["project_id"] or (
+                    queued["project"] if queued else None),
+                department_id=self._activity_department(worker, task_id),
+                participants=[worker], task_id=task_id,
+            )
+            return
+        if kind == "quality.inspected":
+            task_id = body.get("task_id")
+            self._start_activity(
+                event_row, "review",
+                department_id=self._activity_department(event_row["actor_id"]),
+                participants=[event_row["actor_id"]], task_id=task_id,
+            )
+            return
+        if kind == "project.dispatch_assigned":
+            dispatch = self.db.execute(
+                "SELECT department_id FROM project_dispatches WHERE id=?",
+                (body.get("dispatch_id"),),
+            ).fetchone()
+            assignments = [
+                row["assignee"] for row in self.db.execute(
+                    """SELECT assignee FROM dispatch_assignments
+                       WHERE dispatch_id=? AND status='assigned'
+                       ORDER BY assigned_at, id""",
+                    (body.get("dispatch_id"),),
+                )
+            ]
+            if dispatch:
+                self._start_activity(
+                    event_row, "meeting" if len(assignments) > 1 else "work",
+                    department_id=dispatch["department_id"],
+                    participants=assignments or [body.get("assignee")],
+                    task_id=body.get("queue_task_id"),
+                )
+            return
+        if kind == "cross_department.request_created":
+            self._start_activity(
+                event_row, "cross_department",
+                department_id=body.get("delivering_department_id"),
+                participants=[event_row["actor_id"]],
+            )
+            return
+        if kind == "owner.request_created":
+            self._start_activity(
+                event_row, "context_request",
+                department_id=body.get("department_id"),
+                participants=[event_row["actor_id"]],
+            )
+            return
+        if kind == "project.dispatched" and body.get("status") == "blocked_vacant_head":
+            self._start_activity(
+                event_row, "context_request",
+                department_id=body.get("department_id"),
+                participants=[event_row["actor_id"]],
+            )
+
+    def list_activity(self, status="open"):
+        if status not in {"open", "closed"}:
+            raise ValueError("Invalid activity status")
+        items = []
+        for row in self.db.execute(
+                """SELECT * FROM activity_sessions
+                   WHERE status=? ORDER BY started_at, id""", (status,)):
+            item = dict(row)
+            item["participants"] = json.loads(item["participants"])
+            items.append(item)
+        return {"items": items}
+
+    def activity_for_event(self, event_id):
+        row = self.db.execute(
+            """SELECT * FROM activity_sessions
+               WHERE started_event_id=? OR ended_event_id=?
+               ORDER BY started_event_id LIMIT 1""",
+            (event_id, event_id),
+        ).fetchone()
+        if not row:
+            return None
+        item = dict(row)
+        item["participants"] = json.loads(item["participants"])
+        return item
+
+    def close_stale_sessions(self):
+        """Close projected sessions whose persisted source record is terminal."""
+        closed = 0
+        ended_at = now().isoformat()
+        for session in self.db.execute(
+                """SELECT activity_sessions.id, activity_sessions.kind,
+                          events.kind AS event_kind, events.body AS event_body
+                   FROM activity_sessions
+                   JOIN events ON events.seq=activity_sessions.started_event_id
+                   WHERE activity_sessions.status='open'"""):
+            body = self._activity_body(session)
+            terminal = False
+            task_id = body.get("task_id") or body.get("queue_task_id")
+            if task_id:
+                queued = self.db.execute(
+                    "SELECT status FROM queue WHERE task_id=?", (task_id,)).fetchone()
+                task = self.db.execute(
+                    "SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
+                terminal = bool(
+                    (queued and queued["status"] in {"done", "cancelled", "failed"})
+                    or (task and task["status"] in {"accepted", "cancelled", "failed"})
+                )
+            if session["event_kind"] == "worker.started":
+                run = self.db.execute(
+                    "SELECT status FROM worker_runs WHERE id=?",
+                    (body.get("run_id"),),
+                ).fetchone()
+                terminal = bool(run and run["status"] in {"completed", "failed"})
+            elif session["event_kind"] == "owner.request_created":
+                request = self.db.execute(
+                    "SELECT status FROM owner_requests WHERE id=?", (body.get("id"),)
+                ).fetchone()
+                terminal = bool(request and request["status"] != "open")
+            elif session["event_kind"] == "cross_department.request_created":
+                request = self.db.execute(
+                    "SELECT status FROM cross_department_requests WHERE id=?",
+                    (body.get("id"),),
+                ).fetchone()
+                terminal = bool(request and request["status"] != "pending_acceptance")
+            elif (
+                    session["event_kind"] == "project.dispatched"
+                    and session["kind"] == "context_request"):
+                dispatch = self.db.execute(
+                    "SELECT status FROM project_dispatches WHERE id=?",
+                    (body.get("dispatch_id"),),
+                ).fetchone()
+                terminal = bool(
+                    dispatch and dispatch["status"] != "blocked_vacant_head")
+            if terminal:
+                self.db.execute(
+                    """UPDATE activity_sessions SET status='closed',ended_at=?
+                       WHERE id=? AND status='open'""",
+                    (ended_at, session["id"]),
+                )
+                closed += 1
+        return closed
 
     def _ceo(self,actor):
         if actor != self.ceo:

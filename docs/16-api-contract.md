@@ -61,6 +61,8 @@ listed scope can still receive 403 from those routes.
 | POST /expansions | Cost facilities work | facilities.propose |
 | POST /expansions/{id}/decision | Approve exact plan | facilities.approve |
 | GET /events | Cursor-paginated audit/activity (`limit`, default 50; optional `project_id`) | audit.read |
+| GET /activity | Open event-projected HQ activity sessions by default (`status=open|closed`) | company.read |
+| GET /events/stream | SSE cursor frames (`seq`, `kind`, `at`, optional projected `room_id`) | audit.read |
 | GET /headquarters | Event-projected rooms and departments | company.read |
 | GET /headquarters/rooms/{id} | Persisted tasks, staff, deliverables, costs and decisions for one expansion room | company.read |
 | POST /projects/{id}/github-enrollment | Enroll upstream/fork repo IDs and branch policy | project.enroll (CEO or admin companion) |
