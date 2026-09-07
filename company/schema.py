@@ -292,6 +292,9 @@ CREATE TABLE IF NOT EXISTS objectives(
 CREATE TABLE IF NOT EXISTS scorecard_snapshots(
   id TEXT PRIMARY KEY, period_start TEXT, period_end TEXT,
   metrics TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS company_settings(
+  key TEXT PRIMARY KEY, value_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL, updated_by TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (

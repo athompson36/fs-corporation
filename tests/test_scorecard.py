@@ -156,7 +156,7 @@ class ScorecardApiAndMigrationTests(unittest.TestCase):
         self.assertIn("objective-create-form", desk)
 
     def test_file_database_migrates_to_0023(self):
-        self.assertEqual(HEAD_REVISION, "0023_ceo_scorecard")
+        self.assertEqual(HEAD_REVISION, "0024_company_settings")
         with tempfile.TemporaryDirectory() as directory:
             company = Company(str(Path(directory) / "scorecard.db"))
             try:
