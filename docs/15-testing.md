@@ -13,6 +13,13 @@ The unit suite covers unknown scopes, self-escalation, stale policy proposals, p
 
 API tests require `pip install -e .`. The demo CLI does not.
 
+## Plan checkbox honesty (M10-05)
+
+Plans under `docs/superpowers/plans/` use a `Status:` line. Once a plan is marked
+`implemented` (or work is merged and described on the roadmap), leave individual step
+`- [ ]` boxes unticked — they are historical scaffolding. Roadmap `[x]` marks and
+`VERIFICATION.md` are the completion claims, and each requires a code path or test.
+
 ## Current evidence limitations
 
 These are deterministic local tests with trusted method callers. They do not exercise authentication, upstream ChatDev execution, provider APIs, GitHub, a browser, real source verification, actual billed costs or a hardened sandbox. Synthetic artifact hashes demonstrate binding logic, not software correctness.

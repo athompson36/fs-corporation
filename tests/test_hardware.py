@@ -39,8 +39,8 @@ class HardwareSkillTests(unittest.TestCase):
         self.assertIn("skill", str(ctx.exception).lower())
         before = self.c.policy()
         assignment = result["learning"][0]
-        with self.assertRaises(NotImplementedError):
-            LearningAdapter().fetch("https://docs.espressif.com/projects/esp-idf/en/latest/")
+        with self.assertRaises(PermissionError):
+            LearningAdapter().fetch("https://evil.example/docs")
         self.c.study_skill(
             assignment["learner"], assignment["id"],
             source="https://docs.espressif.com/projects/esp-idf/en/latest/",

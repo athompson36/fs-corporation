@@ -55,7 +55,7 @@
 
 **Context.** The owner asked the company to take firmware and board-support work (ESP32, Raspberry Pi, RockPro64 and similar) and to have pertinent employees learn online when the current skill configuration cannot perform the work.
 
-**Decision.** Treat hardware as software-for-boards, not physical fabrication. Persist a skill catalog, project capability rows, learning assignments, and certified `acquired_skills`. Block `draft` / `review` / `prepare_pr` while required skills are missing. Study uses the same HTTPS metadata ingest as market signals. Certification requires an independent CEO reviewer. `LearningAdapter.fetch` stays fail-closed until an approved source list and the action gateway exist.
+**Decision.** Treat hardware as software-for-boards, not physical fabrication. Persist a skill catalog, project capability rows, learning assignments, and certified `acquired_skills`. Block `draft` / `review` / `prepare_pr` while required skills are missing. Study uses the same HTTPS metadata ingest as market signals. Certification requires an independent CEO reviewer. `LearningAdapter.fetch` is allowlisted HTTPS only (`config/learning-sources.example.json` / `FS_CORP_LEARNING_SOURCES_FILE`); page text remains task data, not policy.
 
 **Alternatives considered.**
 

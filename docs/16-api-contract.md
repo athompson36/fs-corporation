@@ -28,6 +28,9 @@ listed scope can still receive 403 from those routes.
 | POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
 | GET /projects/{id}/dispatch-options | Parameter key: templates, presets, max_cents, department statuses | project.enroll |
 | POST /projects/{id}/dispatch-recommend | Advisory mock→live recommend/autofill payload (never dispatches) | project.enroll |
+| POST /ops/idempotency/prune | Delete `command_idempotency` rows older than retention (default 7 days) | company.pause |
+| GET /model-profiles | List seeded model profiles (id, enabled, body) | company.read |
+| GET /benchmarks | List recorded benchmark results (optional `role` query) | company.read |
 | GET /events/stream | SSE audit events (cursor query param). Each frame carries `{seq, kind, at}` only; fetch bodies from `GET /events` | audit.read |
 | POST /company/pause | Stop new dispatch | company.pause |
 | POST /company/resume | Resume dispatch | company.resume |

@@ -10,7 +10,7 @@ Enrollment of a hardware project records the platform and required skills from [
 - IT systems administrators for board Linux and device trees on Raspberry Pi / RockPro64-class machines
 - People / Knowledge Curators to file the resulting procedure in company memory
 
-Assigned employees study **approved HTTPS documentation** with the same provenance rules as market signals: timestamps, deduplication, and no policy change from page text. Live crawling is disabled until a source list and the action gateway are configured (`LearningAdapter.fetch` raises `NotImplementedError`).
+Assigned employees study **approved HTTPS documentation** with the same provenance rules as market signals: timestamps, deduplication, and no policy change from page text. `LearningAdapter.fetch` loads HTTPS pages only when the URL matches a prefix in `config/learning-sources.example.json` (or `FS_CORP_LEARNING_SOURCES_FILE`). Missing allowlist file → `NotImplementedError`; non-matching URL → `PermissionError`. Fetched text is task data only and cannot amend policy. Study still commonly uses supplied metadata via `study_skill` without a live fetch.
 
 An independent reviewer (Human Resources or the CEO in the reference core) certifies the study evidence. Certification writes `acquired_skills` and an approved memory record. When every required skill has at least one certified holder, dispatch of `draft` / `review` / `prepare_pr` may proceed under ordinary grants. Quality Control still inspects the resulting product artifact before acceptance.
 

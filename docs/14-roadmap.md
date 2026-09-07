@@ -131,11 +131,12 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Persist model profiles and versioned assignments
 - [x] Selection order: task assignment → position override → department default → company default
 - [x] Never broaden data classification on fallback; disabled profiles skipped with a clear error
-- [ ] Role benchmark fixtures (deterministic, no vendor claims) — **not present; no fixture files exist.** `record_benchmark` writes `benchmark_results`, but nothing reads it. Tracked in M10-03.
+- [x] Role benchmark fixtures (deterministic, no vendor claims) — P0.2:
+      `config/benchmarks.example.json` and `GET /api/v1/benchmarks` (see M10-03).
 - [x] Record the pinned ChatDev checkout (`config/upstream.lock.json`); validate `run_workflow` signature against [07-chatdev-integration.md](07-chatdev-integration.md). Fetching a live checkout remains a local operator step.
 - [x] Adapter contract tests with a mock provider: WorkOrder in, isolated session name, usage metadata, cancel/fail mapping; no unapproved tools — `cancel`/`fail` covered in `tests/test_m2.py` (0.3.46)
 - [x] Store work-order + workflow digests; final ChatDev message ≠ project acceptance
-- [x] Hardware skill catalog, gap assignment, study/certify, and dispatch gate (R18). Live documentation fetch remains `NotImplementedError`
+- [x] Hardware skill catalog, gap assignment, study/certify, and dispatch gate (R18). Live documentation fetch uses an approved HTTPS prefix allowlist (`config/learning-sources.example.json`); non-matching URLs are denied
 - [x] Quality Control inspection gate before acceptance (R19)
 - [x] Human Resources training roster and skill certification (R20)
 - [x] Regular documented employee training, performance goals/reviews/trends, hire attributes (R21)
@@ -179,7 +180,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Impact brief with no auto-publish; cost recorded on the brief
 - [x] Page instructions cannot amend policy
 - [x] Live poll remains `NotImplementedError` until a source is approved
-- [x] Skill-learning study uses the same supplied-metadata ingest as signals; `LearningAdapter.fetch` remains disabled until an approved source list exists
+- [x] Skill-learning study uses the same supplied-metadata ingest as signals; `LearningAdapter.fetch` allowlists HTTPS prefixes from `config/learning-sources.example.json` (or `FS_CORP_LEARNING_SOURCES_FILE`)
 
 **Acceptance:** a sourced event (supplied metadata or configured feed) yields one actionable brief with timestamps and affected project; duplicate feed entries create no duplicate work; page instructions cannot amend rules or trigger unauthorized publishing. Live poll on fs-dev: `scripts/exercise_feed_poll.py` / `verify_fs_dev_pilot.sh` against `github-blog`.
 
@@ -300,9 +301,9 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
       finishes the run, marks the queue done, and emits `task.worker_completed` in one
       transaction; both subprocess and container runtimes use it. Test asserts a simulated
       crash rolls all three back.
-- [ ] **Add an idempotency-key retention policy.** `command_idempotency` grows without bound
-      and has no TTL or eviction.
-      *Acceptance:* documented retention window plus a prune path with a test.
+- [x] **Add an idempotency-key retention policy** (P0.2). Default 7 days via
+      `FS_CORP_IDEMPOTENCY_RETENTION_DAYS`; `Company.prune_idempotency_keys` +
+      `POST /api/v1/ops/idempotency/prune`. Tests in `tests/test_m10_ops.py`.
 
 ### M10-02: Test gaps behind previously claimed items
 
@@ -326,12 +327,11 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
       separately from `simulated_spend_cents`.
 - [x] **Model real revenue** (0.3.48). `revenue` table + CEO `record_revenue`;
       `revenue_cents` on status, never mixed into simulated totals.
-- [ ] **Give `benchmark_results` and `model_profiles` a read path or remove them.** Both are
-      written and never read by application code; live routing reads JSON config instead.
-      *Acceptance:* either a consumer with a test, or removal with a migration note.
-- [ ] **Role benchmark fixtures (deterministic, no vendor claims).** Carried from M2; no
-      fixture files exist.
-      *Acceptance:* committed fixtures plus a test that reads them through the benchmark path.
+- [x] **Give `benchmark_results` and `model_profiles` a read path** (P0.2).
+      `list_model_profiles` / `list_benchmark_results`; `GET /api/v1/model-profiles` and
+      `GET /api/v1/benchmarks`. Tests in `tests/test_m10_ops.py`.
+- [x] **Role benchmark fixtures (deterministic, no vendor claims)** (P0.2).
+      `config/benchmarks.example.json` + `seed_benchmarks`; read through list path.
 
 ### M10-04: Operator visibility and UI
 
@@ -353,10 +353,9 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
 - [ ] **Keyboard access for HQ room tiles.** Isometric and plan tiles in `company/service.py`
       are click-only SVG with no focus or key handler; the list view is already accessible.
       *Acceptance:* tiles are focusable and activate on Enter/Space.
-- [ ] **Replace remaining `window.prompt` in the companion.** The v0.3.51 project dispatch
-      flow now uses labeled per-department budget controls. Inbox response, escalation, and
-      project enroll still block the main thread and degrade screen-reader/mobile use.
-      *Acceptance:* in-app form controls with labels for those remaining three flows.
+- [x] **Replace remaining `window.prompt` in the companion** (P0.2). Inbox response,
+      escalation, and project enroll use labeled forms; source assertion that `window.prompt`
+      is absent from `App.tsx`.
 
 ### M10-05: Documentation and decision hygiene
 
@@ -364,10 +363,10 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
       Funnel, the same-host worker plane, and the ChatDev adapter slices. Each shipped with a
       spec but no entry in [decisions.md](decisions.md). Added as ADR-021 through ADR-024,
       each recorded retroactively and marked as such.
-- [ ] **Keep plan checkboxes honest.** Plans under `docs/superpowers/plans/` carry a
-      `Status:` line; the per-step boxes stay unticked once a plan is marked implemented.
-      *Acceptance:* a bundle check, or a documented convention in
-      [15-testing.md](15-testing.md).
+- [x] **Keep plan checkboxes honest** (P0.2 convention). Documented in
+      [15-testing.md](15-testing.md): when a plan `Status:` is `implemented`, leave step
+      boxes unticked and rely on the Status line plus roadmap/`VERIFICATION.md` for
+      completion claims. Do not mark roadmap `[x]` without a test or code path.
 
 **Acceptance for M10:** no roadmap item is marked `[x]` without code or a test behind it;
 `VERIFICATION.md` matches what the suite actually proves; and the test suite passes both
@@ -402,9 +401,11 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Corporate HQ Phases 1–8 are complete at 0.3.53.** Next: resume remaining M10-03
-(benchmark read path or removal; role fixtures) or **M10-04** UI items (version display,
-desk keyboard access, `window.prompt` replacement for remaining flows).
+**Corporate HQ Phases 1–8 are complete at 0.3.53.** P0.2 M10 ops (idempotency prune,
+model/benchmark reads, companion prompt forms, LearningAdapter allowlist) landed on
+`feature/p0-m10-ops`. Remaining M10-04 chrome: version display in primary UI, HQ tile
+keyboard access. Next production track: **Settings platform (P1)** per
+[superpowers/plans/2026-09-07-production-feature-build-out.md](superpowers/plans/2026-09-07-production-feature-build-out.md).
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
 dependencies plus controlled egress in the worker image; furnished HQ room art.

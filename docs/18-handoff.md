@@ -1,37 +1,37 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.53**. State: **Dispatch options + recommend autofill merged to
-`main` (local; ahead of origin; not yet deployed).**
+Date: 2026-09-07. Version: **0.3.53**. State: **P0.2 M10 ops on `feature/p0-m10-ops`
+(ready to merge): idempotency prune, model/benchmark reads, companion forms, learning fetch.**
 
-## Dispatch recommend / autofill (merged)
+## P0.2 on this branch
 
-- `GET /api/v1/projects/{id}/dispatch-options` — parameter key (templates, presets, max_cents,
-  department status / dispatchable).
-- `POST /api/v1/projects/{id}/dispatch-recommend` — advisory mock→live autofill; never dispatches.
-  Live uses `invoke_model` when provider status is live; otherwise mock with notes
-  (`live_unavailable` / `live_unusable`). ADR-035.
-- CEO desk and companion: Recommend button, brief/criteria templates, dept checkboxes + budget
-  chips, Valid values panel; dormant checked depts block submit until Activate.
+- Idempotency retention default **7 days** (`FS_CORP_IDEMPOTENCY_RETENTION_DAYS`);
+  `POST /api/v1/ops/idempotency/prune`.
+- `GET /api/v1/model-profiles`, `GET /api/v1/benchmarks`; fixtures in
+  `config/benchmarks.example.json`.
+- Companion: enroll / escalate / owner-respond are labeled forms (no `window.prompt`).
+- `LearningAdapter.fetch` allowlists HTTPS prefixes from
+  `config/learning-sources.example.json` (or `FS_CORP_LEARNING_SOURCES_FILE`).
+- Plan: [docs/superpowers/plans/2026-09-07-p0-m10-ops.md](superpowers/plans/2026-09-07-p0-m10-ops.md).
 
-## Prior: Companion iPhone full integration
+## Already on main
 
-Scopes are server-derived (`GET /api/v1/session`); paired admin may act as CEO for ops (not root);
-five-tab mobile layout. Re-pair phone once after deploy so native session carries scopes.
+- Dispatch options + recommend autofill (ADR-035).
+- Companion iPhone scopes / paired-admin ops / five-tab layout (ADR-034).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **351 passed** (post-merge on `main`)
-- `cd companion && npm run build`: passed during feature work
+- Run `.venv/bin/python -m unittest discover -s tests` and `cd companion && npm run build`
+  before merge.
 
-## Production feature roadmap (owner-approved 2026-09-07)
+## Production roadmap
 
-Settings **C** (non-secret `FS_CORP_*` editable from Settings; secrets host-only status) + horizon
-**everything**. Plan: [docs/superpowers/plans/2026-09-07-production-feature-build-out.md](superpowers/plans/2026-09-07-production-feature-build-out.md).
+Settings **C** + horizon everything:
+[docs/superpowers/plans/2026-09-07-production-feature-build-out.md](superpowers/plans/2026-09-07-production-feature-build-out.md).
 
 ## Next
 
-1. Optional: `git push origin main` and deploy with `scripts/deploy_to_fs_dev.sh` + remote
-   `run-install.sh`.
-2. Start **P0.2**: M10-01 idempotency prune, M10-03 model/benchmark read path, replace remaining
-   companion `window.prompt` forms; LearningAdapter.fetch; then Settings platform (P1).
-3. Do not commit `local repos/service-department/`.
+1. Merge `feature/p0-m10-ops` → `main`; optional push/deploy.
+2. Start **P1 Settings platform** (spec/plan for GET/PATCH settings + secrets-status).
+3. Remaining M10-04 chrome (version in primary UI, HQ tile keyboard) deferred with P5.
+4. Do not commit `local repos/service-department/`.

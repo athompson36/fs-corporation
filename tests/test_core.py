@@ -152,7 +152,7 @@ class GovernanceTests(unittest.TestCase):
         order=WorkOrder("t","p",1,"digest",0,{})
         with self.assertRaises(NotImplementedError):ChatDevAdapter().run(order)
         with self.assertRaises(NotImplementedError):GitHubAdapter().execute(order)
-        with self.assertRaises(NotImplementedError):LearningAdapter().fetch("https://example.com/docs")
+        with self.assertRaises(PermissionError):LearningAdapter().fetch("https://example.com/docs")
         with self.assertRaises(NotImplementedError):PushNotificationAdapter().send({"endpoint":"https://push.example/x"},{"title":"t"})
 
 
