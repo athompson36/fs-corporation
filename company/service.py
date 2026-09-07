@@ -75,7 +75,7 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 input, textarea { width: 100%; color: var(--soft); background: rgba(8,12,22,0.6); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 0.45rem; margin: 0.2rem 0 0.6rem; }
 form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; padding-top: 0.6rem; }
 #iso, #floor { width: 100%; max-height: 16rem; }
-#iso [data-room-id], #floor [data-room-id] { cursor: pointer; }
+#iso [data-room-id], #floor [data-room-id], #floor [data-worker-id] { cursor: pointer; }
 .iso-rise { transform-box: fill-box; transform-origin: center bottom; animation: iso-rise 0.7s ease-out; }
 @keyframes iso-rise { from { transform: translateY(8px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @media (max-width: 840px) {
@@ -137,6 +137,11 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <h2>Room</h2>
 <p id="room-purpose" class="muted"></p>
 <ul id="room-facts"></ul>
+</section>
+<section class="glass" id="worker-card" hidden>
+<h2 id="worker-name">Worker</h2>
+<p id="worker-headline" class="muted"></p>
+<ul id="worker-facts"></ul>
 </section>
 </div>
 </div>
@@ -482,6 +487,39 @@ async function openRoom(roomId) {
   lines.forEach(line => { const li = document.createElement('li'); li.textContent = line; facts.appendChild(li); });
   location.hash = 'room-detail';
 }
+async function openWorkerCard(employeeId) {
+  const panel = document.getElementById('worker-card');
+  const facts = document.getElementById('worker-facts');
+  const res = await fetch(
+    '/api/v1/workers/' + encodeURIComponent(employeeId) + '/card', {headers});
+  const card = await res.json();
+  panel.hidden = false;
+  facts.innerHTML = '';
+  if (!res.ok) {
+    document.getElementById('worker-name').textContent = 'Worker';
+    document.getElementById('worker-headline').textContent =
+      card.detail || 'Worker not found';
+    return;
+  }
+  document.getElementById('worker-name').textContent =
+    card.identity.display_name;
+  document.getElementById('worker-headline').textContent =
+    card.identity.headline || card.identity.position_id;
+  const lines = [
+    'Viewpoint: ' + (card.viewpoint || 'not set'),
+    'Strengths: ' + listed(card.strengths, value => value),
+    'Skills: ' + listed(card.skills, skill => skill.name),
+    'Positions: ' + listed(
+      card.position_assignments, assignment => assignment.title),
+    'Sprite: ' + (card.sprite ? card.sprite.sprite_set : 'neutral placeholder')
+  ];
+  lines.forEach(line => {
+    const li = document.createElement('li');
+    li.textContent = line;
+    facts.appendChild(li);
+  });
+  location.hash = 'worker-card';
+}
 function renderHeadInbox(items) {
   const list = document.getElementById('head-inbox-list');
   list.innerHTML = '';
@@ -678,6 +716,22 @@ async function load() {
       t.setAttribute('fill', '#eee'); t.setAttribute('font-size', '5');
       t.textContent = room.room_type;
       svg.appendChild(t);
+      (room.workers || []).forEach((worker, index) => {
+        const marker = ns('circle');
+        marker.setAttribute('cx', x + 6 + index * 7);
+        marker.setAttribute('cy', y + room.height * cellH - 6);
+        marker.setAttribute('r', '3');
+        marker.setAttribute(
+          'fill', worker.sprite ? '#34d399' : '#9aa8c0');
+        marker.setAttribute('stroke', '#e8eef8');
+        marker.setAttribute('data-worker-id', worker.employee_id);
+        marker.setAttribute('aria-label', worker.display_name);
+        marker.addEventListener('click', event => {
+          event.stopPropagation();
+          openWorkerCard(worker.employee_id);
+        });
+        svg.appendChild(marker);
+      });
     });
     setHqView('plan');
   }
@@ -1702,6 +1756,47 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "company.read")
         return company.list_floorplans()
+
+    @app.get("/api/v1/workers/{employee_id}/card")
+    def worker_card(
+            employee_id: str,
+            authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        try:
+            return company.worker_card(employee_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/workers/{employee_id}/sprite")
+    def worker_sprite(
+            employee_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload | {"employee_id": employee_id},
+            lambda: (
+                company.set_worker_sprite(
+                    ident["principal_id"], employee_id, **payload), 200))
+
+    @app.patch("/api/v1/workers/{employee_id}/profile")
+    def worker_profile(
+            employee_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload | {"employee_id": employee_id},
+            lambda: (
+                company.update_worker_profile(
+                    ident["principal_id"], employee_id, **payload), 200))
 
     @app.get("/api/v1/floorplans/{floorplan_id}")
     def floorplan_detail(

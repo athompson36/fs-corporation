@@ -116,7 +116,8 @@ CREATE TABLE IF NOT EXISTS qc_inspections(
   inspector TEXT NOT NULL, verdict TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS employees(
   id TEXT PRIMARY KEY, position_id TEXT NOT NULL, display_name TEXT NOT NULL,
-  attributes TEXT NOT NULL, background TEXT NOT NULL, hired_at TEXT NOT NULL, status TEXT NOT NULL);
+  attributes TEXT NOT NULL, background TEXT NOT NULL, hired_at TEXT NOT NULL, status TEXT NOT NULL,
+  headline TEXT, viewpoint TEXT, strengths TEXT, growth_focus TEXT);
 CREATE TABLE IF NOT EXISTS training_records(
   id TEXT PRIMARY KEY, employee_id TEXT NOT NULL, assignment_id TEXT NOT NULL,
   skill_id TEXT NOT NULL, source TEXT, summary TEXT, studied_at TEXT, certified_at TEXT,
@@ -214,6 +215,14 @@ CREATE TABLE IF NOT EXISTS room_requirements(
   department_id TEXT NOT NULL REFERENCES departments(id),
   required_room_type TEXT NOT NULL, min_capacity INTEGER NOT NULL,
   PRIMARY KEY(department_id, required_room_type));
+CREATE TABLE IF NOT EXISTS sprite_sets(
+  id TEXT PRIMARY KEY, layers TEXT NOT NULL,
+  allowed_palettes TEXT NOT NULL, body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS worker_sprites(
+  employee_id TEXT PRIMARY KEY REFERENCES employees(id),
+  sprite_set TEXT NOT NULL REFERENCES sprite_sets(id),
+  body TEXT, palette TEXT, accessories TEXT NOT NULL,
+  updated_by TEXT NOT NULL, updated_at TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (

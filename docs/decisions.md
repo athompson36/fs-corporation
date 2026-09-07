@@ -303,4 +303,27 @@ requirements from `config/room-requirements.json`. The Desk renders persisted ro
 grid and shows unmet requirements as warning chips; expansion isometric rendering remains the
 fallback when no floorplan rooms exist. No package version bump is made for this phase.
 
+### ADR-031 detail
+
+**Context.** Persisted employees and room ownership identify who belongs in a department, but
+the headquarters had no validated visual identity or concise, joined worker view. Inventing
+sprites or capabilities in the browser would violate the building projection rules.
+
+**Decision.** Store sprite-set catalogs separately from each employee's selected sprite.
+Catalog-defined bodies, palettes, layers, and accessories are validated in the core. Human
+Resources or the CEO may edit sprite and profile fields. Worker cards join only persisted
+employee identity, acquired skills, active position assignments, and an optional sprite.
+Missing sprites remain null and are rendered with an explicitly neutral placeholder.
+
+**Alternatives considered.** Browser-only sprite choices were rejected because they would not
+survive restart or support consistent validation. Generating a random sprite for every worker
+was rejected because it would invent identity. Reusing model profiles as worker identity was
+rejected because employees, positions, and model routing are intentionally separate.
+
+**Consequences.** Alembic `0018_worker_identity` adds profile columns, `sprite_sets`, and
+`worker_sprites`, seeded from `config/sprite-sets.json`. Organization-scoped APIs expose cards
+and mutations, while core HR/CEO checks remain authoritative. Department rooms include
+persisted staff with optional sprites; Desk markers fetch the corresponding card. No package
+version bump is made for this phase.
+
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

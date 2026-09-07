@@ -1825,6 +1825,18 @@ class Company:
         if result["seat"] is None:
             for key in ("seat_id", "seat_principal_id", "seat_title", "seat_status"):
                 result.pop(key, None)
+        result["workers"] = []
+        if result["department_id"]:
+            for employee in self.db.execute(
+                    """SELECT id,display_name,position_id FROM employees
+                       WHERE status='active' AND position_id LIKE ? ORDER BY id""",
+                    (f"{result['department_id']}:%",)):
+                result["workers"].append({
+                    "employee_id": employee["id"],
+                    "display_name": employee["display_name"],
+                    "position_id": employee["position_id"],
+                    "sprite": self._worker_sprite(employee["id"]),
+                })
         return result
 
     def get_floorplan(self, floorplan_id):
@@ -2527,7 +2539,10 @@ class Company:
             raise ValueError("Employee already hired")
         self.seed_development_skills()
         with self.tx():
-            self.db.execute("INSERT INTO employees VALUES(?,?,?,?,?,?,?)",
+            self.db.execute(
+                """INSERT INTO employees(
+                     id,position_id,display_name,attributes,background,hired_at,status)
+                   VALUES(?,?,?,?,?,?,?)""",
                 (employee_id,position_id,display_name,canonical(attributes),background.strip(),now().isoformat(),"active"))
             self._event("employee.hired",{"id":employee_id,"position_id":position_id},actor_id=actor)
         training=self._assign_training(employee_id,actor)
@@ -2539,7 +2554,217 @@ class Company:
         if not row:raise ValueError("Employee not found")
         data=dict(row)
         data["attributes"]=json.loads(data["attributes"])
+        data["strengths"]=json.loads(data["strengths"]) if data.get("strengths") else []
         return data
+
+    def seed_sprite_sets(self, path=None):
+        path = Path(path) if path else (
+            Path(__file__).resolve().parents[1] / "config" / "sprite-sets.json")
+        catalog = json.loads(path.read_text())
+        if not isinstance(catalog, dict) or not catalog:
+            raise ValueError("Sprite set catalog must be a nonempty object")
+        with self.tx():
+            for sprite_id, item in catalog.items():
+                if (
+                        not isinstance(sprite_id, str) or not sprite_id.strip()
+                        or not isinstance(item, dict)
+                        or not isinstance(item.get("layers"), dict)
+                        or any(
+                            not isinstance(values, list)
+                            for values in item.get("layers", {}).values())
+                        or not isinstance(item.get("allowed_palettes"), list)
+                        or not isinstance(item.get("body"), list)):
+                    raise ValueError("Invalid sprite set catalog")
+                self.db.execute(
+                    """INSERT INTO sprite_sets(
+                         id,layers,allowed_palettes,body) VALUES(?,?,?,?)
+                       ON CONFLICT(id) DO UPDATE SET
+                         layers=excluded.layers,
+                         allowed_palettes=excluded.allowed_palettes,
+                         body=excluded.body""",
+                    (
+                        sprite_id,
+                        canonical(item["layers"]),
+                        canonical(item["allowed_palettes"]),
+                        canonical(item["body"]),
+                    ),
+                )
+        return {"sprite_sets": sorted(catalog)}
+
+    def _sprite_set(self, sprite_set):
+        row = self.db.execute(
+            "SELECT * FROM sprite_sets WHERE id=?", (sprite_set,)).fetchone()
+        if not row:
+            self.seed_sprite_sets()
+            row = self.db.execute(
+                "SELECT * FROM sprite_sets WHERE id=?", (sprite_set,)).fetchone()
+        if not row:
+            raise ValueError("Unknown sprite_set")
+        result = dict(row)
+        for field in ("layers", "allowed_palettes", "body"):
+            result[field] = json.loads(result[field])
+        return result
+
+    def _worker_sprite(self, employee_id):
+        row = self.db.execute(
+            "SELECT * FROM worker_sprites WHERE employee_id=?", (employee_id,)).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        result["accessories"] = json.loads(result["accessories"])
+        return result
+
+    @staticmethod
+    def _validate_sprite_accessories(layers, accessories):
+        if accessories is None:
+            return {}
+        if isinstance(accessories, dict):
+            for layer, selected in accessories.items():
+                if layer not in layers:
+                    raise ValueError(f"Unknown accessory layer: {layer}")
+                values = selected if isinstance(selected, list) else [selected]
+                if any(value not in layers[layer] for value in values):
+                    raise ValueError(f"Invalid accessory for layer: {layer}")
+            return accessories
+        if isinstance(accessories, list):
+            allowed = {
+                value for values in layers.values() for value in values
+            }
+            if any(value not in allowed for value in accessories):
+                raise ValueError("Invalid accessory")
+            return accessories
+        raise ValueError("accessories must be an object or list")
+
+    def set_worker_sprite(
+            self, actor, employee_id, sprite_set, body=None, palette=None,
+            accessories=None):
+        self._hr_or_ceo(actor)
+        if not self.db.execute(
+                "SELECT 1 FROM employees WHERE id=?", (employee_id,)).fetchone():
+            raise ValueError("Employee not found")
+        catalog = self._sprite_set(sprite_set)
+        if body is not None and body not in catalog["body"]:
+            raise ValueError("Invalid body for sprite_set")
+        if palette is not None and palette not in catalog["allowed_palettes"]:
+            raise ValueError("Invalid palette for sprite_set")
+        accessories = self._validate_sprite_accessories(
+            catalog["layers"], accessories)
+        stamp = now().isoformat()
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO worker_sprites(
+                     employee_id,sprite_set,body,palette,accessories,updated_by,updated_at)
+                   VALUES(?,?,?,?,?,?,?)
+                   ON CONFLICT(employee_id) DO UPDATE SET
+                     sprite_set=excluded.sprite_set,body=excluded.body,
+                     palette=excluded.palette,accessories=excluded.accessories,
+                     updated_by=excluded.updated_by,updated_at=excluded.updated_at""",
+                (
+                    employee_id, sprite_set, body, palette,
+                    canonical(accessories), actor, stamp,
+                ),
+            )
+            self._event(
+                "worker.sprite_updated",
+                {"employee_id": employee_id, "sprite_set": sprite_set},
+                actor_id=actor,
+            )
+        return self._worker_sprite(employee_id)
+
+    def update_worker_profile(self, actor, employee_id, **fields):
+        self._hr_or_ceo(actor)
+        allowed = {
+            "headline", "viewpoint", "strengths", "growth_focus",
+            "background", "attributes",
+        }
+        unknown = set(fields) - allowed
+        if unknown:
+            raise ValueError(f"Unknown fields: {sorted(unknown)}")
+        if not fields:
+            raise ValueError("No fields to update")
+        current = self.employee(employee_id)
+        if "strengths" in fields:
+            strengths = fields["strengths"]
+            if (
+                    not isinstance(strengths, list)
+                    or any(not isinstance(value, str) for value in strengths)):
+                raise ValueError("strengths must be a list of strings")
+        else:
+            strengths = current["strengths"]
+        attributes = fields.get("attributes", current["attributes"])
+        if not isinstance(attributes, dict):
+            raise ValueError("attributes must be an object")
+        background = fields.get("background", current["background"])
+        if not isinstance(background, str) or not background.strip():
+            raise ValueError("background required")
+        values = {
+            "headline": fields.get("headline", current.get("headline")),
+            "viewpoint": fields.get("viewpoint", current.get("viewpoint")),
+            "strengths": canonical(strengths),
+            "growth_focus": fields.get(
+                "growth_focus", current.get("growth_focus")),
+            "background": background.strip(),
+            "attributes": canonical(attributes),
+        }
+        for field in ("headline", "viewpoint", "growth_focus"):
+            if values[field] is not None and not isinstance(values[field], str):
+                raise ValueError(f"{field} must be text or null")
+        with self.tx():
+            self.db.execute(
+                """UPDATE employees SET headline=?,viewpoint=?,strengths=?,
+                     growth_focus=?,background=?,attributes=? WHERE id=?""",
+                (
+                    values["headline"], values["viewpoint"], values["strengths"],
+                    values["growth_focus"], values["background"],
+                    values["attributes"], employee_id,
+                ),
+            )
+            self._event(
+                "worker.profile_updated",
+                {"employee_id": employee_id, "fields": sorted(fields)},
+                actor_id=actor,
+            )
+        return self.employee(employee_id)
+
+    def worker_card(self, employee_id):
+        identity = self.employee(employee_id)
+        skills = [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "platform": row["platform"],
+                "department_id": row["department_id"],
+                "source_hash": row["source_hash"],
+                "acquired_at": row["acquired_at"],
+            }
+            for row in self.db.execute(
+                """SELECT s.*,a.source_hash,a.acquired_at
+                   FROM acquired_skills a JOIN skills s ON s.id=a.skill_id
+                   WHERE a.holder=? ORDER BY s.name,s.id""",
+                (employee_id,),
+            )
+        ]
+        assignments = [
+            dict(row) for row in self.db.execute(
+                """SELECT pa.*,p.title FROM position_assignments pa
+                   JOIN positions p ON p.id=pa.position_id
+                   WHERE pa.principal_id=? AND pa.status='active'
+                   ORDER BY pa.assigned_at,pa.id""",
+                (employee_id,),
+            )
+        ]
+        return {
+            "identity": identity,
+            "strengths": identity["strengths"],
+            "viewpoint": identity.get("viewpoint"),
+            "skills": skills,
+            "position_assignments": assignments,
+            "sprite": self._worker_sprite(employee_id),
+            "sprite_placeholder": {
+                "kind": "neutral",
+                "label": identity["display_name"],
+            },
+        }
 
     def schedule_company_training(self,actor):
         self._hr_or_ceo(actor)

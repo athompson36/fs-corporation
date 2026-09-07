@@ -103,6 +103,26 @@ export class ApiClient {
     return this.get<Record<string, unknown>>("/api/v1/workers/status");
   }
 
+  workerCard(employeeId: string) {
+    return this.get<WorkerCard>(`/api/v1/workers/${employeeId}/card`);
+  }
+
+  setWorkerSprite(employeeId: string, sprite: Record<string, unknown>) {
+    return this.post(
+      `/api/v1/workers/${employeeId}/sprite`,
+      sprite,
+      `worker-sprite-${employeeId}-${Date.now()}`,
+    );
+  }
+
+  updateWorkerProfile(employeeId: string, profile: Record<string, unknown>) {
+    return this.patch(
+      `/api/v1/workers/${employeeId}/profile`,
+      profile,
+      `worker-profile-${employeeId}-${Date.now()}`,
+    );
+  }
+
   modelStatus() {
     return this.get<Record<string, unknown>>("/api/v1/model/status");
   }
@@ -369,4 +389,31 @@ export type HeadDispatch = {
   acceptance_criteria: string;
   budget_cents: number;
   status: string;
+};
+
+export type WorkerCard = {
+  identity: {
+    id: string;
+    display_name: string;
+    position_id: string;
+    headline: string | null;
+    background: string;
+    attributes: Record<string, unknown>;
+  };
+  viewpoint: string | null;
+  strengths: string[];
+  skills: { id: string; name: string; platform: string }[];
+  position_assignments: {
+    id: string;
+    position_id: string;
+    department_id: string;
+    title: string;
+  }[];
+  sprite: {
+    sprite_set: string;
+    body: string | null;
+    palette: string | null;
+    accessories: Record<string, unknown> | unknown[];
+  } | null;
+  sprite_placeholder: { kind: "neutral"; label: string };
 };
