@@ -2,7 +2,7 @@
 
 A persistent AI corporation inspired by ChatDev: CEO governance, delegated department heads, mixed-model teams, controlled project forks, market intelligence, and a headquarters that grows with accepted work.
 
-**Deliverable status: v0.3.42 HTTP 429 rate limiting + v0.3.41 same-host worker plane on `.101` + live github.com Funnel webhooks (ping+push) + impact-brief API + live GitHub pilot + model/feed adapters + Docker/container workers + Web Push + ChatDev worker live path (control-plane deny by default) + optional ChatDev worker image labels on `/chatdev/status`.** Billed model usage in production workers and a dedicated second worker host still need owner follow-up.
+**Deliverable status: v0.3.43 Alembic-on-startup + v0.3.42 HTTP 429 + v0.3.41 same-host worker plane on `.101` + live github.com Funnel webhooks (ping+push) + impact-brief API + live GitHub pilot + model/feed adapters + Docker/container workers + Web Push + ChatDev worker live path (control-plane deny by default) + optional ChatDev worker image labels on `/chatdev/status`.** Billed model usage in production workers and a dedicated second worker host still need owner follow-up.
 
 Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-corporation.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
 

@@ -20,6 +20,7 @@ from .schema import (
     PAIRING_LEVEL_IDS, POLICY_REQUIRED, SLO_DEFINITIONS, apply_schema,
     pairing_level, pairing_levels_catalog,
 )
+from .migrate import ensure_migrations, is_ephemeral_path
 
 
 def now():
@@ -103,8 +104,17 @@ class Company:
         raw.row_factory = sqlite3.Row
         raw.execute("PRAGMA foreign_keys=ON")
         raw.execute("PRAGMA busy_timeout=5000")
-        self.db = _LockedConnection(raw)
         apply_schema(raw)
+        # Release the connection before Alembic opens its own — holding both deadlocks
+        # on file-backed SQLite databases.
+        if not is_ephemeral_path(self.db_path):
+            raw.close()
+            ensure_migrations(self.db_path)
+            raw = sqlite3.connect(self.db_path, isolation_level=None, check_same_thread=False)
+            raw.row_factory = sqlite3.Row
+            raw.execute("PRAGMA foreign_keys=ON")
+            raw.execute("PRAGMA busy_timeout=5000")
+        self.db = _LockedConnection(raw)
         with self.tx():
             row=self.db.execute("SELECT value FROM settings WHERE key='ceo'").fetchone()
             if row and row[0] != ceo:

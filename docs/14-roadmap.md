@@ -261,13 +261,11 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
 - [x] **HTTP `429` and request throttling** (0.3.42). Per-principal sliding window on
       authenticated routes; per-IP window on webhook and pairing redeem; `/`, `/desk`, and
       `/api/v1/health` exempt. Tests in `tests/test_rate_limit.py`.
-- [ ] **Run migrations at startup, or detect drift.** `Company()` calls `apply_schema`, which
-      uses `CREATE TABLE IF NOT EXISTS` and therefore cannot add columns. A database created
-      by the application can silently miss column-only migrations such as
-      `0011_pairing_access_level`.
-      *Acceptance:* startup either runs `alembic upgrade head` or compares `alembic_version`
-      against the head and fails closed with a clear message; a test creates a database at an
-      older revision and asserts the chosen behavior.
+- [x] **Run migrations at startup** (0.3.43). File-backed `Company()` closes its first
+      connection, runs `alembic upgrade head` via `company.migrate.ensure_migrations`, and
+      fails closed if still behind head. `:memory:` databases skip Alembic (SCHEMA is
+      authoritative). Concurrent openers of the same path are serialized. Test:
+      `tests/test_migrate.py`.
 - [ ] **Record idempotency atomically with the effect it protects.** `remember_command`
       commits in a transaction separate from the handler (`company/service.py`), so a crash
       between them lets a retry re-execute unless a domain-level key happens to catch it.
@@ -387,8 +385,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M10-01 remaining:** Alembic on startup (or drift detection), then atomic idempotency, then
-the worker-completion transaction. HTTP `429` shipped in 0.3.42.
+**M10-01 remaining:** atomic idempotency (`remember_command` must commit with the protected
+effect), then the worker-completion transaction. Alembic-on-startup and HTTP `429` shipped
+in 0.3.42–0.3.43.
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
 dependencies plus controlled egress in the worker image; furnished HQ room art. Fix the

@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 config = context.config
-if config.config_file_name is not None:
+if config.config_file_name is not None and os.environ.get("FS_CORP_ALEMBIC_QUIET") != "1":
     fileConfig(config.config_file_name)
 target_metadata = None
 
