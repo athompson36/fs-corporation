@@ -71,6 +71,13 @@ export default function App() {
   const [pushSubscriptions, setPushSubscriptions] = useState<{ id: string; endpoint: string }[]>([]);
   const [activateProjectId, setActivateProjectId] = useState("");
   const [activateDepartmentId, setActivateDepartmentId] = useState("");
+  const [appointHeadDepartment, setAppointHeadDepartment] = useState("");
+  const [appointHeadPrincipal, setAppointHeadPrincipal] = useState("");
+  const [vacateHeadDepartment, setVacateHeadDepartment] = useState("");
+  const [positionId, setPositionId] = useState("");
+  const [positionPrincipal, setPositionPrincipal] = useState("");
+  const [positionReportsTo, setPositionReportsTo] = useState("");
+  const [releaseAssignmentId, setReleaseAssignmentId] = useState("");
   const [assignDispatchId, setAssignDispatchId] = useState("");
   const [assignAssignee, setAssignAssignee] = useState("");
   const [assignAction, setAssignAction] = useState("");
@@ -534,33 +541,119 @@ export default function App() {
               </div>
               <div className="muted">
                 Roster: {department.assignments.length
-                  ? department.assignments.map((a) => `${a.principal_id} (${a.position_id})`).join(", ")
+                  ? department.assignments.map(
+                    (a) => `${a.principal_id} (${a.position_id}; assignment ${a.id})`,
+                  ).join(", ")
                   : "none"}
               </div>
             </div>
           ))}
           {!organization.length && <p className="muted">No organization catalog returned.</p>}
           {canManageOrg && (
-            <form className="card" onSubmit={async (event) => {
-              event.preventDefault();
-              try {
-                await api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim());
-                setActivateProjectId("");
-                setActivateDepartmentId("");
-                await refresh();
-              } catch (e) {
-                setError(String(e));
-              }
-            }}>
-              <h2>Activate dormant department for project</h2>
-              <label htmlFor="activate-project">Project id</label>
-              <input id="activate-project" required value={activateProjectId}
-                onChange={(e) => setActivateProjectId(e.target.value)} />
-              <label htmlFor="activate-department">Department id</label>
-              <input id="activate-department" required value={activateDepartmentId}
-                onChange={(e) => setActivateDepartmentId(e.target.value)} />
-              <div className="actions"><button className="primary" type="submit">Activate</button></div>
-            </form>
+            <>
+              <form className="card" onSubmit={async (event) => {
+                event.preventDefault();
+                try {
+                  await api.appointHead(appointHeadDepartment.trim(), appointHeadPrincipal.trim());
+                  setAppointHeadDepartment("");
+                  setAppointHeadPrincipal("");
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}>
+                <h2>Appoint department head</h2>
+                <label htmlFor="appoint-head-department">Department id</label>
+                <input id="appoint-head-department" required value={appointHeadDepartment}
+                  onChange={(e) => setAppointHeadDepartment(e.target.value)} />
+                <label htmlFor="appoint-head-principal">Principal id</label>
+                <input id="appoint-head-principal" required value={appointHeadPrincipal}
+                  onChange={(e) => setAppointHeadPrincipal(e.target.value)} />
+                <div className="actions"><button className="primary" type="submit">Appoint head</button></div>
+              </form>
+              <form className="card" onSubmit={async (event) => {
+                event.preventDefault();
+                try {
+                  await api.vacateHead(vacateHeadDepartment.trim());
+                  setVacateHeadDepartment("");
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}>
+                <h2>Vacate department head</h2>
+                <label htmlFor="vacate-head-department">Department id</label>
+                <input id="vacate-head-department" required value={vacateHeadDepartment}
+                  onChange={(e) => setVacateHeadDepartment(e.target.value)} />
+                <div className="actions"><button className="danger" type="submit">Vacate head</button></div>
+              </form>
+              <form className="card" onSubmit={async (event) => {
+                event.preventDefault();
+                try {
+                  await api.assignPosition(
+                    positionId.trim(),
+                    positionPrincipal.trim(),
+                    positionReportsTo.trim() || undefined,
+                  );
+                  setPositionId("");
+                  setPositionPrincipal("");
+                  setPositionReportsTo("");
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}>
+                <h2>Assign position</h2>
+                <label htmlFor="assign-position-id">Position id</label>
+                <input id="assign-position-id" required value={positionId}
+                  placeholder="engineering:Developer"
+                  onChange={(e) => setPositionId(e.target.value)} />
+                <label htmlFor="assign-position-principal">Principal id</label>
+                <input id="assign-position-principal" required value={positionPrincipal}
+                  onChange={(e) => setPositionPrincipal(e.target.value)} />
+                <label htmlFor="assign-position-reports-to">Reports-to seat id (optional)</label>
+                <input id="assign-position-reports-to" value={positionReportsTo}
+                  placeholder="seat:engineering"
+                  onChange={(e) => setPositionReportsTo(e.target.value)} />
+                <div className="actions"><button className="primary" type="submit">Assign position</button></div>
+              </form>
+              <form className="card" onSubmit={async (event) => {
+                event.preventDefault();
+                try {
+                  await api.releaseAssignment(releaseAssignmentId.trim());
+                  setReleaseAssignmentId("");
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}>
+                <h2>Release assignment</h2>
+                <label htmlFor="release-assignment-id">Assignment id</label>
+                <input id="release-assignment-id" required value={releaseAssignmentId}
+                  onChange={(e) => setReleaseAssignmentId(e.target.value)} />
+                <div className="actions"><button className="danger" type="submit">Release assignment</button></div>
+              </form>
+              <form className="card" onSubmit={async (event) => {
+                event.preventDefault();
+                try {
+                  await api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim());
+                  setActivateProjectId("");
+                  setActivateDepartmentId("");
+                  await refresh();
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}>
+                <h2>Activate dormant department for project</h2>
+                <label htmlFor="activate-project">Project id</label>
+                <input id="activate-project" required value={activateProjectId}
+                  onChange={(e) => setActivateProjectId(e.target.value)} />
+                <label htmlFor="activate-department">Department id</label>
+                <input id="activate-department" required value={activateDepartmentId}
+                  onChange={(e) => setActivateDepartmentId(e.target.value)} />
+                <div className="actions"><button className="primary" type="submit">Activate</button></div>
+              </form>
+            </>
           )}
           <h2>Head inbox</h2>
           {headInbox.map((dispatch) => (

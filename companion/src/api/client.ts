@@ -125,6 +125,42 @@ export class ApiClient {
     return this.get<{ departments: OrgDepartment[] }>("/api/v1/org");
   }
 
+  appointHead(departmentId: string, principalId: string) {
+    return this.post(
+      "/api/v1/org/heads",
+      { department_id: departmentId, principal_id: principalId },
+      `appoint-head-${Date.now()}`,
+    );
+  }
+
+  vacateHead(departmentId: string) {
+    return this.post(
+      "/api/v1/org/heads",
+      { department_id: departmentId, vacate: true },
+      `vacate-head-${Date.now()}`,
+    );
+  }
+
+  assignPosition(positionId: string, principalId: string, reportsToSeatId?: string) {
+    return this.post(
+      "/api/v1/org/assignments",
+      {
+        position_id: positionId,
+        principal_id: principalId,
+        reports_to_seat_id: reportsToSeatId || undefined,
+      },
+      `assign-position-${Date.now()}`,
+    );
+  }
+
+  releaseAssignment(assignmentId: string) {
+    return this.post(
+      "/api/v1/org/assignments",
+      { assignment_id: assignmentId, release: true },
+      `release-assignment-${Date.now()}`,
+    );
+  }
+
   headInbox() {
     return this.get<{ items: HeadDispatch[] }>("/api/v1/inbox/head");
   }

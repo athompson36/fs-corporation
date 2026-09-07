@@ -11,16 +11,20 @@ Date: 2026-09-07. Version: **0.3.51**. State: **organization handoff UI on featu
   `department=¢` rows; it does not silently split a shared amount.
 - Companion adds an Org tab with catalog/seats/roster, head inbox + assignment for
   `organization.write`, and explicit dormant-department activation.
+- Companion and Desk now provide labeled controls to appoint/vacate department heads
+  and assign/release position assignments. Companion controls remain gated by
+  `organization.write`, and its roster displays assignment ids for release operations.
 - Companion project dispatch replaces the hard-coded 500¢ split/prompt flow with labeled
   brief, acceptance, and per-department budget controls.
-- Client methods now cover org, head inbox, assign, and activate. Vacant/dormant state is
-  displayed as returned and never promoted to healthy activity.
+- Client methods now cover org, head appointment/vacation, position assignment/release,
+  head inbox, dispatch assignment, and activation. Vacant/dormant state is displayed as
+  returned and never promoted to healthy activity.
 - Versions are aligned at 0.3.51 for Python and the web companion. The native Expo package
   retains its independent 0.3.8 version.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **248 passed**.
+- `.venv/bin/python -m unittest discover -s tests`: **249 passed**.
 - `cd companion && npm run build`: passed; generateSW assets emitted.
 - IDE diagnostics: no errors in edited Python/TypeScript/test files.
 - `python3 scripts/check_bundle.py`: stopped only at the pre-existing nested

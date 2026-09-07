@@ -159,6 +159,30 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass" id="departments"><h2>Organization</h2>
 <p class="muted">Catalog, persisted seat status, and roster. Vacant and dormant seats are not active workers.</p>
 <ul id="org-list"></ul>
+<form id="appoint-head-form" class="compact">
+<h3>Appoint department head</h3>
+<label for="desk-appoint-department">Department id</label><input id="desk-appoint-department" required/>
+<label for="desk-appoint-principal">Principal id</label><input id="desk-appoint-principal" required/>
+<button type="submit" class="chip">Appoint head</button><span class="muted"></span>
+</form>
+<form id="vacate-head-form" class="compact">
+<h3>Vacate department head</h3>
+<label for="desk-vacate-department">Department id</label><input id="desk-vacate-department" required/>
+<button type="submit" class="chip">Vacate head</button><span class="muted"></span>
+</form>
+<form id="assign-position-form" class="compact">
+<h3>Assign position</h3>
+<label for="desk-position-id">Position id</label><input id="desk-position-id" placeholder="engineering:Developer" required/>
+<label for="desk-position-principal">Principal id</label><input id="desk-position-principal" required/>
+<label for="desk-position-reports-to">Reports-to seat id (optional)</label>
+<input id="desk-position-reports-to" placeholder="seat:engineering"/>
+<button type="submit" class="chip">Assign position</button><span class="muted"></span>
+</form>
+<form id="release-assignment-form" class="compact">
+<h3>Release assignment</h3>
+<label for="desk-release-assignment">Assignment id</label><input id="desk-release-assignment" required/>
+<button type="submit" class="chip">Release assignment</button><span class="muted"></span>
+</form>
 </section>
 <section class="glass" id="head-inbox"><h2>Head inbox</h2>
 <p class="muted">Open dispatches returned for this authenticated principal.</p>
@@ -260,6 +284,47 @@ document.getElementById('dispatch-form').addEventListener('submit', async event 
   });
   status.textContent = res.ok ? 'Dispatch created.' : await res.text();
   if (res.ok) { event.target.reset(); load(); }
+});
+async function submitOrgCommand(form, path, payload, success) {
+  const status = form.querySelector('span');
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'desk-org-' + Date.now()},
+    body: JSON.stringify({payload})
+  });
+  status.textContent = res.ok ? ' ' + success : ' ' + await res.text();
+  if (res.ok) { form.reset(); load(); }
+}
+document.getElementById('appoint-head-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  await submitOrgCommand(event.target, '/api/v1/org/heads', {
+    department_id: document.getElementById('desk-appoint-department').value.trim(),
+    principal_id: document.getElementById('desk-appoint-principal').value.trim()
+  }, 'Head appointed.');
+});
+document.getElementById('vacate-head-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  await submitOrgCommand(event.target, '/api/v1/org/heads', {
+    department_id: document.getElementById('desk-vacate-department').value.trim(),
+    vacate: true
+  }, 'Head vacated.');
+});
+document.getElementById('assign-position-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const reportsTo = document.getElementById('desk-position-reports-to').value.trim();
+  const payload = {
+    position_id: document.getElementById('desk-position-id').value.trim(),
+    principal_id: document.getElementById('desk-position-principal').value.trim()
+  };
+  if (reportsTo) payload.reports_to_seat_id = reportsTo;
+  await submitOrgCommand(event.target, '/api/v1/org/assignments', payload, 'Position assigned.');
+});
+document.getElementById('release-assignment-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  await submitOrgCommand(event.target, '/api/v1/org/assignments', {
+    assignment_id: document.getElementById('desk-release-assignment').value.trim(),
+    release: true
+  }, 'Assignment released.');
 });
 function setHqView(mode) {
   document.getElementById('iso').hidden = mode !== 'iso';

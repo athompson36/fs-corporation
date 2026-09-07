@@ -89,12 +89,33 @@ class CompanionApiTests(unittest.TestCase):
         client_source = (root / "api" / "client.ts").read_text()
         app_source = (root / "App.tsx").read_text()
         self.assertIn('"/api/v1/org"', client_source)
+        self.assertIn("appointHead(", client_source)
+        self.assertIn('"/api/v1/org/heads"', client_source)
+        self.assertIn("vacateHead(", client_source)
+        self.assertIn("assignPosition(", client_source)
+        self.assertIn('"/api/v1/org/assignments"', client_source)
+        self.assertIn("releaseAssignment(", client_source)
         self.assertIn('"/api/v1/inbox/head"', client_source)
         self.assertIn("/dispatches/${dispatchId}/assign", client_source)
         self.assertIn("/departments/${departmentId}/activate", client_source)
         self.assertIn('"organization"', app_source)
+        self.assertIn('htmlFor="appoint-head-department"', app_source)
+        self.assertIn('htmlFor="vacate-head-department"', app_source)
+        self.assertIn('htmlFor="assign-position-id"', app_source)
+        self.assertIn('htmlFor="release-assignment-id"', app_source)
         self.assertIn("Department budget (¢)", app_source)
         self.assertNotIn("[s.trim(), 500]", app_source)
+
+    def test_desk_surfaces_org_appointment_and_assignment_forms(self):
+        desk_source = (
+            Path(__file__).resolve().parents[1] / "company" / "service.py"
+        ).read_text()
+        self.assertIn('id="appoint-head-form"', desk_source)
+        self.assertIn('id="vacate-head-form"', desk_source)
+        self.assertIn('id="assign-position-form"', desk_source)
+        self.assertIn('id="release-assignment-form"', desk_source)
+        self.assertIn("'/api/v1/org/heads'", desk_source)
+        self.assertIn("'/api/v1/org/assignments'", desk_source)
 
     def test_dashboard_unauthenticated(self):
         self.assertEqual(self.client.get("/api/v1/dashboard").status_code, 401)
