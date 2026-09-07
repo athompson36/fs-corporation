@@ -1,6 +1,7 @@
 """Allowlisted company settings catalog (non-secret runtime knobs + read-only host-bound)."""
 from __future__ import annotations
 
+import math
 from typing import Any, TypedDict
 
 
@@ -162,16 +163,20 @@ def _coerce_float(raw: Any) -> float:
     if isinstance(raw, bool):
         raise ValueError("invalid float")
     if isinstance(raw, (int, float)):
-        return float(raw)
-    if isinstance(raw, str):
+        value = float(raw)
+    elif isinstance(raw, str):
         stripped = raw.strip()
         if not stripped:
             raise ValueError("invalid float")
         try:
-            return float(stripped)
+            value = float(stripped)
         except ValueError as exc:
             raise ValueError("invalid float") from exc
-    raise ValueError("invalid float")
+    else:
+        raise ValueError("invalid float")
+    if not math.isfinite(value):
+        raise ValueError("invalid float")
+    return value
 
 
 def validate_value(key: str, raw: Any) -> Any:
@@ -197,7 +202,9 @@ def validate_value(key: str, raw: Any) -> Any:
             raise ValueError("below minimum")
         return value
     if kind == "string":
-        return str(raw)
+        if not isinstance(raw, str):
+            raise ValueError("invalid string")
+        return raw
     if kind == "bool":
         return _coerce_bool(raw)
     if kind == "enum":

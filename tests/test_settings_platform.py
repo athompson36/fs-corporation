@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import unittest
 from unittest.mock import patch
@@ -33,6 +34,23 @@ class CatalogTests(unittest.TestCase):
             validate_value("FS_CORP_SSE_IDLE_SEC", True)
         with self.assertRaises(ValueError):
             validate_value("FS_CORP_IDEMPOTENCY_RETENTION_DAYS", "3.5")
+
+    def test_string_rejects_non_str(self):
+        with self.assertRaises(ValueError):
+            validate_value("FS_CORP_PUBLIC_URL", True)
+        with self.assertRaises(ValueError):
+            validate_value("FS_CORP_PUBLIC_URL", {"url": "x"})
+        self.assertEqual(validate_value("FS_CORP_PUBLIC_URL", ""), "")
+        self.assertEqual(validate_value("FS_CORP_PUBLIC_URL", "https://x"), "https://x")
+
+    def test_float_rejects_nan_and_inf(self):
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(value=bad):
+                with self.assertRaises(ValueError):
+                    validate_value("FS_CORP_RATE_LIMIT_WINDOW_SEC", bad)
+                with self.assertRaises(ValueError):
+                    validate_value("FS_CORP_SSE_IDLE_SEC", bad)
+        self.assertTrue(math.isfinite(validate_value("FS_CORP_SSE_IDLE_SEC", 1.0)))
 
     def test_bool_garbage_env_rejected(self):
         c = Company()
