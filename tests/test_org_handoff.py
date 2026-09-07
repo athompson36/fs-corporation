@@ -105,9 +105,21 @@ class OrgHandoffTests(unittest.TestCase):
                 "eng-cto", dispatch["id"], "dev-1",
                 action="draft", cost_cents=10)
 
+    def test_head_grant_must_include_departments(self):
+        self.c.appoint_head("human-ceo", "engineering", "eng-cto")
+        self.c.assign_position("human-ceo", "engineering:Developer", "dev-1")
+        self._install_handoff_grants()
+        dispatch = self._dispatch()
+
+        with self.assertRaises(PermissionError):
+            self.c.assign_dispatch(
+                "eng-cto", dispatch["id"], "dev-1",
+                action="draft", cost_cents=10)
+
     def test_roster_miss_fails(self):
         self.c.appoint_head("human-ceo", "engineering", "eng-cto")
-        self._install_handoff_grants(include_developer=False)
+        self._install_handoff_grants(
+            head_departments=["engineering"], include_developer=False)
         dispatch = self._dispatch()
 
         with self.assertRaises(PermissionError):
@@ -118,11 +130,15 @@ class OrgHandoffTests(unittest.TestCase):
     def test_vacate_cancels_assigned_queue_and_blocks_open_dispatches(self):
         self.c.appoint_head("human-ceo", "engineering", "eng-cto")
         self.c.assign_position("human-ceo", "engineering:Developer", "dev-1")
-        self._install_handoff_grants()
+        self._install_handoff_grants(head_departments=["engineering"])
         assigned = self.c.assign_dispatch(
             "eng-cto", self._dispatch()["id"], "dev-1",
             action="draft", cost_cents=25)
         still_open = self._dispatch()
+        self.c.db.execute(
+            "UPDATE queue SET status='leased' WHERE task_id=?",
+            (assigned["queue_task_id"],),
+        )
 
         self.c.vacate_head("human-ceo", "engineering")
 

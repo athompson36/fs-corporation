@@ -948,7 +948,7 @@ class Company:
                 )
             self.db.execute(
                 """UPDATE queue SET status='cancelled'
-                   WHERE status='queued' AND task_id IN (
+                   WHERE status IN ('queued', 'leased') AND task_id IN (
                        SELECT da.queue_task_id
                        FROM dispatch_assignments da
                        JOIN project_dispatches pd ON pd.id=da.dispatch_id
@@ -2289,6 +2289,13 @@ class Company:
         if not is_ceo:
             if not seat or seat["status"] != "active" or seat["principal_id"] != actor:
                 raise PermissionError("Seated head required")
+            grant = self._effective_grant(actor)
+            departments = grant.get("departments") if grant else None
+            if (
+                    not isinstance(departments, list)
+                    or not departments
+                    or row["department_id"] not in departments):
+                raise PermissionError("No matching department delegation")
             self._scope(
                 actor,
                 row["project_id"],
