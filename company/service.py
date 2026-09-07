@@ -1903,6 +1903,33 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 payload["department_budgets"], payload["acceptance_criteria"],
                 payload.get("due_at"))}, 200))
 
+    @app.get("/api/v1/projects/{project_id}/dispatch-options")
+    def dispatch_options(project_id: str, authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "project.enroll")
+        try:
+            return company.dispatch_options(project_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/projects/{project_id}/dispatch-recommend")
+    def dispatch_recommend(
+            project_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "project.enroll")
+        payload = envelope(ident, body)
+        use_live = payload.get("use_live", True)
+        unknown = payload.keys() - {"use_live"}
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"Unknown fields: {sorted(unknown)}")
+        return run(
+            ident, idempotency_key, payload | {"project_id": project_id},
+            lambda: (company.recommend_dispatch(
+                ident["principal_id"], project_id, use_live=bool(use_live)), 200),
+        )
+
     @app.get("/api/v1/events/stream")
     async def events_stream(cursor: int = 0, authorization: str | None = Header(default=None)):
         ident = principal(authorization)

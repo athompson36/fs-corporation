@@ -1,11 +1,15 @@
+import json
 import unittest
 from pathlib import Path
-from company.core import Company
+from unittest.mock import patch
+
+from company.core import Company, canonical
 from company.dispatch_recommend import (
     _coerce_budget_cents,
     remaining_budget_cents,
     validate_suggestion,
 )
+from tests.test_api import owner_client
 from tests.test_core import install, policy
 
 # One past JavaScript Number.MAX_SAFE_INTEGER; must not round via float().
@@ -153,3 +157,74 @@ class ValidateSuggestionTests(unittest.TestCase):
 
     def test_accepts_leading_plus_budget_string(self):
         self.assertEqual(_coerce_budget_cents("+100"), 100)
+
+
+class DispatchRecommendLiveTests(unittest.TestCase):
+    def setUp(self):
+        self.c, self.client = owner_client()
+        self.addCleanup(self.c.close)
+        self.c.seed_catalog(Path(__file__).resolve().parents[1] / "config" / "departments.json")
+        self.c.enroll_project("human-ceo", "dash", "Dashboard API")
+        with self.c.tx():
+            self.c.db.execute(
+                "INSERT OR REPLACE INTO model_profiles VALUES(?,?,?)",
+                (
+                    "live-dispatch",
+                    canonical({
+                        "provider": "openai",
+                        "model": "gpt-4o-mini",
+                        "enabled": True,
+                        "capabilities": ["text"],
+                        "allowed_data": ["public", "internal"],
+                    }),
+                    1,
+                ),
+            )
+
+    def test_options_and_recommend_http(self):
+        h = {"Authorization": "Bearer owner-token"}
+        opts = self.client.get("/api/v1/projects/dash/dispatch-options", headers=h)
+        self.assertEqual(opts.status_code, 200, opts.text)
+        self.assertEqual(opts.json()["project_id"], "dash")
+        rec = self.client.post(
+            "/api/v1/projects/dash/dispatch-recommend",
+            json={"payload": {"use_live": False}},
+            headers={**h, "Idempotency-Key": "rec-1"},
+        )
+        self.assertEqual(rec.status_code, 200, rec.text)
+        body = rec.json()["result"]
+        self.assertEqual(body["source"], "mock")
+        self.assertFalse(body["live_attempted"])
+
+    def test_live_bad_json_falls_back_to_mock(self):
+        with patch.object(self.c, "invoke_model", return_value={"text": "not-json", "provider": "openai"}):
+            with patch(
+                "company.model_provider.status_summary",
+                return_value={"live": True, "configured": True},
+            ):
+                out = self.c.recommend_dispatch("human-ceo", "dash", use_live=True)
+        self.assertEqual(out["source"], "mock")
+        self.assertTrue(out["live_attempted"])
+        self.assertIn("live_unusable", out["notes"])
+
+    def test_live_success_returns_validated_payload(self):
+        payload = {
+            "brief": "Live brief for dash",
+            "acceptance_criteria": "Live criteria",
+            "departments": [{"id": "engineering", "budget_cents": 300}],
+        }
+        with patch.object(
+            self.c,
+            "invoke_model",
+            return_value={"text": json.dumps(payload), "provider": "openai"},
+        ):
+            with patch(
+                "company.model_provider.status_summary",
+                return_value={"live": True, "configured": True},
+            ):
+                out = self.c.recommend_dispatch("human-ceo", "dash", use_live=True)
+        self.assertEqual(out["source"], "live")
+        self.assertTrue(out["live_attempted"])
+        self.assertEqual(out["brief"], "Live brief for dash")
+        self.assertEqual(out["departments"][0]["id"], "engineering")
+        self.assertEqual(out["departments"][0]["budget_cents"], 300)

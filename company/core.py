@@ -4635,10 +4635,8 @@ class Company:
 
     def recommend_dispatch(self, actor, project_id, use_live=True):
         self._ceo_or_admin_companion(actor)
-        from company.dispatch_recommend import mock_recommend
-        # Live path added in Task 2; Task 1 always returns mock.
-        _ = use_live
-        return mock_recommend(self, project_id)
+        from company.dispatch_recommend import recommend_with_fallback
+        return recommend_with_fallback(self, project_id, use_live=bool(use_live))
 
     def dispatch_project_brief(self, actor, project_id, brief, department_budgets,
                                acceptance_criteria, due_at=None):

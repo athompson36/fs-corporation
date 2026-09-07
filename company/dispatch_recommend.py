@@ -1,7 +1,11 @@
 """Dispatch parameter key + mock/live recommendation (advisory only)."""
 from __future__ import annotations
+import json
 import re
+from pathlib import Path
+
 from company.core import money
+from company.model_provider import LIVE_PROVIDERS, status_summary
 
 BUDGET_PRESETS_CENTS = (100, 300, 500, 1000, 5000)
 
@@ -178,3 +182,101 @@ def validate_suggestion(raw: dict, catalog_ids: set[str], max_cents: int) -> dic
         "acceptance_criteria": criteria,
         "departments": departments,
     }
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def model_registry_for_dispatch(company) -> dict:
+    """File seed plus DB overlays (enabled flag from model_profiles)."""
+    path = _repo_root() / "config" / "models.example.json"
+    data = json.loads(path.read_text())
+    profiles = dict(data.get("profiles") or {})
+    for row in company.db.execute("SELECT id, body, enabled FROM model_profiles"):
+        body = json.loads(row["body"])
+        body["enabled"] = bool(row["enabled"])
+        profiles[row["id"]] = body
+    data["profiles"] = profiles
+    return data
+
+
+def _pick_live_profile(registry: dict) -> str | None:
+    for profile_id, profile in (registry.get("profiles") or {}).items():
+        if not profile.get("enabled"):
+            continue
+        if profile.get("provider") in LIVE_PROVIDERS:
+            return profile_id
+    return None
+
+
+def _parse_json_object(text: str) -> dict:
+    raw = (text or "").strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        raw = "\n".join(lines).strip()
+    data = json.loads(raw)
+    if not isinstance(data, dict):
+        raise ValueError("recommendation must be a JSON object")
+    return data
+
+
+def live_recommend(company, project_id: str) -> tuple[str, dict | None]:
+    """Try live model recommend.
+
+    Returns (status, payload) where status is ``ok``, ``unavailable``, or ``unusable``.
+    """
+    summary = status_summary(probe=False)
+    if not (summary.get("configured") and summary.get("live")):
+        return "unavailable", None
+    opts = build_dispatch_options(company, project_id)
+    catalog_ids = {d["id"] for d in opts["departments"]}
+    max_cents = opts["fields"]["department_budgets"]["max_cents"]
+    registry = model_registry_for_dispatch(company)
+    profile_id = _pick_live_profile(registry)
+    if not profile_id:
+        return "unavailable", None
+    dept_lines = ", ".join(sorted(catalog_ids))
+    prompt = (
+        "Return JSON only (no markdown) with keys brief, acceptance_criteria, "
+        "and departments (array of {id, budget_cents}). "
+        f"Project id: {project_id}. Current brief: {opts['brief_default']!r}. "
+        f"Allowed department ids: {dept_lines}. "
+        f"budget_cents must be integers from 0 to {max_cents}. "
+        "Recommend a small practical subset of departments."
+    )
+    try:
+        result = company.invoke_model(profile_id, prompt, registry)
+        parsed = _parse_json_object(result.get("text") or "")
+        validated = validate_suggestion(parsed, catalog_ids, max_cents)
+    except Exception:
+        return "unusable", None
+    return "ok", validated
+
+
+def recommend_with_fallback(company, project_id: str, use_live: bool = True) -> dict:
+    base = mock_recommend(company, project_id)
+    if not use_live:
+        return base
+    status, live = live_recommend(company, project_id)
+    if status == "ok" and live is not None:
+        return {
+            "source": "live",
+            "live_attempted": True,
+            "brief": live["brief"],
+            "acceptance_criteria": live["acceptance_criteria"],
+            "departments": live["departments"],
+            "notes": [],
+        }
+    out = dict(base)
+    out["live_attempted"] = True
+    notes = list(out.get("notes") or [])
+    note = "live_unusable" if status == "unusable" else "live_unavailable"
+    if note not in notes:
+        notes.append(note)
+    out["notes"] = notes
+    return out
