@@ -91,7 +91,7 @@ Implement [16-api-contract.md](16-api-contract.md) `/api/v1` on loopback.
 
 - [x] Command envelope: `Idempotency-Key`, expected resource/policy version, typed payload
 - [x] Responses: operation id, resource version, status, event correlation id
-- [ ] Status codes: 401 / 403 / 409 (stale) / 422 / 429 — **401/403/409/422 implemented and tested; `429` is not implemented** (no rate limiting in `company/`). Tracked in M10-01.
+- [x] Status codes: 401 / 403 / 409 (stale) / 422 / 429 — **429 delivered in 0.3.42** (per-principal + IP buckets; see [16-api-contract.md](16-api-contract.md))
 - [x] Same key + changed payload → reject; same key + same payload → replay original result
 - [x] Keep mock dispatch only (`draft` / `review` / `prepare_pr`); adapters stay disabled
 - [x] Service module `company/service.py`; tests in `tests/test_api.py`
@@ -258,11 +258,9 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
 
 ### M10-01: Correctness and durability
 
-- [ ] **HTTP `429` and request throttling.** No rate limiting exists in `company/`, yet
-      [16-api-contract.md](16-api-contract.md) implies `429` is part of the contract.
-      *Acceptance:* a documented per-principal limit returns `429` with a `Retry-After`
-      header; a test drives a principal past the limit and asserts the code; unauthenticated
-      routes (`/health`, webhook ingress, pairing redeem) have their own documented policy.
+- [x] **HTTP `429` and request throttling** (0.3.42). Per-principal sliding window on
+      authenticated routes; per-IP window on webhook and pairing redeem; `/`, `/desk`, and
+      `/api/v1/health` exempt. Tests in `tests/test_rate_limit.py`.
 - [ ] **Run migrations at startup, or detect drift.** `Company()` calls `apply_schema`, which
       uses `CREATE TABLE IF NOT EXISTS` and therefore cannot add columns. A database created
       by the application can silently miss column-only migrations such as
@@ -389,9 +387,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M10-01: correctness and durability gaps** found by the 2026-09-07 audit — starting with
-HTTP `429`, then Alembic-on-startup and atomic idempotency. M9 is complete: the same-host
-worker plane on `.101` shipped in 0.3.41.
+**M10-01 remaining:** Alembic on startup (or drift detection), then atomic idempotency, then
+the worker-completion transaction. HTTP `429` shipped in 0.3.42.
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
-dependencies plus controlled egress in the worker image; furnished HQ room art.
+dependencies plus controlled egress in the worker image; furnished HQ room art. Fix the
+hanging companion PWA build (M10-04) before the next fs-dev install that rebuilds companion.

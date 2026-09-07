@@ -97,6 +97,22 @@ and a scope.
 | `POST /api/v1/github/webhooks` | github.com cannot present a bearer token | HMAC `X-Hub-Signature-256` against `GITHUB_WEBHOOK_SECRET`; unsigned or mismatched requests are rejected |
 | `POST /api/v1/remote-access/redeem` | The caller has no token yet — redeeming is how it gets one | Single-use hashed ticket with an expiry |
 
+## Rate limiting (HTTP 429)
+
+In-process sliding window (`company/rate_limit.py`), enforced by middleware before the route
+handler. Over-limit responses are `429` with body `{"detail": "rate limit exceeded"}` and a
+`Retry-After` header (seconds).
+
+| Surface | Key | Default | Override |
+|---|---|---|---|
+| Authenticated `/api/v1/*` | Resolved bearer principal | 120 requests / 60 s | `FS_CORP_RATE_LIMIT_AUTH`, `FS_CORP_RATE_LIMIT_WINDOW_SEC` |
+| `POST /api/v1/github/webhooks`, `POST /api/v1/remote-access/redeem` | Client IP | 60 requests / 60 s | `FS_CORP_RATE_LIMIT_UNAUTH`, same window |
+| `GET /`, `GET /desk`, `GET /api/v1/health` | — | **Exempt** — never 429 | — |
+
+Unauthenticated requests that are not webhook/redeem (for example a missing bearer on a
+protected route) are not counted; they fail with 401 as usual. Limits are per process and
+reset on restart. Tests inject a tighter policy via `create_app(..., rate_limit=...)`.
+
 ## Checks beyond the route scope
 
 These routes pass the scope check above and then apply a further identity check in
@@ -152,9 +168,8 @@ Each mutation uses an Idempotency-Key header plus a body containing expected res
 
 Return operation ID, resource version, status and event correlation ID. Validation errors should identify the field and a safe explanation. Use 401 for unauthenticated, 403 for unauthorized, 409 for stale/conflicting state, 422 for invalid input and 429 for rate/queue limits. Do not include credentials or raw private content in errors.
 
-**Implementation status:** 401, 403, 409, and 422 are implemented and tested. **429 is not
-implemented** — there is no rate limiting in `company/`. Tracked as M10-01 in
-[14-roadmap.md](14-roadmap.md).
+**Implementation status:** 401, 403, 409, 422, and 429 are implemented and tested. See
+[Rate limiting](#rate-limiting-http-429) for the 429 policy.
 
 ## Concurrency
 

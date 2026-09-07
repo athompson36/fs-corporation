@@ -12,6 +12,13 @@ from pydantic import BaseModel, Field
 from company import __version__
 from company.core import Company, canonical, digest
 from company.consultant import ConsultantDesk
+from company.rate_limit import (
+    EXEMPT_PATHS,
+    UNAUTH_LIMITED_PATHS,
+    RateLimitPolicy,
+    RateLimiter,
+    coerce_policy,
+)
 
 DEFAULT_DATA_DIR = ".local"
 DEFAULT_DB = ".local/company.db"
@@ -439,9 +446,17 @@ def _json(data, code=200):
     return JSONResponse(status_code=code, content=data)
 
 
-def create_app(company: Company) -> FastAPI:
+def create_app(company: Company, *, rate_limit=None) -> FastAPI:
     app = FastAPI(title="FS-Corporation", version=__version__)
     app.state.company = company
+    if rate_limit is None:
+        rate_limit = RateLimitPolicy(
+            authenticated_limit=int(os.environ.get("FS_CORP_RATE_LIMIT_AUTH") or "120"),
+            unauthenticated_limit=int(os.environ.get("FS_CORP_RATE_LIMIT_UNAUTH") or "60"),
+            window_sec=float(os.environ.get("FS_CORP_RATE_LIMIT_WINDOW_SEC") or "60"),
+        )
+    limiter = RateLimiter(policy=coerce_policy(rate_limit))
+    app.state.rate_limiter = limiter
     if os.environ.get("FS_CORP_ALLOW_CORS") == "1":
         from fastapi.middleware.cors import CORSMiddleware
         app.add_middleware(
@@ -1153,7 +1168,33 @@ def create_app(company: Company) -> FastAPI:
         return {"proposals": desk.list()}
 
     @app.middleware("http")
-    async def reject_spoof(request: Request, call_next):
+    async def enforce_rate_limit(request: Request, call_next):
+        path = request.url.path
+        if path in EXEMPT_PATHS:
+            return await call_next(request)
+
+        def too_many(retry_after: int):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "rate limit exceeded"},
+                headers={"Retry-After": str(retry_after)},
+            )
+
+        if path in UNAUTH_LIMITED_PATHS:
+            client_ip = request.client.host if request.client else "unknown"
+            allowed, retry_after = limiter.check_unauthenticated(client_ip)
+            if not allowed:
+                return too_many(retry_after)
+            return await call_next(request)
+
+        authorization = request.headers.get("authorization") or ""
+        if authorization.lower().startswith("bearer "):
+            token = authorization.split(" ", 1)[1].strip()
+            ident = company.identity_for_token(token)
+            if ident:
+                allowed, retry_after = limiter.check_authenticated(ident["principal_id"])
+                if not allowed:
+                    return too_many(retry_after)
         return await call_next(request)
 
     return app

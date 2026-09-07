@@ -121,11 +121,14 @@ class PushNotificationTests(unittest.TestCase):
 
     def test_concurrent_reads_do_not_corrupt_scopes(self):
         import threading
+        from company.rate_limit import RateLimitPolicy
         from company.schema import COMPANION_SCOPES
         from company.service import create_app
         self.c.register_identity("human-ceo", "owner", "owner-token")
         self.c.register_identity("companion-admin-y", "service", "companion-token", list(COMPANION_SCOPES))
-        client = __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(create_app(self.c))
+        # This test is about concurrent scope reads, not throttling — disable the bucket.
+        client = __import__("fastapi.testclient", fromlist=["TestClient"]).TestClient(
+            create_app(self.c, rate_limit=RateLimitPolicy(authenticated_limit=0)))
         errors = []
 
         def hit():

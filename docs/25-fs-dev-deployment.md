@@ -267,6 +267,9 @@ Complete list of `FS_CORP_*` variables read by code in `company/`, `scripts/`, a
 | `FS_CORP_TAILSCALE_FUNNEL_WEBHOOKS` | unset | Opt in to Funnel-exposed webhook ingress |
 | `FS_CORP_GITHUB_WEBHOOK_PUBLIC_URL` | unset | Public webhook URL reported in `github/status` |
 | `FS_CORP_WORKER_CHATDEV` | unset | Build/report ChatDev presence in the worker image |
+| `FS_CORP_RATE_LIMIT_AUTH` | `120` | Authenticated requests per window per principal |
+| `FS_CORP_RATE_LIMIT_UNAUTH` | `60` | Webhook/redeem requests per window per client IP |
+| `FS_CORP_RATE_LIMIT_WINDOW_SEC` | `60` | Sliding-window length in seconds |
 
 `FS_CORP_API_HOST` and `FS_CORP_API_PORT` appear in `deploy/fs-dev/env.example` and
 `scripts/deploy_to_fs_dev.sh` but **nothing reads them**. The bind address comes from
