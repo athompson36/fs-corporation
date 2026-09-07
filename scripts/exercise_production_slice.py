@@ -131,12 +131,15 @@ def main() -> int:
         company.accept_project("human-ceo", eng_task, task["artifact_hash"])
         report["accepted"] = True
 
+        company.activate_department_for_project(
+            "human-ceo", args.project, "art")
+        company.activate_department_for_project(
+            "human-ceo", args.project, "marketing")
         dispatches = company.dispatch_project_brief(
             "human-ceo", args.project,
             brief="Add launch visuals and positioning for the accepted pilot deliverable",
-            departments=["art", "marketing"],
+            department_budgets={"art": 2_500, "marketing": 2_500},
             acceptance_criteria="Art asset + marketing brief recorded as mock drafts",
-            budget_cents=5_000,
         )
         report["dispatches"] = dispatches
 

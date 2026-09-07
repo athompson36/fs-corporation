@@ -40,7 +40,7 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 | Employee hire, training files, goals and trends | Implemented locally; overdue training blocks hired dispatch |
 | Master Consultant | Heuristic scan, durable CEO decisions, revision/work-order handoff |
 | ChatDev, GitHub and market integration interfaces | GitHub live when App configured; signed webhooks when `GITHUB_WEBHOOK_SECRET` set; feed poll live for approved RSS/Atom URLs; ChatDev opt-in when `CHATDEV_HOME` set (`GET /api/v1/chatdev/status` incl. `worker_image_chatdev`; worker live when `chatdev: true`; control-plane needs `CHATDEV_ALLOW_CONTROL_PLANE=1`); optional ChatDev in worker Docker image; doc fetch still disabled |
-| 14 departments and role prompts | Configuration plus optional catalog seed |
+| 14 departments, roster, activation and role prompts | Catalog seed plus persistent seats/assignments; dormant project dispatch requires activation and per-department budgets |
 | CEO desk and headquarters projection | Cosmic-glass HTML/SVG desk; 2D + isometric tiles; room selection opens persisted work; companion shares the same tokens |
 | Isolated subprocess workers with gateway allowlist | Implemented; fs-dev defaults to container when ready; workers remain `--network none` |
 | fs-dev production hosting | systemd + Caddy + Docker workers; same-host `.101` worker plane (`worker_plane` on `/workers/status`) + optional API egress via policy routing |

@@ -720,6 +720,26 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
 
         return run(ident, idempotency_key, payload, go)
 
+    @app.post("/api/v1/projects/{project_id}/departments/{department_id}/activate")
+    def activate_project_department(
+            project_id: str, department_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        command_payload = payload | {
+            "project_id": project_id,
+            "department_id": department_id,
+        }
+        return run(
+            ident,
+            idempotency_key,
+            command_payload,
+            lambda: (company.activate_department_for_project(
+                ident["principal_id"], project_id, department_id), 200),
+        )
+
     @app.post("/api/v1/delegations")
     def delegations(body: Command, authorization: str | None = Header(default=None), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
         ident = principal(authorization)
@@ -884,8 +904,9 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         payload = envelope(ident, body)
         return run(ident, idempotency_key, payload | {"project_id": project_id}, lambda: (
             {"dispatches": company.dispatch_project_brief(
-                ident["principal_id"], project_id, payload["brief"], payload["departments"],
-                payload["acceptance_criteria"], payload["budget_cents"], payload.get("due_at"))}, 200))
+                ident["principal_id"], project_id, payload["brief"],
+                payload["department_budgets"], payload["acceptance_criteria"],
+                payload.get("due_at"))}, 200))
 
     @app.get("/api/v1/events/stream")
     async def events_stream(cursor: int = 0, authorization: str | None = Header(default=None)):

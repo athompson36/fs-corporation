@@ -209,6 +209,11 @@ class Company:
             for key in ("actions","projects","requires_approval"):
                 if not isinstance(g[key],list) or any(not isinstance(x,str) or not x or x=="*" for x in g[key]):
                     raise ValueError("Use explicit nonempty string scopes; wildcards are disallowed")
+            if "departments" in g and (
+                    not isinstance(g["departments"], list)
+                    or any(not isinstance(x, str) or not x or x == "*"
+                           for x in g["departments"])):
+                raise ValueError("Use explicit nonempty string scopes; wildcards are disallowed")
             if not set(g["requires_approval"]).issubset(g["actions"]):
                 raise ValueError("Approval actions must belong to the grant")
             if "approval_rights" in g:
@@ -256,13 +261,15 @@ class Company:
             self.db.execute("UPDATE settings SET value=? WHERE key='paused'",("true" if paused else "false",))
             self._event("company.paused" if paused else "company.resumed",{"actor":actor})
 
-    def _scope(self,actor,project,action,cost):
+    def _scope(self,actor,project,action,cost,department_id=None):
         money(cost)
         if self.db.execute("SELECT value FROM settings WHERE key='paused'").fetchone()[0]=="true":
             raise PermissionError("Company paused")
         p=self.policy();g=self._effective_grant(actor)
         if not g or action not in g["actions"] or project not in g["projects"]:
             raise PermissionError("No matching delegation")
+        if "departments" in g and department_id not in g["departments"]:
+            raise PermissionError("No matching department delegation")
         if datetime.fromisoformat(g["expires_at"]) <= now():
             raise PermissionError("Delegation expired")
         spent=self.db.execute("SELECT COALESCE(SUM(cost),0) FROM ledger WHERE actor=?",(actor,)).fetchone()[0]
@@ -300,6 +307,8 @@ class Company:
         if parent:
             child["actions"]=[a for a in child["actions"] if a in parent["actions"]]
             child["projects"]=[x for x in child["projects"] if x in parent["projects"]]
+            if "departments" in parent:
+                child["departments"]=list(parent["departments"])
             child["budget_cents"]=min(child["budget_cents"],parent["budget_cents"])
             child["per_action_cents"]=min(child["per_action_cents"],parent["per_action_cents"])
             if datetime.fromisoformat(parent["expires_at"]) < datetime.fromisoformat(child["expires_at"]):
@@ -883,7 +892,7 @@ class Company:
             self._event("catalog.seeded",{"departments":len(data["departments"])})
 
     def appoint_head(self, actor, department_id, principal_id):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         if not principal_id or not str(principal_id).strip():
             raise ValueError("principal_id required")
         dept = self.db.execute(
@@ -918,7 +927,7 @@ class Company:
         ).fetchone())
 
     def vacate_head(self, actor, department_id):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         dept = self.db.execute(
             "SELECT id, initially_active FROM departments WHERE id=?",
             (department_id,),
@@ -955,7 +964,7 @@ class Company:
         ).fetchone())
 
     def assign_position(self, actor, position_id, principal_id, reports_to_seat_id=None):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         position = self.db.execute(
             "SELECT id, department_id FROM positions WHERE id=?",
             (position_id,),
@@ -1004,7 +1013,7 @@ class Company:
         ).fetchone())
 
     def release_position(self, actor, assignment_id):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         with self.tx():
             assignment = self.db.execute(
                 "SELECT id FROM position_assignments WHERE id=? AND status='active'",
@@ -1057,6 +1066,44 @@ class Company:
                 "assignments": assignments,
             })
         return {"departments": departments}
+
+    def activate_department_for_project(self, actor, project_id, department_id):
+        self._ceo_or_admin_companion(actor)
+        if not self.db.execute(
+                "SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
+            raise ValueError("Project not found")
+        if not self.db.execute(
+                "SELECT 1 FROM departments WHERE id=?", (department_id,)).fetchone():
+            raise ValueError("Unknown department")
+        with self.tx():
+            self.db.execute(
+                """INSERT OR REPLACE INTO project_department_activations
+                   (project_id, department_id, activated_by, activated_at)
+                   VALUES(?,?,?,?)""",
+                (project_id, department_id, actor, now().isoformat()),
+            )
+            self._event(
+                "org.department_activated",
+                {"project_id": project_id, "department_id": department_id},
+                actor_id=actor,
+                project_id=project_id,
+            )
+        return {"project_id": project_id, "department_id": department_id}
+
+    def department_dispatchable(self, project_id, department_id):
+        department = self.db.execute(
+            "SELECT initially_active FROM departments WHERE id=?",
+            (department_id,),
+        ).fetchone()
+        if not department:
+            return False
+        if department["initially_active"]:
+            return True
+        return bool(self.db.execute(
+            """SELECT 1 FROM project_department_activations
+               WHERE project_id=? AND department_id=?""",
+            (project_id, department_id),
+        ).fetchone())
 
     def seed_models(self,models_path):
         data=json.loads(Path(models_path).read_text())
@@ -2114,25 +2161,28 @@ class Company:
                         actor_id=actor, project_id=row["project_id"])
         return dict(self.db.execute("SELECT * FROM owner_requests WHERE id=?", (request_id,)).fetchone())
 
-    def dispatch_project_brief(self, actor, project_id, brief, departments, acceptance_criteria,
-                               budget_cents, due_at=None):
+    def dispatch_project_brief(self, actor, project_id, brief, department_budgets,
+                               acceptance_criteria, due_at=None):
         self._ceo_or_admin_companion(actor)
-        money(budget_cents)
         if not brief or not str(brief).strip():
             raise ValueError("Brief required")
         if not acceptance_criteria or not str(acceptance_criteria).strip():
             raise ValueError("Acceptance criteria required")
-        if not isinstance(departments, list) or not departments:
-            raise ValueError("At least one department required")
+        if not isinstance(department_budgets, dict) or not department_budgets:
+            raise ValueError("department_budgets mapping required")
         if not self.db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
             raise ValueError("Project not found")
         known = {r[0] for r in self.db.execute("SELECT id FROM departments")}
-        for dept_id in departments:
+        for dept_id, budget_cents in department_budgets.items():
             if dept_id not in known:
                 raise ValueError(f"Unknown department {dept_id}")
+            money(budget_cents)
+            if not self.department_dispatchable(project_id, dept_id):
+                raise ValueError(
+                    f"Department {dept_id} is dormant for this project; activate first")
         dispatches = []
         with self.tx():
-            for dept_id in departments:
+            for dept_id, budget_cents in department_budgets.items():
                 dispatch_id = str(uuid.uuid4())
                 woid = digest({"dispatch": project_id, "department": dept_id, "at": now().isoformat()})
                 task_id = f"dispatch-{project_id}-{dept_id}-{dispatch_id[:8]}"
@@ -2145,17 +2195,39 @@ class Company:
                     "INSERT INTO work_orders VALUES(?,?,?,?,?,?,?)",
                     (woid, task_id, self.policy()["version"], digest(payload), budget_cents,
                      canonical(payload), "authorized"))
+                seat = self.db.execute(
+                    "SELECT * FROM department_seats WHERE department_id=?",
+                    (dept_id,),
+                ).fetchone()
+                if seat and seat["status"] == "active" and seat["principal_id"]:
+                    status = "queued_for_head"
+                    head_principal_id = seat["principal_id"]
+                    head_inbox_at = now().isoformat()
+                else:
+                    status = "blocked_vacant_head"
+                    head_principal_id = None
+                    head_inbox_at = None
                 self.db.execute(
                     """INSERT INTO project_dispatches
                        (id, project_id, department_id, work_order_id, brief,
-                        acceptance_criteria, budget_cents, due_at, created_at)
-                       VALUES(?,?,?,?,?,?,?,?,?)""",
+                        acceptance_criteria, budget_cents, due_at, created_at,
+                        status, head_principal_id, head_inbox_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (dispatch_id, project_id, dept_id, woid, brief.strip(),
-                     acceptance_criteria.strip(), budget_cents, due_at, now().isoformat()))
+                     acceptance_criteria.strip(), budget_cents, due_at, now().isoformat(),
+                     status, head_principal_id, head_inbox_at))
                 self._event("project.dispatched",
-                              {"dispatch_id": dispatch_id, "department_id": dept_id, "work_order_id": woid},
+                              {"dispatch_id": dispatch_id, "department_id": dept_id,
+                               "work_order_id": woid, "status": status},
                               actor_id=actor, project_id=project_id)
-                dispatches.append({"id": dispatch_id, "department_id": dept_id, "work_order_id": woid})
+                dispatches.append({
+                    "id": dispatch_id,
+                    "department_id": dept_id,
+                    "work_order_id": woid,
+                    "status": status,
+                    "head_principal_id": head_principal_id,
+                    "budget_cents": budget_cents,
+                })
         return dispatches
 
     def backup(self,dest):

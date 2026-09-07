@@ -1,6 +1,15 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.50**. State: **local repo candidates + Diagnostics**.
+Date: 2026-09-07. Version: **0.3.50**. State: **org dispatch rules on feature branch**.
+
+## Task 4 delivered
+
+- Project department activation is persistent and restricted to CEO/admin-companion actors.
+- Dispatch requires explicit per-department budgets and rejects dormant departments.
+- Dispatch status is `queued_for_head` for an occupied active seat or
+  `blocked_vacant_head` for a vacancy; specialist assignment and head inbox are not yet implemented.
+- Optional grant department scopes are inherited by delegated grants and fail closed on mismatch.
+- Roster appointment/vacancy/assignment/release accept admin-companion actors; strangers remain denied.
 
 ## Delivered in 0.3.50
 
@@ -16,13 +25,11 @@ Date: 2026-09-07. Version: **0.3.50**. State: **local repo candidates + Diagnost
 ## Verify
 
 ```bash
-.venv/bin/python -m unittest tests.test_local_repos -v
+.venv/bin/python -m unittest tests.test_org_roster tests.test_production_slice tests.test_companion_api tests.test_m6 -v
 .venv/bin/python -m unittest discover -s tests
-cd companion && npm run build
-python3 scripts/check_bundle.py
 ```
 
 ## Next implementation
 
-Deploy 0.3.50 to fs-dev. Remaining M10-04: version in primary chrome, HQ keyboard,
-replace remaining `window.prompt` flows.
+Implement Task 5 head inbox and `assign_dispatch` with department grant, occupied-head,
+roster, budget, and queue gates. Do not infer assignment from Task 4 dispatch status.

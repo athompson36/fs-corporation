@@ -40,13 +40,21 @@ class CompanionApiTests(unittest.TestCase):
         from pathlib import Path
         self.c.seed_catalog(Path(__file__).resolve().parents[1] / "config" / "departments.json")
         self.c.enroll_project("human-ceo", "dash", "Dashboard rollout")
+        activated = self.client.post(
+            "/api/v1/projects/dash/departments/product/activate",
+            json={"payload": {}},
+            headers={
+                "Authorization": "Bearer owner-token",
+                "Idempotency-Key": "activate-product",
+            },
+        )
+        self.assertEqual(activated.status_code, 200, activated.text)
         headers = {"Authorization": "Bearer owner-token", "Idempotency-Key": "dispatch-1"}
         r = self.client.post("/api/v1/projects/dash/dispatch-brief", json={
             "payload": {
                 "brief": "Ship CEO mobile stats",
-                "departments": ["engineering", "product"],
+                "department_budgets": {"engineering": 300, "product": 200},
                 "acceptance_criteria": "Dashboard API documented",
-                "budget_cents": 500,
             }
         }, headers=headers)
         self.assertEqual(r.status_code, 200)

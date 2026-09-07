@@ -222,4 +222,14 @@
 
 **Consequences.** Spec: `docs/superpowers/specs/2026-09-07-billed-cost-revenue-design.md`. HTTP command for revenue can follow; core writer is the authority. Benchmark dead-table cleanup remains a separate M10-03 item.
 
+### ADR-027 detail
+
+**Context.** A project brief previously accepted one shared budget for multiple departments and could dispatch dormant departments. That obscured budget ownership and represented unavailable departments as ready.
+
+**Decision.** Require a `department_budgets` mapping, reject dormant departments until the CEO or authenticated admin companion activates them for the project, and record each dispatch as `queued_for_head` only for an active occupied head seat or `blocked_vacant_head` otherwise. Optional grant `departments` scopes fail closed when a department-aware action does not match. Roster and activation controller commands accept the same admin-companion principal class as enroll and dispatch.
+
+**Alternatives considered.** Silently split one budget was rejected because allocation would be invented. Auto-activating departments on dispatch was rejected because activation is an explicit owner decision. Treating vacant seats as queued was rejected because no head can receive the work.
+
+**Consequences.** The dispatch API is intentionally breaking for callers using `departments` plus one `budget_cents`; all in-repository callers now send explicit per-department amounts. Task 4 stores routing status and head identity but does not assign specialists or create the Task 5 head inbox.
+
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

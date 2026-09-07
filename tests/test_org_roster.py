@@ -1,11 +1,12 @@
 """Org roster, rules, and handoff (grant-backed)."""
 from __future__ import annotations
 import unittest
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from company.core import Company
+from company.core import Company, now
 from company.schema import COMPANION_SCOPES
 from company.service import create_app
 from tests.test_core import install, policy
@@ -54,10 +55,23 @@ class OrgAppointTests(unittest.TestCase):
         self.assertEqual(vacated["status"], "vacant")
         self.assertIsNone(vacated["principal_id"])
 
-    def test_non_ceo_cannot_appoint_without_later_grant_hook(self):
-        # Milestone 1: CEO-only; milestone 2 may allow org.appoint_head grant.
+    def test_stranger_denied_but_companion_admin_can_manage_roster(self):
         with self.assertRaises(PermissionError):
             self.c.appoint_head("stranger", "engineering", "eng-cto")
+        appointed = self.c.appoint_head(
+            "companion-admin-phone", "engineering", "eng-cto")
+        self.assertEqual(appointed["principal_id"], "eng-cto")
+        assignment = self.c.assign_position(
+            "companion-admin-phone", "engineering:Developer", "dev-phone")
+        self.assertEqual(assignment["status"], "active")
+        self.assertEqual(
+            self.c.release_position("companion-admin-phone", assignment["id"])["status"],
+            "released",
+        )
+        self.assertEqual(
+            self.c.vacate_head("companion-admin-phone", "engineering")["status"],
+            "vacant",
+        )
 
     def test_assign_and_release_position(self):
         self.c.appoint_head("human-ceo", "engineering", "eng-cto")
@@ -173,6 +187,84 @@ class OrgApiTests(unittest.TestCase):
 
     def test_companion_admin_scope_catalog_includes_organization_write(self):
         self.assertIn("organization.write", COMPANION_SCOPES)
+
+
+class OrgActivationDispatchTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.c.seed_catalog(CATALOG)
+        self.c.enroll_project("human-ceo", "app", "Org handoff")
+        self.addCleanup(self.c.close)
+
+    def test_dormant_department_dispatch_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            self.c.dispatch_project_brief(
+                "human-ceo",
+                "app",
+                brief="Need product",
+                department_budgets={"product": 1000},
+                acceptance_criteria="PRD draft",
+            )
+        self.assertIn("dormant", str(ctx.exception).lower())
+
+    def test_activate_then_dispatch_dormant(self):
+        activated = self.c.activate_department_for_project(
+            "companion-admin-phone", "app", "product")
+        self.assertEqual(activated["department_id"], "product")
+        self.c.appoint_head("human-ceo", "product", "prod-head")
+        out = self.c.dispatch_project_brief(
+            "human-ceo",
+            "app",
+            brief="Need product",
+            department_budgets={"product": 1000},
+            acceptance_criteria="PRD draft",
+        )
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["status"], "queued_for_head")
+        self.assertEqual(out[0]["head_principal_id"], "prod-head")
+
+    def test_initially_active_vacant_head_blocks_inbox_status(self):
+        out = self.c.dispatch_project_brief(
+            "human-ceo",
+            "app",
+            brief="Eng work",
+            department_budgets={"engineering": 2000},
+            acceptance_criteria="Ship",
+        )
+        self.assertEqual(out[0]["status"], "blocked_vacant_head")
+        self.assertIsNone(out[0]["head_principal_id"])
+
+    def test_department_scoped_grant_fails_closed_without_matching_department(self):
+        next_policy = policy(self.c)
+        next_policy["grants"]["head"]["departments"] = ["engineering"]
+        install(self.c, next_policy)
+        self.c._scope("head", "app", "draft", 0, department_id="engineering")
+        with self.assertRaises(PermissionError):
+            self.c._scope("head", "app", "draft", 0, department_id="marketing")
+        with self.assertRaises(PermissionError):
+            self.c._scope("head", "app", "draft", 0)
+
+    def test_delegated_grant_inherits_parent_department_scope(self):
+        next_policy = policy(self.c)
+        next_policy["grants"]["head"]["departments"] = ["engineering"]
+        install(self.c, next_policy)
+        self.c.create_delegation(
+            "head",
+            grantee="developer",
+            actions=["draft"],
+            projects=["app"],
+            budget_cents=100,
+            per_action_cents=100,
+            expires_at=(now() + timedelta(hours=1)).isoformat(),
+        )
+        grant = self.c._effective_grant("developer")
+        self.assertEqual(grant["departments"], ["engineering"])
+        self.c._scope(
+            "developer", "app", "draft", 0, department_id="engineering")
+        with self.assertRaises(PermissionError):
+            self.c._scope(
+                "developer", "app", "draft", 0, department_id="marketing")
 
 
 if __name__ == "__main__":
