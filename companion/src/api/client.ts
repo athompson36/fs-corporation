@@ -99,6 +99,10 @@ export class ApiClient {
     return this.get<{ ok: boolean; version?: string; db?: string }>("/api/v1/health");
   }
 
+  session() {
+    return this.get<SessionInfo>("/api/v1/session");
+  }
+
   workersStatus() {
     return this.get<Record<string, unknown>>("/api/v1/workers/status");
   }
@@ -445,6 +449,13 @@ export class ApiClient {
     return this.post("/api/v1/company/resume", {}, "resume");
   }
 }
+
+export type SessionInfo = {
+  principal_id: string;
+  kind: string;
+  access_level: string | null;
+  scopes: string[];
+};
 
 export type PairingRedeem = {
   token: string;

@@ -99,7 +99,7 @@ class ConsultantDesk:
         return pid
 
     def decide(self,actor,pid,decision,reason,expected_source_hash=None):
-        c=self.company;c._ceo(actor)
+        c=self.company;c._ceo_or_admin_companion(actor)
         if decision not in {"approved","rejected"}:raise ValueError("Decision must be approved or rejected")
         if not isinstance(reason,str) or not reason.strip():raise ValueError("Decision rationale required")
         with c.tx():

@@ -20,7 +20,14 @@
 
 body { margin: 0; min-height: 100dvh; }
 
-.app { max-width: 32rem; margin: 0 auto; padding: 0.85rem 1rem 5.5rem; }
+.app {
+  max-width: 32rem;
+  margin: 0 auto;
+  /* Bottom padding clears the fixed tab bar plus the home indicator. */
+  padding: 0.85rem 1rem calc(4.75rem + env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
 
 h1 { font-size: 1.35rem; margin: 0.35rem 0 0.25rem; }
 h2 { font-size: 0.95rem; margin: 0 0 0.35rem; }
@@ -52,33 +59,109 @@ h2 { font-size: 0.95rem; margin: 0 0 0.35rem; }
 }
 
 .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.actions button { flex: 1 1 auto; }
 
-.actions button, .actions input, textarea,
-input[type="text"], input[type="password"] {
-  font: inherit;
+/* Every field is styled, not only text and password: the org and corporate
+   forms use number, datetime-local and select. 16px stops iOS zooming on
+   focus and 44px keeps the tap target reachable. */
+input, select, textarea, button {
+  font-family: inherit;
+  font-size: 16px;
   border-radius: 0.7rem;
   border: 1px solid var(--glass-border);
   background: rgba(8, 12, 22, 0.65);
   color: var(--soft);
-  padding: 0.5rem 0.7rem;
+  padding: 0.55rem 0.7rem;
+  min-height: 44px;
 }
 
-.actions button.primary {
+input, select, textarea { width: 100%; display: block; }
+
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: right 1.1rem center, right 0.75rem center;
+  background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
+  background-repeat: no-repeat;
+  padding-right: 2rem;
+}
+
+/* Date and time pickers keep the native iOS control but need the dark text
+   colour and left alignment applied explicitly. */
+input[type="date"], input[type="datetime-local"], input[type="time"] {
+  -webkit-appearance: none;
+  text-align: left;
+}
+
+input[type="checkbox"], input[type="radio"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  min-height: 0;
+  display: inline-block;
+  margin: 0 0.5rem 0 0;
+  vertical-align: middle;
+  accent-color: var(--cosmic);
+}
+
+label.check { display: flex; align-items: center; min-height: 44px; }
+
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+button.primary {
   background: var(--cosmic);
   border-color: var(--cosmic);
   color: #fff;
 }
 
-.actions button.approve {
+button.approve {
   background: transparent;
   border-color: rgba(52, 211, 153, 0.55);
   color: var(--aurora);
 }
 
-.actions button.danger {
+button.danger {
   background: rgba(8, 12, 22, 0.7);
   border-color: var(--glass-border);
   color: var(--soft);
+}
+
+.form-status { margin: 0.5rem 0 0; }
+
+.notice {
+  border: 1px dashed var(--glass-border);
+  border-radius: 0.7rem;
+  padding: 0.55rem 0.7rem;
+  margin: 0.55rem 0;
+}
+
+.segmented {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  margin: 0 0 0.6rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 0.85rem;
+  background: rgba(8, 12, 22, 0.55);
+  overflow-x: auto;
+}
+
+.segmented button {
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: 38px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.82rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.segmented button.active {
+  color: var(--soft);
+  border-color: var(--cosmic);
+  background: rgba(59, 130, 246, 0.16);
 }
 
 .tag {
@@ -99,7 +182,9 @@ nav.tabs {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0.45rem 0.6rem calc(0.45rem + env(safe-area-inset-bottom));
+  min-height: 56px;
+  padding: 0.35rem max(0.6rem, env(safe-area-inset-left))
+    calc(0.35rem + env(safe-area-inset-bottom)) max(0.6rem, env(safe-area-inset-right));
   background: rgba(7, 11, 20, 0.92);
   border-top: 1px solid var(--glass-border);
   backdrop-filter: blur(16px);
@@ -107,14 +192,18 @@ nav.tabs {
 }
 
 nav.tabs button {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
+  min-height: 48px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted);
-  padding: 0.45rem 0.2rem;
+  padding: 0.35rem 0.15rem;
   border-radius: 0.7rem;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 nav.tabs button.active {
@@ -123,9 +212,35 @@ nav.tabs button.active {
   background: rgba(59, 130, 246, 0.16);
 }
 
+.tab-badge {
+  display: inline-block;
+  margin-left: 0.25rem;
+  min-width: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--cosmic);
+  color: #fff;
+  font-size: 0.68rem;
+  line-height: 1.15rem;
+}
+
 label { display: block; margin: 0.5rem 0 0.25rem; font-size: 0.85rem; }
-input[type="text"], input[type="password"], textarea { width: 100%; }
-textarea { min-height: 4rem; }
+textarea { min-height: 4.5rem; }
+
+/* iPhone SE width: shrink the labels and wrap the switcher so nothing is
+   truncated or hidden behind a horizontal scroll. */
+@media (max-width: 360px) {
+  nav.tabs button { font-size: 0.68rem; padding: 0.35rem 0.05rem; }
+  .segmented { flex-wrap: wrap; overflow-x: visible; }
+  .segmented button { flex: 1 1 45%; font-size: 0.78rem; }
+}
+
+/* Landscape iPhone: the bar shrinks so content keeps most of the height. */
+@media (max-height: 460px) {
+  nav.tabs { min-height: 46px; }
+  nav.tabs button { min-height: 38px; font-size: 0.72rem; }
+  .app { padding-bottom: calc(3.75rem + env(safe-area-inset-bottom)); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }

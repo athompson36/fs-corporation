@@ -1344,6 +1344,32 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
     def health():
         return {"ok": True, "version": app.version, "db": company.db_path}
 
+    @app.get("/api/v1/session")
+    def session(authorization: str | None = Header(default=None)):
+        """Scopes for the presented token, so a client never has to guess them.
+
+        Deliberately requires authentication only: a read-only device must be
+        able to learn that it is read-only.
+        """
+        ident = principal(authorization)
+        raw = ident.get("scopes")
+        if raw is None:
+            scopes = []
+        elif isinstance(raw, str):
+            scopes = json.loads(raw)
+        else:
+            scopes = list(raw)
+        principal_id = ident["principal_id"]
+        access_level = None
+        if principal_id.startswith("companion-"):
+            access_level = principal_id[len("companion-"):].rsplit("-", 1)[0]
+        return {
+            "principal_id": principal_id,
+            "kind": ident["kind"],
+            "access_level": access_level,
+            "scopes": scopes,
+        }
+
     @app.get("/api/v1/company")
     def get_company(authorization: str | None = Header(default=None)):
         ident = principal(authorization)

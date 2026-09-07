@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiClient,
   ActivityItem,
@@ -11,6 +11,7 @@ import {
   OrgDepartment,
   OwnerRequest,
   PromotionItem,
+  SessionInfo,
   StaffingProposal,
   WorkerCard,
   loadSettings,
@@ -38,6 +39,23 @@ type Tab =
   | "inbox"
   | "diagnostics"
   | "settings";
+
+/** Four primary tabs fit an iPhone width; the rest live behind "More". */
+const PRIMARY_TABS: [Tab, string][] = [
+  ["dashboard", "Home"],
+  ["projects", "Projects"],
+  ["organization", "Org"],
+  ["corporate", "Corporate"],
+];
+
+const MORE_TABS: [Tab, string][] = [
+  ["decisions", "Decisions"],
+  ["inbox", "Inbox"],
+  ["diagnostics", "Diagnostics"],
+  ["settings", "Settings"],
+];
+
+type FormStatus = { ok: boolean; text: string };
 
 type LocalCandidate = {
   id: string;
@@ -112,9 +130,15 @@ export default function App() {
   const [hqRoomCount, setHqRoomCount] = useState(0);
   const [workerLookupId, setWorkerLookupId] = useState("");
   const [workerCard, setWorkerCard] = useState<WorkerCard | null>(null);
+  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [lastMoreTab, setLastMoreTab] = useState<Tab>("decisions");
+  const [formStatus, setFormStatus] = useState<Record<string, FormStatus>>({});
 
   const scopes = settings.scopes;
   const api = useMemo(() => new ApiClient(settings), [settings]);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const sessionSyncedFor = useRef<string | null>(null);
 
   const applyPairing = useCallback(async (ticket: string, baseUrl?: string) => {
     setPairing(true);
@@ -231,6 +255,35 @@ export default function App() {
     setDiagBusy(false);
   }, [api, settings.token]);
 
+  // Scopes come from the server, never from whatever a shell wrote into storage.
+  // The native WebView injects a session without them, which would otherwise
+  // hide every control behind canManage* checks.
+  useEffect(() => {
+    const token = settings.token;
+    if (!token || sessionSyncedFor.current === token) return;
+    let cancelled = false;
+    api.session()
+      .then((info) => {
+        if (cancelled) return;
+        sessionSyncedFor.current = token;
+        setSession(info);
+        const current = settingsRef.current;
+        const next: Settings = {
+          ...current,
+          access_level: info.access_level || current.access_level,
+          scopes: info.scopes,
+        };
+        saveSettings(next);
+        setSettings(next);
+      })
+      .catch(() => {
+        // Older host without /api/v1/session: keep whatever scopes we have.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, settings.token]);
+
   useEffect(() => {
     if (!settings.token) return;
     refresh();
@@ -243,6 +296,10 @@ export default function App() {
       loadDiagnostics();
     }
   }, [tab, settings.token, loadDiagnostics]);
+
+  useEffect(() => {
+    if (MORE_TABS.some(([t]) => t === tab)) setLastMoreTab(tab);
+  }, [tab]);
 
   useEffect(() => {
     const manualOwnerToken = Boolean(settings.token) && !scopes?.length;
@@ -270,19 +327,60 @@ export default function App() {
     api.project(selectedProject).then(setProjectDetail).catch((e) => setError(String(e)));
   }, [api, selectedProject, settings.token]);
 
+  /** Run a write and report the outcome next to the control that triggered it. */
+  const runAction = useCallback(
+    async (key: string, success: string, action: () => Promise<unknown>): Promise<boolean> => {
+      setFormStatus((prev) => ({ ...prev, [key]: { ok: true, text: "Working…" } }));
+      try {
+        await action();
+        setFormStatus((prev) => ({ ...prev, [key]: { ok: true, text: success } }));
+        await refresh();
+        return true;
+      } catch (e) {
+        setFormStatus((prev) => ({
+          ...prev,
+          [key]: { ok: false, text: e instanceof Error ? e.message : String(e) },
+        }));
+        return false;
+      }
+    },
+    [refresh],
+  );
+
+  function status(key: string) {
+    const s = formStatus[key];
+    if (!s) return null;
+    return <p className={s.ok ? "muted form-status" : "error form-status"}>{s.text}</p>;
+  }
+
+  function scopeNotice(what: string, scope = "organization.write") {
+    return (
+      <p className="muted notice">
+        This pairing cannot {what}: it needs the {scope} scope. Re-pair as Admin / CEO mobile
+        from the CEO desk.
+      </p>
+    );
+  }
+
   async function decide(item: DecisionItem, decision: string) {
     const reason = decision === "approved" ? "Approved from mobile companion" : "Rejected from mobile companion";
-    if (item.kind === "policy") await api.policyDecision(item.id, decision, reason);
-    else if (item.kind === "consultant") await api.consultantDecision(item.id, decision, reason);
-    else setError("Expansion decisions: use the CEO desk for now.");
-    await refresh();
+    if (item.kind !== "policy" && item.kind !== "consultant") {
+      setFormStatus((prev) => ({
+        ...prev,
+        [`decision-${item.id}`]: { ok: false, text: "Expansion decisions: use the CEO desk for now." },
+      }));
+      return;
+    }
+    await runAction(`decision-${item.id}`, `Marked ${decision}.`, () =>
+      item.kind === "policy"
+        ? api.policyDecision(item.id, decision, reason)
+        : api.consultantDecision(item.id, decision, reason));
   }
 
   async function respond(req: OwnerRequest) {
     const response = window.prompt(`Response to: ${req.subject}`);
     if (!response) return;
-    await api.respondOwner(req.id, response);
-    await refresh();
+    await runAction(`owner-${req.id}`, "Response recorded.", () => api.respondOwner(req.id, response));
   }
 
   async function escalate() {
@@ -290,8 +388,8 @@ export default function App() {
     const subject = window.prompt("Subject");
     const body = window.prompt("Message");
     if (!departmentId || !subject || !body) return;
-    await api.escalateOwner(departmentId, "escalation", subject, body);
-    await refresh();
+    await runAction("escalate", "Escalation sent.", () =>
+      api.escalateOwner(departmentId, "escalation", subject, body));
   }
 
   function save(s: Settings) {
@@ -305,6 +403,8 @@ export default function App() {
     ? "Read only"
     : settings.label || (settings.access_level ? settings.access_level : null);
   const canManageOrg = canManageOrganization(scopes);
+  const isMoreTab = MORE_TABS.some(([t]) => t === tab);
+  const moreCount = decisions.length + inbox.length;
 
   function departmentBudgetsFromLines(raw: string): Record<string, number> {
     return Object.fromEntries(
@@ -360,6 +460,23 @@ export default function App() {
       <h1>FS-Corporation {accessBadge && <span className="tag tag-proposal">{accessBadge}</span>}</h1>
       {offline && <div className="offline">Cannot reach control service</div>}
       {error && <p className="error">{error}</p>}
+
+      {isMoreTab && (
+        <div className="segmented" role="tablist" aria-label="More sections">
+          {MORE_TABS.map(([t, label]) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              className={tab === t ? "active" : ""}
+              onClick={() => setTab(t)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === "dashboard" && (
         <section>
@@ -424,24 +541,20 @@ export default function App() {
                         <button
                           className="primary"
                           type="button"
-                          onClick={async () => {
-                            try {
-                              await api.enrollProject(c.id, c.remote_url || `Local repo ${c.path}`);
-                              await refresh();
-                            } catch (e) {
-                              setError(String(e));
-                            }
-                          }}
+                          onClick={() => runAction(`enroll-${c.id}`, "Project enrolled.", () =>
+                            api.enrollProject(c.id, c.remote_url || `Local repo ${c.path}`))}
                         >
                           Enroll
                         </button>
                       </div>
                     )}
+                    {status(`enroll-${c.id}`)}
                   </div>
                 ))}
                 {!localCandidates.length && (
                   <p className="muted">No local folders found (add directories under local repos/).</p>
                 )}
+                {!canEnroll(scopes) && scopeNotice("enroll projects", "project.enroll")}
               </div>
               {canEnroll(scopes) && (
                 <div className="card">
@@ -478,9 +591,8 @@ export default function App() {
                       disabled={ghBusy || !ghUpstream.trim() || !ghProjectId.trim()}
                       onClick={async () => {
                         setGhBusy(true);
-                        setError(null);
                         setGhResult(null);
-                        try {
+                        await runAction("github-assign", "GitHub assigned.", async () => {
                           const out = await api.assignGithub(ghProjectId.trim(), ghUpstream.trim()) as {
                             result?: {
                               upstream?: { full_name?: string; id?: string };
@@ -494,33 +606,36 @@ export default function App() {
                             `${(r as {write_repo?:{full_name?:string}}).write_repo?.full_name}` +
                             `${(r as {created_write_repo?:boolean}).created_write_repo ? " (created)" : " (existing)"}`,
                           );
-                          await refresh();
-                        } catch (e) {
-                          setError(String(e));
-                        } finally {
-                          setGhBusy(false);
-                        }
+                        });
+                        setGhBusy(false);
                       }}
                     >
                       Assign GitHub
                     </button>
                   </div>
+                  {status("github-assign")}
                   {ghResult && <p className="muted">{ghResult}</p>}
                 </div>
               )}
               {canEnroll(scopes) && (
-                <div className="actions">
-                  <button className="primary" type="button" onClick={async () => {
-                    const id = window.prompt("Project id");
-                    const brief = window.prompt("Brief");
-                    if (id && brief) { await api.enrollProject(id, brief); await refresh(); }
-                  }}>Enroll project</button>
-                </div>
+                <>
+                  <div className="actions">
+                    <button className="primary" type="button" onClick={async () => {
+                      const id = window.prompt("Project id");
+                      const brief = window.prompt("Brief");
+                      if (!id || !brief) return;
+                      await runAction("enroll-manual", "Project enrolled.", () => api.enrollProject(id, brief));
+                    }}>Enroll project</button>
+                  </div>
+                  {status("enroll-manual")}
+                </>
               )}
             </>
           ) : projectDetail && (
             <div className="card">
-              <button type="button" onClick={() => setSelectedProject(null)}>← Back</button>
+              <div className="actions">
+                <button type="button" onClick={() => setSelectedProject(null)}>← Back</button>
+              </div>
               <h2>{selectedProject}</h2>
               <p>{String(projectDetail.brief)}</p>
               <p className="muted">Departments: {(projectDetail.departments as string[])?.join(", ") || "none"}</p>
@@ -535,24 +650,24 @@ export default function App() {
                   event.preventDefault();
                   const departmentBudgets = departmentBudgetsFromLines(dispatchBudgets);
                   if (!Object.keys(departmentBudgets).length) {
-                    setError("Enter at least one valid department=budget line.");
+                    setFormStatus((prev) => ({
+                      ...prev,
+                      dispatch: { ok: false, text: "Enter at least one valid department=budget line." },
+                    }));
                     return;
                   }
-                  try {
-                    await api.dispatchBrief(
+                  const ok = await runAction("dispatch", "Dispatched to heads.", () =>
+                    api.dispatchBrief(
                       selectedProject,
                       dispatchBrief.trim() || String(projectDetail.brief),
                       departmentBudgets,
                       dispatchCriteria.trim(),
-                    );
-                    setDispatchBrief("");
-                    setDispatchCriteria("");
-                    setDispatchBudgets("");
-                    await refresh();
-                    setSelectedProject(null);
-                  } catch (e) {
-                    setError(String(e));
-                  }
+                    ));
+                  if (!ok) return;
+                  setDispatchBrief("");
+                  setDispatchCriteria("");
+                  setDispatchBudgets("");
+                  setSelectedProject(null);
                 }}>
                   <h3>Dispatch to heads</h3>
                   <label htmlFor="dispatch-brief">Brief for heads</label>
@@ -569,6 +684,7 @@ export default function App() {
                   <div className="actions">
                     <button className="primary" type="submit">Dispatch to heads</button>
                   </div>
+                  {status("dispatch")}
                 </form>
               )}
             </div>
@@ -595,14 +711,15 @@ export default function App() {
             </div>
           ))}
           {!organization.length && <p className="muted">No organization catalog returned.</p>}
+          {!canManageOrg && scopeNotice("edit the organization")}
           {canManageOrg && (
             <>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
                 const form = event.currentTarget;
                 const data = new FormData(form);
-                try {
-                  await api.createDepartment({
+                const ok = await runAction("create-dept", "Department created.", () =>
+                  api.createDepartment({
                     id: String(data.get("id") || "").trim(),
                     name: String(data.get("name") || "").trim(),
                     head_title: String(data.get("head_title") || "").trim(),
@@ -611,145 +728,134 @@ export default function App() {
                     measures: [],
                     initially_active: data.get("initially_active") === "on",
                     default_model_profile: "mock-text",
-                  });
-                  form.reset();
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
-                }
+                  }));
+                if (ok) form.reset();
               }}>
                 <h2>Create department</h2>
                 <label htmlFor="create-dept-id">Id</label>
-                <input id="create-dept-id" name="id" required />
+                <input id="create-dept-id" name="id" type="text" required />
                 <label htmlFor="create-dept-name">Name</label>
-                <input id="create-dept-name" name="name" required />
+                <input id="create-dept-name" name="name" type="text" required />
                 <label htmlFor="create-dept-head">Head title</label>
-                <input id="create-dept-head" name="head_title" required />
+                <input id="create-dept-head" name="head_title" type="text" required />
                 <label htmlFor="create-dept-mission">Mission</label>
-                <input id="create-dept-mission" name="mission" required />
+                <input id="create-dept-mission" name="mission" type="text" required />
                 <label htmlFor="create-dept-room">Room type</label>
-                <input id="create-dept-room" name="room_type" defaultValue="boardroom" required />
-                <label htmlFor="create-dept-active">
+                <input id="create-dept-room" name="room_type" type="text" defaultValue="boardroom" required />
+                <label className="check" htmlFor="create-dept-active">
                   <input id="create-dept-active" name="initially_active" type="checkbox" /> Initially active
                 </label>
                 <div className="actions"><button className="primary" type="submit">Create department</button></div>
+                {status("create-dept")}
               </form>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
-                try {
-                  await api.appointHead(appointHeadDepartment.trim(), appointHeadPrincipal.trim());
-                  setAppointHeadDepartment("");
-                  setAppointHeadPrincipal("");
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
-                }
+                const ok = await runAction("appoint-head", "Head appointed.", () =>
+                  api.appointHead(appointHeadDepartment.trim(), appointHeadPrincipal.trim()));
+                if (!ok) return;
+                setAppointHeadDepartment("");
+                setAppointHeadPrincipal("");
               }}>
                 <h2>Appoint department head</h2>
                 <label htmlFor="appoint-head-department">Department id</label>
-                <input id="appoint-head-department" required value={appointHeadDepartment}
+                <input id="appoint-head-department" type="text" required value={appointHeadDepartment}
                   onChange={(e) => setAppointHeadDepartment(e.target.value)} />
                 <label htmlFor="appoint-head-principal">Principal id</label>
-                <input id="appoint-head-principal" required value={appointHeadPrincipal}
+                <input id="appoint-head-principal" type="text" required value={appointHeadPrincipal}
                   onChange={(e) => setAppointHeadPrincipal(e.target.value)} />
                 <div className="actions"><button className="primary" type="submit">Appoint head</button></div>
+                {status("appoint-head")}
               </form>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
-                try {
-                  await api.vacateHead(vacateHeadDepartment.trim());
-                  setVacateHeadDepartment("");
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
-                }
+                const ok = await runAction("vacate-head", "Head vacated.", () =>
+                  api.vacateHead(vacateHeadDepartment.trim()));
+                if (ok) setVacateHeadDepartment("");
               }}>
                 <h2>Vacate department head</h2>
                 <label htmlFor="vacate-head-department">Department id</label>
-                <input id="vacate-head-department" required value={vacateHeadDepartment}
+                <input id="vacate-head-department" type="text" required value={vacateHeadDepartment}
                   onChange={(e) => setVacateHeadDepartment(e.target.value)} />
                 <div className="actions"><button className="danger" type="submit">Vacate head</button></div>
+                {status("vacate-head")}
               </form>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
-                try {
-                  await api.assignPosition(
+                const ok = await runAction("assign-position", "Position assigned.", () =>
+                  api.assignPosition(
                     positionId.trim(),
                     positionPrincipal.trim(),
                     positionReportsTo.trim() || undefined,
-                  );
-                  setPositionId("");
-                  setPositionPrincipal("");
-                  setPositionReportsTo("");
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
-                }
+                  ));
+                if (!ok) return;
+                setPositionId("");
+                setPositionPrincipal("");
+                setPositionReportsTo("");
               }}>
                 <h2>Assign position</h2>
                 <label htmlFor="assign-position-id">Position id</label>
-                <input id="assign-position-id" required value={positionId}
+                <input id="assign-position-id" type="text" required value={positionId}
                   placeholder="engineering:Developer"
                   onChange={(e) => setPositionId(e.target.value)} />
                 <label htmlFor="assign-position-principal">Principal id</label>
-                <input id="assign-position-principal" required value={positionPrincipal}
+                <input id="assign-position-principal" type="text" required value={positionPrincipal}
                   onChange={(e) => setPositionPrincipal(e.target.value)} />
                 <label htmlFor="assign-position-reports-to">Reports-to seat id (optional)</label>
-                <input id="assign-position-reports-to" value={positionReportsTo}
+                <input id="assign-position-reports-to" type="text" value={positionReportsTo}
                   placeholder="seat:engineering"
                   onChange={(e) => setPositionReportsTo(e.target.value)} />
                 <div className="actions"><button className="primary" type="submit">Assign position</button></div>
+                {status("assign-position")}
               </form>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
-                try {
-                  await api.releaseAssignment(releaseAssignmentId.trim());
-                  setReleaseAssignmentId("");
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
-                }
+                const ok = await runAction("release-assignment", "Assignment released.", () =>
+                  api.releaseAssignment(releaseAssignmentId.trim()));
+                if (ok) setReleaseAssignmentId("");
               }}>
                 <h2>Release assignment</h2>
                 <label htmlFor="release-assignment-id">Assignment id</label>
-                <input id="release-assignment-id" required value={releaseAssignmentId}
+                <input id="release-assignment-id" type="text" required value={releaseAssignmentId}
                   onChange={(e) => setReleaseAssignmentId(e.target.value)} />
                 <div className="actions"><button className="danger" type="submit">Release assignment</button></div>
+                {status("release-assignment")}
               </form>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
                 const form = event.currentTarget;
                 const data = new FormData(form);
-                try {
-                  await api.createPosition(
+                const ok = await runAction("create-position", "Position created.", () =>
+                  api.createPosition(
                     String(data.get("department_id") || "").trim(),
                     String(data.get("title") || "").trim(),
-                  );
-                  form.reset();
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
-                }
+                  ));
+                if (ok) form.reset();
               }}>
                 <h2>Create position</h2>
                 <label htmlFor="create-pos-dept">Department id</label>
-                <input id="create-pos-dept" name="department_id" required />
+                <input id="create-pos-dept" name="department_id" type="text" required />
                 <label htmlFor="create-pos-title">Title</label>
-                <input id="create-pos-title" name="title" required />
+                <input id="create-pos-title" name="title" type="text" required />
                 <div className="actions"><button className="primary" type="submit">Create position</button></div>
+                {status("create-position")}
               </form>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
                 const form = event.currentTarget;
                 const data = new FormData(form);
+                let items: { id: string; display_order: number }[];
                 try {
-                  const items = JSON.parse(String(data.get("items") || "[]"));
-                  await api.reorderDepartments(items);
-                  form.reset();
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
+                  items = JSON.parse(String(data.get("items") || "[]"));
+                } catch {
+                  setFormStatus((prev) => ({
+                    ...prev,
+                    "reorder-departments": { ok: false, text: "Items must be valid JSON." },
+                  }));
+                  return;
                 }
+                const ok = await runAction("reorder-departments", "Departments reordered.", () =>
+                  api.reorderDepartments(items));
+                if (ok) form.reset();
               }}>
                 <h2>Reorder departments</h2>
                 <label htmlFor="reorder-items">Items JSON</label>
@@ -760,44 +866,45 @@ export default function App() {
                   placeholder='[{"id":"engineering","display_order":10}]'
                 />
                 <div className="actions"><button className="primary" type="submit">Reorder</button></div>
+                {status("reorder-departments")}
               </form>
               <form className="card" onSubmit={async (event) => {
                 event.preventDefault();
-                try {
-                  await api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim());
-                  setActivateProjectId("");
-                  setActivateDepartmentId("");
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
-                }
+                const ok = await runAction("activate-department", "Department activated.", () =>
+                  api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim()));
+                if (!ok) return;
+                setActivateProjectId("");
+                setActivateDepartmentId("");
               }}>
                 <h2>Activate dormant department for project</h2>
                 <label htmlFor="activate-project">Project id</label>
-                <input id="activate-project" required value={activateProjectId}
+                <input id="activate-project" type="text" required value={activateProjectId}
                   onChange={(e) => setActivateProjectId(e.target.value)} />
                 <label htmlFor="activate-department">Department id</label>
-                <input id="activate-department" required value={activateDepartmentId}
+                <input id="activate-department" type="text" required value={activateDepartmentId}
                   onChange={(e) => setActivateDepartmentId(e.target.value)} />
                 <div className="actions"><button className="primary" type="submit">Activate</button></div>
+                {status("activate-department")}
               </form>
             </>
           )}
           <form className="card" onSubmit={async (event) => {
             event.preventDefault();
-            try {
-              const card = await api.workerCard(workerLookupId.trim());
-              setWorkerCard(card);
-            } catch (e) {
-              setWorkerCard(null);
-              setError(String(e));
-            }
+            await runAction("worker-card", "Card loaded.", async () => {
+              try {
+                setWorkerCard(await api.workerCard(workerLookupId.trim()));
+              } catch (e) {
+                setWorkerCard(null);
+                throw e;
+              }
+            });
           }}>
             <h2>Worker card</h2>
             <label htmlFor="worker-lookup-id">Employee id</label>
-            <input id="worker-lookup-id" required value={workerLookupId}
+            <input id="worker-lookup-id" type="text" required value={workerLookupId}
               onChange={(e) => setWorkerLookupId(e.target.value)} />
             <div className="actions"><button className="primary" type="submit">Load card</button></div>
+            {status("worker-card")}
             {workerCard && (
               <div className="muted" style={{ marginTop: "0.75rem" }}>
                 <strong>{workerCard.identity.display_name}</strong>
@@ -815,7 +922,9 @@ export default function App() {
               <p>{dispatch.brief}</p>
               <p className="muted">Acceptance: {dispatch.acceptance_criteria}</p>
               {canManageOrg && dispatch.status === "queued_for_head" && (
-                <button type="button" onClick={() => setAssignDispatchId(dispatch.id)}>Assign</button>
+                <div className="actions">
+                  <button type="button" onClick={() => setAssignDispatchId(dispatch.id)}>Assign</button>
+                </div>
               )}
             </div>
           ))}
@@ -823,36 +932,34 @@ export default function App() {
           {canManageOrg && assignDispatchId && (
             <form className="card" onSubmit={async (event) => {
               event.preventDefault();
-              try {
-                await api.assignDispatch(
+              const ok = await runAction("assign-dispatch", "Assignment queued.", () =>
+                api.assignDispatch(
                   assignDispatchId,
                   assignAssignee.trim(),
                   assignAction.trim(),
                   Number(assignCost),
-                );
-                setAssignDispatchId("");
-                setAssignAssignee("");
-                setAssignAction("");
-                setAssignCost("");
-                await refresh();
-              } catch (e) {
-                setError(String(e));
-              }
+                ));
+              if (!ok) return;
+              setAssignDispatchId("");
+              setAssignAssignee("");
+              setAssignAction("");
+              setAssignCost("");
             }}>
               <h2>Assign dispatch</h2>
               <label htmlFor="assign-assignee">Assignee principal</label>
-              <input id="assign-assignee" required value={assignAssignee}
+              <input id="assign-assignee" type="text" required value={assignAssignee}
                 onChange={(e) => setAssignAssignee(e.target.value)} />
               <label htmlFor="assign-action">Action</label>
-              <input id="assign-action" required value={assignAction}
+              <input id="assign-action" type="text" required value={assignAction}
                 onChange={(e) => setAssignAction(e.target.value)} />
               <label htmlFor="assign-cost">Cost (¢)</label>
-              <input id="assign-cost" required type="number" min="0" value={assignCost}
+              <input id="assign-cost" required type="number" inputMode="numeric" min="0" value={assignCost}
                 onChange={(e) => setAssignCost(e.target.value)} />
               <div className="actions">
                 <button className="primary" type="submit">Queue assignment</button>
                 <button type="button" onClick={() => setAssignDispatchId("")}>Cancel</button>
               </div>
+              {status("assign-dispatch")}
             </form>
           )}
         </section>
@@ -872,19 +979,15 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
-                  onClick={async () => {
-                    try {
-                      await api.createDefaultFloorplan();
-                      await refresh();
-                    } catch (e) {
-                      setError(String(e));
-                    }
-                  }}
+                  onClick={() => runAction("default-floorplan", "Default floorplan created.", () =>
+                    api.createDefaultFloorplan())}
                 >
                   Create default floorplan
                 </button>
               </div>
             )}
+            {status("default-floorplan")}
+            {!canManageOrg && scopeNotice("change headquarters or corporate records")}
           </div>
           <h2>Objectives</h2>
           {objectives.map((objective) => (
@@ -895,19 +998,14 @@ export default function App() {
                 <div className="actions">
                   <button
                     type="button"
-                    onClick={async () => {
-                      try {
-                        await api.closeObjective(objective.id);
-                        await refresh();
-                      } catch (e) {
-                        setError(String(e));
-                      }
-                    }}
+                    onClick={() => runAction(`objective-${objective.id}`, "Objective closed.", () =>
+                      api.closeObjective(objective.id))}
                   >
                     Close
                   </button>
                 </div>
               )}
+              {status(`objective-${objective.id}`)}
             </div>
           ))}
           {!objectives.length && <p className="muted">No objectives.</p>}
@@ -918,34 +1016,41 @@ export default function App() {
                 event.preventDefault();
                 const form = event.currentTarget;
                 const data = new FormData(form);
-                try {
-                  const dueLocal = String(data.get("due_at") || "");
-                  const payload: Record<string, unknown> = {
-                    title: String(data.get("title") || "").trim(),
-                    due_at: dueLocal ? new Date(dueLocal).toISOString() : "",
-                  };
-                  const division = String(data.get("division_id") || "").trim();
-                  if (division) payload.division_id = division;
-                  const targetRaw = String(data.get("target") || "").trim();
-                  if (targetRaw) payload.target = JSON.parse(targetRaw);
-                  await api.createObjective(payload);
-                  form.reset();
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
+                const dueLocal = String(data.get("due_at") || "");
+                const payload: Record<string, unknown> = {
+                  title: String(data.get("title") || "").trim(),
+                  due_at: dueLocal ? new Date(dueLocal).toISOString() : "",
+                };
+                const division = String(data.get("division_id") || "").trim();
+                if (division) payload.division_id = division;
+                const targetRaw = String(data.get("target") || "").trim();
+                if (targetRaw) {
+                  try {
+                    payload.target = JSON.parse(targetRaw);
+                  } catch {
+                    setFormStatus((prev) => ({
+                      ...prev,
+                      "create-objective": { ok: false, text: "Target must be valid JSON." },
+                    }));
+                    return;
+                  }
                 }
+                const ok = await runAction("create-objective", "Objective created.", () =>
+                  api.createObjective(payload));
+                if (ok) form.reset();
               }}
             >
               <h2>Create objective</h2>
               <label htmlFor="objective-title">Title</label>
-              <input id="objective-title" name="title" required />
+              <input id="objective-title" name="title" type="text" required />
               <label htmlFor="objective-due">Due at</label>
               <input id="objective-due" name="due_at" type="datetime-local" required />
               <label htmlFor="objective-division">Division id (optional)</label>
-              <input id="objective-division" name="division_id" />
+              <input id="objective-division" name="division_id" type="text" />
               <label htmlFor="objective-target">Target JSON (optional)</label>
               <textarea id="objective-target" name="target" placeholder='{"accepted_artifacts": 5}' />
               <div className="actions"><button className="primary" type="submit">Create</button></div>
+              {status("create-objective")}
             </form>
           )}
           <h2>Industry packs</h2>
@@ -965,19 +1070,14 @@ export default function App() {
                   <button
                     type="button"
                     className="primary"
-                    onClick={async () => {
-                      try {
-                        await api.activateDivision(division.id);
-                        await refresh();
-                      } catch (e) {
-                        setError(String(e));
-                      }
-                    }}
+                    onClick={() => runAction(`division-${division.id}`, "Division activated.", () =>
+                      api.activateDivision(division.id))}
                   >
                     Activate
                   </button>
                 </div>
               )}
+              {status(`division-${division.id}`)}
             </div>
           ))}
           {!divisions.length && <p className="muted">No divisions.</p>}
@@ -988,30 +1088,27 @@ export default function App() {
                 event.preventDefault();
                 const form = event.currentTarget;
                 const data = new FormData(form);
-                try {
-                  await api.proposeDivision(
+                const ok = await runAction("propose-division", "Division proposed.", () =>
+                  api.proposeDivision(
                     String(data.get("pack_id") || "").trim(),
                     String(data.get("name") || "").trim(),
                     String(data.get("mode") || "minimal"),
-                  );
-                  form.reset();
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
-                }
+                  ));
+                if (ok) form.reset();
               }}
             >
               <h2>Propose division</h2>
               <label htmlFor="division-pack">Industry pack id</label>
-              <input id="division-pack" name="pack_id" required />
+              <input id="division-pack" name="pack_id" type="text" required />
               <label htmlFor="division-name">Name</label>
-              <input id="division-name" name="name" required />
+              <input id="division-name" name="name" type="text" required />
               <label htmlFor="division-mode">Mode</label>
               <select id="division-mode" name="mode" defaultValue="minimal">
                 <option value="minimal">Minimal</option>
                 <option value="full">Full</option>
               </select>
               <div className="actions"><button className="primary" type="submit">Propose</button></div>
+              {status("propose-division")}
             </form>
           )}
           <h2>Pending promotions</h2>
@@ -1024,54 +1121,39 @@ export default function App() {
                   <button
                     type="button"
                     className="approve"
-                    onClick={async () => {
-                      try {
-                        await api.decidePromotion(promotion.id, "approved");
-                        await refresh();
-                      } catch (e) {
-                        setError(String(e));
-                      }
-                    }}
+                    onClick={() => runAction(`promotion-${promotion.id}`, "Promotion approved.", () =>
+                      api.decidePromotion(promotion.id, "approved"))}
                   >
                     Approve
                   </button>
                   <button
                     type="button"
                     className="danger"
-                    onClick={async () => {
-                      try {
-                        await api.decidePromotion(promotion.id, "rejected");
-                        await refresh();
-                      } catch (e) {
-                        setError(String(e));
-                      }
-                    }}
+                    onClick={() => runAction(`promotion-${promotion.id}`, "Promotion rejected.", () =>
+                      api.decidePromotion(promotion.id, "rejected"))}
                   >
                     Reject
                   </button>
                 </div>
               )}
+              {status(`promotion-${promotion.id}`)}
             </div>
           ))}
           {!promotions.length && <p className="muted">No pending promotions.</p>}
           <h2>Staffing proposals</h2>
           {canManageOrg && (
-            <div className="actions" style={{ marginBottom: "0.75rem" }}>
-              <button
-                type="button"
-                className="primary"
-                onClick={async () => {
-                  try {
-                    await api.scanStaffingGaps();
-                    await refresh();
-                  } catch (e) {
-                    setError(String(e));
-                  }
-                }}
-              >
-                Scan staffing gaps
-              </button>
-            </div>
+            <>
+              <div className="actions" style={{ marginBottom: "0.75rem" }}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => runAction("staffing-scan", "Scan complete.", () => api.scanStaffingGaps())}
+                >
+                  Scan staffing gaps
+                </button>
+              </div>
+              {status("staffing-scan")}
+            </>
           )}
           {staffingProposals.map((proposal) => (
             <div key={proposal.id} className="card">
@@ -1082,33 +1164,22 @@ export default function App() {
                   <button
                     type="button"
                     className="approve"
-                    onClick={async () => {
-                      try {
-                        await api.decideStaffingProposal(proposal.id, "approved");
-                        await refresh();
-                      } catch (e) {
-                        setError(String(e));
-                      }
-                    }}
+                    onClick={() => runAction(`staffing-${proposal.id}`, "Proposal approved.", () =>
+                      api.decideStaffingProposal(proposal.id, "approved"))}
                   >
                     Approve
                   </button>
                   <button
                     type="button"
                     className="danger"
-                    onClick={async () => {
-                      try {
-                        await api.decideStaffingProposal(proposal.id, "rejected");
-                        await refresh();
-                      } catch (e) {
-                        setError(String(e));
-                      }
-                    }}
+                    onClick={() => runAction(`staffing-${proposal.id}`, "Proposal rejected.", () =>
+                      api.decideStaffingProposal(proposal.id, "rejected"))}
                   >
                     Reject
                   </button>
                 </div>
               )}
+              {status(`staffing-${proposal.id}`)}
             </div>
           ))}
           {!staffingProposals.length && <p className="muted">No pending staffing proposals.</p>}
@@ -1124,19 +1195,14 @@ export default function App() {
                   <button
                     type="button"
                     className="primary"
-                    onClick={async () => {
-                      try {
-                        await api.acceptCrossDepartmentRequest(item.id);
-                        await refresh();
-                      } catch (e) {
-                        setError(String(e));
-                      }
-                    }}
+                    onClick={() => runAction(`cross-dept-${item.id}`, "Request accepted.", () =>
+                      api.acceptCrossDepartmentRequest(item.id))}
                   >
                     Accept
                   </button>
                 </div>
               )}
+              {status(`cross-dept-${item.id}`)}
             </div>
           ))}
           {!crossDept.length && <p className="muted">No cross-department requests.</p>}
@@ -1147,9 +1213,9 @@ export default function App() {
                 event.preventDefault();
                 const form = event.currentTarget;
                 const data = new FormData(form);
-                try {
-                  const dueLocal = String(data.get("due_at") || "");
-                  await api.createCrossDepartmentRequest({
+                const dueLocal = String(data.get("due_at") || "");
+                const ok = await runAction("create-cross-dept", "Request created.", () =>
+                  api.createCrossDepartmentRequest({
                     project_id: String(data.get("project_id") || "").trim(),
                     requesting_department_id: String(data.get("requesting") || "").trim(),
                     delivering_department_id: String(data.get("delivering") || "").trim(),
@@ -1160,36 +1226,33 @@ export default function App() {
                     budget_cents: Number(data.get("budget_cents") || 0),
                     due_at: dueLocal ? new Date(dueLocal).toISOString() : "",
                     escalation_path: String(data.get("escalation") || "owner").trim(),
-                  });
-                  form.reset();
-                  await refresh();
-                } catch (e) {
-                  setError(String(e));
-                }
+                  }));
+                if (ok) form.reset();
               }}
             >
               <h2>Create cross-department request</h2>
               <label htmlFor="xd-project">Project id</label>
-              <input id="xd-project" name="project_id" required />
+              <input id="xd-project" name="project_id" type="text" required />
               <label htmlFor="xd-requesting">Requesting department</label>
-              <input id="xd-requesting" name="requesting" required />
+              <input id="xd-requesting" name="requesting" type="text" required />
               <label htmlFor="xd-delivering">Delivering department</label>
-              <input id="xd-delivering" name="delivering" required />
+              <input id="xd-delivering" name="delivering" type="text" required />
               <label htmlFor="xd-subject">Subject</label>
-              <input id="xd-subject" name="subject" required />
+              <input id="xd-subject" name="subject" type="text" required />
               <label htmlFor="xd-brief">Brief</label>
               <textarea id="xd-brief" name="brief" required />
               <label htmlFor="xd-acceptance">Acceptance criteria</label>
               <textarea id="xd-acceptance" name="acceptance" required />
               <label htmlFor="xd-budget-owner">Budget owner</label>
-              <input id="xd-budget-owner" name="budget_owner" required />
+              <input id="xd-budget-owner" name="budget_owner" type="text" required />
               <label htmlFor="xd-budget">Budget cents</label>
-              <input id="xd-budget" name="budget_cents" type="number" min="0" required />
+              <input id="xd-budget" name="budget_cents" type="number" inputMode="numeric" min="0" required />
               <label htmlFor="xd-due">Due at</label>
               <input id="xd-due" name="due_at" type="datetime-local" required />
               <label htmlFor="xd-escalation">Escalation path</label>
-              <input id="xd-escalation" name="escalation" defaultValue="owner" required />
+              <input id="xd-escalation" name="escalation" type="text" defaultValue="owner" required />
               <div className="actions"><button className="primary" type="submit">Create request</button></div>
+              {status("create-cross-dept")}
             </form>
           )}
           <h2>Open activity</h2>
@@ -1215,18 +1278,24 @@ export default function App() {
                   <button className="danger" type="button" onClick={() => decide(item, "rejected")}>Reject</button>
                 </div>
               )}
+              {status(`decision-${item.id}`)}
             </div>
           ))}
           {!decisions.length && <p className="muted">No pending decisions.</p>}
+          {decisions.length > 0 && !canApprove(scopes)
+            && scopeNotice("decide proposals", "policy.approve")}
         </section>
       )}
 
       {tab === "inbox" && (
         <section>
           {canEscalate(scopes) && (
-            <div className="actions" style={{ marginBottom: "0.75rem" }}>
-              <button className="primary" type="button" onClick={escalate}>New escalation</button>
-            </div>
+            <>
+              <div className="actions" style={{ marginBottom: "0.75rem" }}>
+                <button className="primary" type="button" onClick={escalate}>New escalation</button>
+              </div>
+              {status("escalate")}
+            </>
           )}
           {inbox.map((req) => (
             <div key={req.id} className="card">
@@ -1238,9 +1307,12 @@ export default function App() {
                   <button className="primary" type="button" onClick={() => respond(req)}>Respond</button>
                 </div>
               )}
+              {status(`owner-${req.id}`)}
             </div>
           ))}
           {!inbox.length && <p className="muted">No open owner requests.</p>}
+          {inbox.length > 0 && !canRespondInbox(scopes)
+            && scopeNotice("respond to owner requests", "company.pause")}
         </section>
       )}
 
@@ -1276,9 +1348,15 @@ export default function App() {
           <label htmlFor="token">Bearer token</label>
           <input id="token" type="password" value={settings.token}
             onChange={(e) => save({ ...settings, token: e.target.value })} />
-          {settings.scopes?.length ? (
-            <p className="muted">Scopes: {settings.scopes.join(", ")}</p>
-          ) : null}
+          {session ? (
+            <p className="muted">
+              Signed in as {session.principal_id}
+              {session.access_level ? ` (${session.access_level})` : ""} · scopes:{" "}
+              {session.scopes.length ? session.scopes.join(", ") : "none"}
+            </p>
+          ) : (
+            <p className="muted">Session scopes not confirmed by the server yet.</p>
+          )}
           <p className="muted">Pair a new device from the CEO desk QR at /desk, or clear token below and scan again.</p>
           {pushStatus ? <p className="muted">{pushStatus}</p> : (
             <p className="muted">Push status unknown — tap Enable push.</p>
@@ -1333,26 +1411,34 @@ export default function App() {
                 Send test push
               </button>
             ) : null}
-            <button type="button" onClick={() => save({ baseUrl: settings.baseUrl, token: "" })}>Clear token</button>
+            <button
+              type="button"
+              onClick={() => {
+                sessionSyncedFor.current = null;
+                setSession(null);
+                save({ baseUrl: settings.baseUrl, token: "" });
+              }}
+            >
+              Clear token
+            </button>
           </div>
         </section>
       )}
 
       <nav className="tabs" aria-label="Primary">
-        {([
-          ["dashboard", "Home"],
-          ["projects", "Projects"],
-          ["organization", "Org"],
-          ["corporate", "Corporate"],
-          ["decisions", "Decisions"],
-          ["inbox", "Inbox"],
-          ["diagnostics", "Diagnostics"],
-          ["settings", "Settings"],
-        ] as [Tab, string][]).map(([t, label]) => (
+        {PRIMARY_TABS.map(([t, label]) => (
           <button key={t} type="button" className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
             {label}
           </button>
         ))}
+        <button
+          type="button"
+          className={isMoreTab ? "active" : ""}
+          onClick={() => setTab(lastMoreTab)}
+        >
+          More
+          {moreCount > 0 && <span className="tab-badge">{moreCount}</span>}
+        </button>
       </nav>
     </div>
   );

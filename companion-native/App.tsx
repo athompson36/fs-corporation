@@ -23,6 +23,7 @@ type Session = {
   companionUrl: string;
   accessLevel?: string;
   label?: string;
+  scopes?: string[];
 };
 
 type RedeemResponse = {
@@ -125,6 +126,7 @@ export default function App() {
         companionUrl: companion,
         accessLevel: data.access_level,
         label: data.label,
+        scopes: data.scopes,
       };
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setSession(next);
@@ -162,15 +164,25 @@ export default function App() {
   }, [paste]);
 
   if (webviewUrl && session) {
+    // Merge instead of overwrite: the companion refreshes its own scopes from
+    // /api/v1/session, and a blind write on every load would drop them and
+    // hide every management control.
     const injected = `
       (function() {
         try {
-          localStorage.setItem('fs-corp-companion-settings', JSON.stringify({
-            baseUrl: '',
-            token: ${JSON.stringify(session.token)},
-            access_level: ${JSON.stringify(session.accessLevel || "")},
-            label: ${JSON.stringify(session.label || "")}
-          }));
+          var key = 'fs-corp-companion-settings';
+          var paired = ${JSON.stringify({
+            token: session.token,
+            access_level: session.accessLevel || "",
+            label: session.label || "",
+            ...(session.scopes?.length ? { scopes: session.scopes } : {}),
+          })};
+          var current = {};
+          try { current = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { current = {}; }
+          var stale = current.token !== paired.token || !Array.isArray(current.scopes);
+          if (stale) {
+            localStorage.setItem(key, JSON.stringify(Object.assign({ baseUrl: '' }, current, paired)));
+          }
         } catch (e) {}
       })();
       true;
@@ -189,6 +201,13 @@ export default function App() {
           source={{ uri: httpOriginIfPrivate(webviewUrl) }}
           style={styles.web}
           injectedJavaScriptBeforeContentLoaded={injected}
+          originWhitelist={["http://*", "https://*"]}
+          // SafeAreaView already applies the insets; let the page own its layout
+          // so env(safe-area-inset-*) is not counted twice.
+          contentInsetAdjustmentBehavior="never"
+          automaticallyAdjustContentInsets={false}
+          keyboardDisplayRequiresUserAction={false}
+          allowsBackForwardNavigationGestures
           // tls internal on fs-dev
           setSupportMultipleWindows={false}
         />

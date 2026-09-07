@@ -35,6 +35,7 @@
 | ADR-031 | 2026-09-07 | Staffing automation stops at an approval-gated proposal | HR/CEO scans use persisted dispatch, floorplan, assignment, and training evidence with a durable cooldown and pending-key deduplication. Scans never hire. Only CEO/admin companion decisions execute a hire, and proposal approval plus employee/training creation commit or roll back together. Promotion staffing approvals remain advisory to the separate Phase 5 promotion API. |
 | ADR-032 | 2026-09-07 | Industry packs instantiate divisions through a separate CEO activation gate | Packs persist complete templates. Consultant/CEO/seated heads may propose minimal or full divisions, but only CEO/admin companions activate. Department, position, skill, learning, link, floorplan, status and event writes share one transaction; deactivation rejects open linked work. |
 | ADR-033 | 2026-09-07 | Event-projected HQ and governed industry packs remain persisted operational views | Headquarters activity and scorecards derive from persisted events/rows; industry packs are inert templates until CEO activation. UI projections never create operational or financial facts. |
+| ADR-034 | 2026-09-07 | A paired admin phone is a CEO actor for operations, never for root authority | `_is_ceo_actor` accepts the owner or a `companion-admin-*` principal, covering policy and consultant decisions, owner-inbox responses, HR actions and division proposals. Pairing, revenue, budget, rollback, model, feed and SLO operations stay strict `_ceo`. Scopes are served by `GET /api/v1/session` so a client never infers its own authority. |
 
 ### ADR-010 detail
 
@@ -353,5 +354,33 @@ processes was rejected because process presence is not a durable business event.
 **Consequences.** Alembic `0023_ceo_scorecard` adds objectives and optional immutable scorecard
 snapshots. The Desk labels the scorecard as measured from persisted operations, and all HQ
 projections remain reproducible from durable company state.
+
+### ADR-034 detail
+
+**Context.** The HQ surfaces shipped to the companion were visible on a paired iPhone but inert.
+Two independent causes: the native shell wrote a session into the WebView without `scopes`, so
+every `canManage*` gate hid its controls; and several actions the `admin` pairing level already
+carries scopes for (`policy.approve`, `consultant.decide`, HR and division writes) were checked
+in core against the literal CEO string, so they would have returned 403 once visible.
+
+**Decision.** Introduce `_is_ceo_actor(actor)` — the owner string or a `companion-admin-*`
+principal — and use it for `_ceo_or_admin_companion`, `_hr_or_ceo` and `_division_proposer`, plus
+`approve_policy`, `reject_policy`, `respond_owner_request` and `ConsultantDesk.decide`. Keep
+strict `_ceo` on root authority: pairing issue/list/revoke, `record_revenue`, `set_budget_period`,
+`rollback_policy`, `assign_model`, feed enrollment and `record_slo_observation`. Add
+`GET /api/v1/session` so scopes are always server-derived, and have the companion hydrate from it
+rather than trusting injected storage.
+
+**Alternatives considered.** Hiding the HQ controls from phones entirely was rejected because the
+`admin` level is documented as CEO mobile and already carries the scopes. Trusting client-injected
+scopes was rejected because the server must remain the only authority. Granting root operations to
+the phone was rejected: a lost device must not be able to re-pair itself, move money or roll back
+policy.
+
+**Consequences.** A stolen unlocked admin phone can approve proposals and edit the organization,
+which the pairing level already implied; the owner mitigates by revoking the device from the desk.
+Lower levels are unaffected because they redeem as `companion-read_only-*` / `companion-user-*`.
+`GET /api/v1/session` is authentication-only by design so a read-only device can discover its own
+limits.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

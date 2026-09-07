@@ -457,11 +457,17 @@ class Company:
         if actor != self.ceo:
             raise PermissionError("CEO authority required")
 
+    def _is_ceo_actor(self, actor):
+        """CEO string or a paired admin companion.
+
+        Lower pairing levels redeem as ``companion-read_only-*`` or
+        ``companion-user-*`` and stay outside this predicate.
+        """
+        return actor == self.ceo or str(actor).startswith("companion-admin-")
+
     def _ceo_or_admin_companion(self, actor):
         """CEO string or paired admin companion (phone CEO mobile)."""
-        if actor == self.ceo:
-            return
-        if str(actor).startswith("companion-admin-"):
+        if self._is_ceo_actor(actor):
             return
         raise PermissionError("CEO authority required")
 
@@ -469,7 +475,7 @@ class Company:
         return actor=="qc" or str(actor).startswith("quality:")
 
     def _hr_or_ceo(self,actor):
-        if actor==self.ceo:return
+        if self._is_ceo_actor(actor):return
         if str(actor).startswith("people:"):
             title=actor.split(":",1)[1]
             if title in {"HR Director","People Director","Training Specialist"}:return
@@ -528,7 +534,7 @@ class Company:
             return pid
 
     def approve_policy(self,actor,pid):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         with self.tx():
             p=self.db.execute("SELECT * FROM proposals WHERE id=?",(pid,)).fetchone()
             if not p or p["status"] != "pending":
@@ -834,7 +840,7 @@ class Company:
         if scope not in scopes:raise PermissionError("Missing scope")
 
     def reject_policy(self,actor,pid,reason):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         if not reason or not str(reason).strip():raise ValueError("Decision rationale required")
         with self.tx():
             p=self.db.execute("SELECT * FROM proposals WHERE id=?",(pid,)).fetchone()
@@ -2162,7 +2168,7 @@ class Company:
         return {"industry_packs": result}
 
     def _division_proposer(self, actor):
-        if actor == self.ceo:
+        if self._is_ceo_actor(actor):
             return
         if actor == "consultant" or str(actor).startswith("consultant:"):
             return
@@ -4453,7 +4459,7 @@ class Company:
         return {"items": [dict(r) for r in rows]}
 
     def respond_owner_request(self, actor, request_id, response, close=True):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         if not response or not str(response).strip():
             raise ValueError("Response required")
         with self.tx():

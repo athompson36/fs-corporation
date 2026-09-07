@@ -1,3 +1,4 @@
+import re
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -203,6 +204,149 @@ class CompanionApiTests(unittest.TestCase):
         headers = {"Authorization": "Bearer owner-token"}
         items = self.client.get("/api/v1/decisions/inbox", headers=headers).json()["items"]
         self.assertTrue(any(i["kind"] == "consultant" for i in items))
+
+    def test_desk_nav_anchors_resolve_to_sections(self):
+        from company.service import DESK_HTML
+
+        anchors = set(re.findall(r'href="#([^"]+)"', DESK_HTML))
+        ids = set(re.findall(r'id="([^"]+)"', DESK_HTML))
+        self.assertTrue(anchors)
+        self.assertEqual(sorted(anchors - ids), [])
+
+    def test_companion_nav_is_five_tabs_with_more_switcher(self):
+        app_source = (
+            Path(__file__).resolve().parents[1] / "companion" / "src" / "App.tsx"
+        ).read_text()
+        self.assertIn("const PRIMARY_TABS", app_source)
+        self.assertIn("const MORE_TABS", app_source)
+        primary = re.search(r"const PRIMARY_TABS[^=]*= \[(.*?)\];", app_source, re.S).group(1)
+        self.assertEqual(len(re.findall(r'\["', primary)), 4)
+        self.assertIn('className="segmented"', app_source)
+        self.assertIn("setTab(lastMoreTab)", app_source)
+
+    def test_companion_styles_size_every_field_for_touch(self):
+        css = (
+            Path(__file__).resolve().parents[1] / "companion" / "src" / "styles.css"
+        ).read_text()
+        self.assertIn("input, select, textarea, button {", css)
+        self.assertIn("font-size: 16px", css)
+        self.assertIn("min-height: 44px", css)
+        self.assertIn("env(safe-area-inset-bottom)", css)
+
+    def test_native_shell_injects_scopes_without_clobbering(self):
+        native = (
+            Path(__file__).resolve().parents[1] / "companion-native" / "App.tsx"
+        ).read_text()
+        self.assertIn("scopes: session.scopes", native)
+        self.assertIn("scopes: data.scopes", native)
+        self.assertIn("Array.isArray(current.scopes)", native)
+        self.assertIn("keyboardDisplayRequiresUserAction={false}", native)
+
+    def test_companion_hydrates_scopes_from_session(self):
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        self.assertIn('"/api/v1/session"', (root / "api" / "client.ts").read_text())
+        self.assertIn("api.session()", (root / "App.tsx").read_text())
+        self.assertIn('includes("*")', (root / "scopes.ts").read_text())
+
+
+class PairedAdminCompanionTests(unittest.TestCase):
+    """A paired Admin / CEO mobile device must be able to run what it shows."""
+
+    def setUp(self):
+        self.c, self.client = owner_client()
+        self.addCleanup(self.c.close)
+        self.c.seed_catalog(Path(__file__).resolve().parents[1] / "config" / "departments.json")
+        self.c.seed_industry_packs()
+        self.token = self._pair("admin")
+
+    def _pair(self, access_level):
+        issued = self.c.create_pairing_ticket(
+            "human-ceo", "https://192.168.4.100", access_level=access_level)
+        return self.c.redeem_pairing_ticket(issued["ticket"])["token"]
+
+    def _headers(self, key, token=None):
+        return {"Authorization": f"Bearer {token or self.token}", "Idempotency-Key": key}
+
+    def test_session_reports_principal_and_scopes(self):
+        r = self.client.get("/api/v1/session", headers={"Authorization": f"Bearer {self.token}"})
+        self.assertEqual(r.status_code, 200, r.text)
+        body = r.json()
+        self.assertTrue(body["principal_id"].startswith("companion-admin-"))
+        self.assertEqual(body["access_level"], "admin")
+        self.assertEqual(body["kind"], "service")
+        self.assertIn("organization.write", body["scopes"])
+
+    def test_session_tells_a_read_only_device_it_is_read_only(self):
+        token = self._pair("read_only")
+        body = self.client.get(
+            "/api/v1/session", headers={"Authorization": f"Bearer {token}"}).json()
+        self.assertEqual(body["access_level"], "read_only")
+        self.assertNotIn("organization.write", body["scopes"])
+
+    def test_session_requires_authentication(self):
+        self.assertEqual(self.client.get("/api/v1/session").status_code, 401)
+
+    def test_owner_session_reports_wildcard_scope(self):
+        body = self.client.get(
+            "/api/v1/session", headers={"Authorization": "Bearer owner-token"}).json()
+        self.assertEqual(body["principal_id"], "human-ceo")
+        self.assertIsNone(body["access_level"])
+        self.assertEqual(body["scopes"], ["*"])
+
+    def test_admin_companion_can_scan_staffing_and_propose_division(self):
+        scan = self.client.post(
+            "/api/v1/staffing-proposals/scan",
+            json={"payload": {}},
+            headers=self._headers("companion-scan"),
+        )
+        self.assertEqual(scan.status_code, 200, scan.text)
+        packs = self.client.get(
+            "/api/v1/industry-packs", headers={"Authorization": f"Bearer {self.token}"}).json()
+        pack_id = packs["industry_packs"][0]["id"]
+        proposed = self.client.post(
+            "/api/v1/divisions/proposals",
+            json={"payload": {"pack_id": pack_id, "name": "Mobile division", "mode": "minimal"}},
+            headers=self._headers("companion-division"),
+        )
+        self.assertEqual(proposed.status_code, 200, proposed.text)
+
+    def test_admin_companion_can_decide_policy_and_answer_owner_inbox(self):
+        pid = self.c.propose_policy("head", policy(self.c), "mobile decision")
+        decided = self.client.post(
+            f"/api/v1/policy-proposals/{pid}/decision",
+            json={"payload": {"decision": "approved", "reason": "Approved from mobile companion"}},
+            headers=self._headers("companion-policy"),
+        )
+        self.assertEqual(decided.status_code, 200, decided.text)
+        request = self.c.create_owner_request(
+            "human-ceo", "engineering", "escalation", "Need a call", "Approve overtime?")
+        answered = self.client.post(
+            f"/api/v1/owner-inbox/{request['id']}/respond",
+            json={"payload": {"response": "Approved."}},
+            headers=self._headers("companion-owner"),
+        )
+        self.assertEqual(answered.status_code, 200, answered.text)
+
+    def test_lower_pairing_levels_stay_denied(self):
+        user_token = self._pair("user")
+        denied = self.client.post(
+            "/api/v1/staffing-proposals/scan",
+            json={"payload": {}},
+            headers=self._headers("companion-scan-user", token=user_token),
+        )
+        self.assertEqual(denied.status_code, 403)
+        with self.assertRaises(PermissionError):
+            self.c.scan_staffing_gaps("companion-user-abcd1234")
+        with self.assertRaises(PermissionError):
+            self.c.approve_policy("companion-read_only-abcd1234", "whatever")
+
+    def test_root_authority_stays_owner_only(self):
+        for actor_call in (
+            lambda: self.c.create_pairing_ticket("companion-admin-abcd1234", "https://x"),
+            lambda: self.c.list_paired_devices("companion-admin-abcd1234"),
+        ):
+            with self.assertRaises(PermissionError):
+                actor_call()
 
 
 if __name__ == "__main__":

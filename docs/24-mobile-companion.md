@@ -20,9 +20,22 @@ The root owner token **never** appears in the QR, URL, or redeem response. Ticke
 |---|---|---|
 | `read_only` | `company.read`, `audit.read`, `consultant.read`, `organization.read` | View-only screens |
 | `user` | read_only + `owner.escalate` | View + create escalations |
-| `admin` | full `COMPANION_SCOPES` | Approve/reject, pause/resume, enroll, dispatch, inbox respond |
+| `admin` | full `COMPANION_SCOPES` | Approve/reject, pause/resume, enroll, dispatch, inbox respond, organization and HQ writes |
 
 Only the owner may issue pairing tickets (`POST /api/v1/remote-access/pairing`). Redeemed principals are `kind: service` with ids like `companion-{level}-{ticketId[:8]}`.
+
+An `admin` principal also satisfies the CEO-actor check in application code (ADR-034), so policy
+and consultant decisions, owner-inbox responses, HR actions (staffing scan, promotion proposals,
+worker sprite/profile) and division proposals succeed from a paired phone. Root-authority
+operations stay owner-only: pairing issue/list/revoke, revenue, budget periods, policy rollback,
+model assignment, feed enrollment and SLO observations.
+
+The client never decides its own scopes. `GET /api/v1/session` returns `principal_id`, `kind`,
+`access_level` and `scopes` for the presented bearer token (authentication only, no extra scope,
+so a read-only device can learn it is read-only). The companion calls it on load and merges the
+result into stored settings, which self-heals a native shell or stale `localStorage` that has no
+scopes. Where a control is unavailable the companion shows the missing scope instead of hiding
+the section silently.
 
 ### Tailscale handoff
 
@@ -70,17 +83,25 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 
 ## Features
 
+Bottom navigation is five tabs — Home, Projects, Org, Corporate, More — sized for a 320px
+iPhone. **More** holds Decisions, Inbox, Diagnostics and Settings behind a segmented switcher and
+carries a badge with the pending decision plus owner-request count. Every write reports its
+outcome on an inline status line next to the control, not only at the top of the page.
+
 | Screen | Actions (scope-gated) |
 |---|---|
-| Dashboard | Company stats; pause/resume when `company.pause` / `company.resume` |
+| Home | Company stats; pause/resume when `company.pause` / `company.resume` |
 | Projects | List/detail; local candidates + enroll; assign GitHub by upstream address; dispatch when `project.enroll` |
-| Diagnostics | Parallel live probes: health, workers, model, github, push, chatdev, feeds, slos, local-repos |
-| Decisions | Approve/reject when `policy.approve` or `consultant.decide` |
-| Inbox | Respond when `company.pause`; escalate when `owner.escalate` |
-| Settings | API URL, token, scope summary; clear token to re-pair |
+| Org | Catalog and roster; departments, heads, positions, assignments, reorder, activation and worker card when `organization.write` |
+| Corporate | Scorecard, objectives, industry packs, divisions, promotions, staffing proposals, cross-department requests, activity, default floorplan |
+| More → Decisions | Approve/reject when `policy.approve` or `consultant.decide` |
+| More → Inbox | Respond when `company.pause`; escalate when `owner.escalate` |
+| More → Diagnostics | Parallel live probes: health, workers, model, github, push, chatdev, feeds, slos, local-repos |
+| More → Settings | API URL, token, session principal and scopes; clear token to re-pair |
 
 ## API endpoints
 
+- `GET /api/v1/session` — principal, kind, access level and scopes for the bearer token
 - `GET /api/v1/dashboard`
 - `GET /api/v1/projects`, `GET /api/v1/projects/{id}`
 - `POST /api/v1/projects/{id}/dispatch-brief`

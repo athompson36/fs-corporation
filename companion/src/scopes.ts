@@ -1,5 +1,6 @@
 export function hasScope(scopes: string[] | undefined, scope: string): boolean {
-  return Boolean(scopes?.includes(scope));
+  // The owner identity is registered with the "*" wildcard rather than a list.
+  return Boolean(scopes?.includes("*") || scopes?.includes(scope));
 }
 
 export function canApprove(scopes: string[] | undefined): boolean {
