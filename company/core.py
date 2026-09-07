@@ -864,6 +864,19 @@ class Company:
                 self.db.execute("INSERT OR REPLACE INTO departments VALUES(?,?,?,?,?,?,?,?,?)",
                     (d["id"],d["name"],d["head"],d["mission"],canonical(d["measures"]),d["room_type"],
                      1 if d["initially_active"] else 0,d["default_model_profile"],canonical(d)))
+                seat_status = "vacant" if d["initially_active"] else "dormant"
+                seat_id = f"seat:{d['id']}"
+                existing = self.db.execute(
+                    "SELECT id, principal_id, status FROM department_seats WHERE department_id=?",
+                    (d["id"],)).fetchone()
+                if not existing:
+                    self.db.execute(
+                        "INSERT INTO department_seats VALUES(?,?,?,?,?,?,?,?)",
+                        (seat_id, d["id"], None, d["head"], seat_status, None, None, None))
+                elif existing["principal_id"] is None and existing["status"] in {"vacant", "dormant"}:
+                    self.db.execute(
+                        "UPDATE department_seats SET title=?, status=? WHERE department_id=?",
+                        (d["head"], seat_status, d["id"]))
                 for title in d["positions"]:
                     pid=f"{d['id']}:{title}"
                     self.db.execute("INSERT OR REPLACE INTO positions VALUES(?,?,?)",(pid,d["id"],title))
@@ -1957,7 +1970,10 @@ class Company:
                     (woid, task_id, self.policy()["version"], digest(payload), budget_cents,
                      canonical(payload), "authorized"))
                 self.db.execute(
-                    "INSERT INTO project_dispatches VALUES(?,?,?,?,?,?,?,?,?)",
+                    """INSERT INTO project_dispatches
+                       (id, project_id, department_id, work_order_id, brief,
+                        acceptance_criteria, budget_cents, due_at, created_at)
+                       VALUES(?,?,?,?,?,?,?,?,?)""",
                     (dispatch_id, project_id, dept_id, woid, brief.strip(),
                      acceptance_criteria.strip(), budget_cents, due_at, now().isoformat()))
                 self._event("project.dispatched",

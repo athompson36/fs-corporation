@@ -132,7 +132,9 @@ CREATE TABLE IF NOT EXISTS project_dispatches(
   id TEXT PRIMARY KEY, project_id TEXT NOT NULL, department_id TEXT NOT NULL,
   work_order_id TEXT NOT NULL, brief TEXT NOT NULL,
   acceptance_criteria TEXT NOT NULL, budget_cents INTEGER NOT NULL,
-  due_at TEXT, created_at TEXT NOT NULL);
+  due_at TEXT, created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued_for_head',
+  head_principal_id TEXT, head_inbox_at TEXT);
 CREATE TABLE IF NOT EXISTS feed_sources(
   id TEXT PRIMARY KEY, url TEXT NOT NULL, approved_by TEXT NOT NULL,
   approved_at TEXT NOT NULL, status TEXT NOT NULL);
@@ -161,6 +163,24 @@ CREATE TABLE IF NOT EXISTS billed_costs(
 CREATE TABLE IF NOT EXISTS revenue(
   id TEXT PRIMARY KEY, recorded_at TEXT NOT NULL, amount_cents INTEGER NOT NULL,
   source TEXT NOT NULL, note TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS department_seats(
+  id TEXT PRIMARY KEY, department_id TEXT NOT NULL UNIQUE REFERENCES departments(id),
+  principal_id TEXT, title TEXT NOT NULL,
+  status TEXT NOT NULL, appointed_by TEXT, appointed_at TEXT, vacated_at TEXT);
+CREATE TABLE IF NOT EXISTS position_assignments(
+  id TEXT PRIMARY KEY, position_id TEXT NOT NULL REFERENCES positions(id),
+  department_id TEXT NOT NULL REFERENCES departments(id), principal_id TEXT NOT NULL,
+  status TEXT NOT NULL, reports_to_seat_id TEXT REFERENCES department_seats(id),
+  assigned_by TEXT NOT NULL, assigned_at TEXT NOT NULL, released_at TEXT);
+CREATE TABLE IF NOT EXISTS project_department_activations(
+  project_id TEXT NOT NULL REFERENCES projects(id),
+  department_id TEXT NOT NULL REFERENCES departments(id),
+  activated_by TEXT NOT NULL, activated_at TEXT NOT NULL,
+  PRIMARY KEY(project_id, department_id));
+CREATE TABLE IF NOT EXISTS dispatch_assignments(
+  id TEXT PRIMARY KEY, dispatch_id TEXT NOT NULL REFERENCES project_dispatches(id),
+  assignee TEXT NOT NULL, assigned_by TEXT NOT NULL, assigned_at TEXT NOT NULL,
+  queue_task_id TEXT, status TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (
@@ -171,7 +191,7 @@ SLO_DEFINITIONS = (
 )
 
 GRANT_REQUIRED = {"actions", "projects", "budget_cents", "per_action_cents", "expires_at", "requires_approval"}
-GRANT_OPTIONAL = {"approval_rights"}
+GRANT_OPTIONAL = {"approval_rights", "departments"}
 POLICY_REQUIRED = {"version", "company_budget_cents", "grants"}
 MAX_DELEGATION_DEPTH = 2
 KNOWN_ACTIONS = {"draft", "review", "prepare_pr", "provision_room", "inspect_room"}
