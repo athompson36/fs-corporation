@@ -7,6 +7,7 @@ from unittest.mock import patch
 from company.core import Company, canonical
 from company.settings_catalog import EDITABLE_KEYS, READONLY_KEYS, validate_value
 from company.settings_runtime import effective, list_settings, secrets_status
+from tests.test_api import owner_client
 from tests.test_core import install, policy
 
 
@@ -111,6 +112,93 @@ class CatalogTests(unittest.TestCase):
         hit = next(r for r in rows if r["name"] == "MODEL_PROVIDER_API_KEY")
         self.assertTrue(hit["configured"])
         self.assertEqual(set(hit.keys()), {"name", "configured"})
+
+
+class SettingsApiTests(unittest.TestCase):
+    def setUp(self):
+        self.c, self.client = owner_client()
+        self.addCleanup(self.c.close)
+        self.h = {"Authorization": "Bearer owner-token"}
+
+    def _pair(self, access_level):
+        issued = self.c.create_pairing_ticket(
+            "human-ceo", "https://192.168.4.100", access_level=access_level
+        )
+        return self.c.redeem_pairing_ticket(issued["ticket"])["token"]
+
+    def test_get_patch_reset(self):
+        g = self.client.get("/api/v1/settings", headers=self.h)
+        self.assertEqual(g.status_code, 200, g.text)
+        keys = {i["key"] for i in g.json()["items"]}
+        self.assertIn("FS_CORP_SSE_IDLE_SEC", keys)
+        self.assertIn("FS_CORP_LAN_IP", keys)
+        p = self.client.patch(
+            "/api/v1/settings",
+            json={"payload": {"updates": {"FS_CORP_SSE_IDLE_SEC": 2}}},
+            headers={**self.h, "Idempotency-Key": "set-1"},
+        )
+        self.assertEqual(p.status_code, 200, p.text)
+        item = p.json()["result"]["items"][0]
+        self.assertEqual(item["value"], 2.0)
+        self.assertEqual(item["source"], "overlay")
+        r = self.client.post(
+            "/api/v1/settings/reset",
+            json={"payload": {"keys": ["FS_CORP_SSE_IDLE_SEC"]}},
+            headers={**self.h, "Idempotency-Key": "set-reset"},
+        )
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertNotEqual(r.json()["result"]["items"][0]["source"], "overlay")
+
+    def test_unknown_key_422(self):
+        p = self.client.patch(
+            "/api/v1/settings",
+            json={"payload": {"updates": {"NOT_A_KEY": 1}}},
+            headers={**self.h, "Idempotency-Key": "bad"},
+        )
+        self.assertEqual(p.status_code, 422)
+
+    def test_write_routes_reject_unknown_fields(self):
+        patch_response = self.client.patch(
+            "/api/v1/settings",
+            json={"payload": {"updates": {"FS_CORP_SSE_IDLE_SEC": 2}, "extra": True}},
+            headers={**self.h, "Idempotency-Key": "patch-extra"},
+        )
+        self.assertEqual(patch_response.status_code, 422)
+        reset_response = self.client.post(
+            "/api/v1/settings/reset",
+            json={"payload": {"all_overlay": True, "extra": True}},
+            headers={**self.h, "Idempotency-Key": "reset-extra"},
+        )
+        self.assertEqual(reset_response.status_code, 422)
+
+    def test_secrets_status(self):
+        s = self.client.get("/api/v1/settings/secrets-status", headers=self.h)
+        self.assertEqual(s.status_code, 200)
+        for row in s.json()["secrets"]:
+            self.assertEqual(set(row.keys()), {"name", "configured"})
+
+    def test_paired_admin_allowed_and_companion_user_denied(self):
+        admin_token = self._pair("admin")
+        allowed = self.client.patch(
+            "/api/v1/settings",
+            json={"payload": {"updates": {"FS_CORP_SSE_IDLE_SEC": 3}}},
+            headers={
+                "Authorization": f"Bearer {admin_token}",
+                "Idempotency-Key": "admin-settings",
+            },
+        )
+        self.assertEqual(allowed.status_code, 200, allowed.text)
+
+        user_token = self._pair("user")
+        denied = self.client.patch(
+            "/api/v1/settings",
+            json={"payload": {"updates": {"FS_CORP_SSE_IDLE_SEC": 4}}},
+            headers={
+                "Authorization": f"Bearer {user_token}",
+                "Idempotency-Key": "user-settings",
+            },
+        )
+        self.assertEqual(denied.status_code, 403)
 
 
 if __name__ == "__main__":

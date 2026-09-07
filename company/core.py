@@ -2997,6 +2997,66 @@ class Company:
                 "response_body": response_body,
             }
 
+    def list_company_settings(self):
+        from company.settings_runtime import list_settings
+        return {"items": list_settings(self)}
+
+    def patch_company_settings(self, actor, updates):
+        self._ceo_or_admin_companion(actor)
+        from company.settings_catalog import EDITABLE_KEYS, validate_value
+        if not isinstance(updates, dict) or not updates:
+            raise ValueError("updates mapping required")
+        changed = []
+        with self.tx():
+            for key, raw in updates.items():
+                if key not in EDITABLE_KEYS:
+                    raise ValueError(f"Unknown or read-only setting: {key}")
+                value = validate_value(key, raw)
+                self.db.execute(
+                    "INSERT OR REPLACE INTO company_settings VALUES(?,?,?,?)",
+                    (key, canonical(value), now().isoformat(), actor),
+                )
+                changed.append(key)
+            self._event("settings.updated", {"keys": changed}, actor_id=actor)
+        from company.settings_runtime import effective
+        return {"items": [effective(self, key) for key in changed]}
+
+    def reset_company_settings(self, actor, keys=None, all_overlay=False):
+        self._ceo_or_admin_companion(actor)
+        from company.settings_catalog import EDITABLE_KEYS
+        if not isinstance(all_overlay, bool):
+            raise ValueError("all_overlay must be boolean")
+        if all_overlay and keys is not None:
+            raise ValueError("Provide keys or all_overlay, not both")
+        if all_overlay:
+            changed = None
+        else:
+            if not isinstance(keys, list) or not keys:
+                raise ValueError("keys list or all_overlay=true required")
+            changed = []
+            for key in keys:
+                if key not in EDITABLE_KEYS:
+                    raise ValueError(f"Unknown or read-only setting: {key}")
+                if key not in changed:
+                    changed.append(key)
+        with self.tx():
+            if changed is None:
+                changed = [
+                    row["key"]
+                    for row in self.db.execute(
+                        "SELECT key FROM company_settings ORDER BY key"
+                    )
+                ]
+            for key in changed:
+                self.db.execute("DELETE FROM company_settings WHERE key=?", (key,))
+            self._event("settings.reset", {"keys": changed}, actor_id=actor)
+        from company.settings_runtime import effective
+        return {"items": [effective(self, key) for key in changed]}
+
+    def secrets_status(self):
+        from company.settings_runtime import secrets_status
+        return {"secrets": secrets_status()}
+
     def prune_idempotency_keys(self, actor, older_than_days=None):
         """Delete idempotency rows older than the retention window (default 7 days)."""
         self._ceo_or_admin_companion(actor)

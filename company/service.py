@@ -1556,6 +1556,62 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "company.read")
         return company.status() | {"paused": company.db.execute("SELECT value FROM settings WHERE key='paused'").fetchone()[0]}
 
+    @app.get("/api/v1/settings")
+    def settings(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.list_company_settings()
+
+    @app.patch("/api/v1/settings")
+    def patch_settings(
+            body: Command, authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        unknown = payload.keys() - {"updates"}
+        if unknown:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(unknown)}")
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.patch_company_settings(
+                    ident["principal_id"], payload.get("updates")), 200),
+        )
+
+    @app.post("/api/v1/settings/reset")
+    def reset_settings(
+            body: Command, authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        unknown = payload.keys() - {"keys", "all_overlay"}
+        if unknown:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(unknown)}")
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.reset_company_settings(
+                    ident["principal_id"],
+                    keys=payload.get("keys"),
+                    all_overlay=payload.get("all_overlay", False),
+                ),
+                200,
+            ),
+        )
+
+    @app.get("/api/v1/settings/secrets-status")
+    def settings_secrets_status(
+            authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.secrets_status()
+
     @app.get("/api/v1/activity")
     def activity(status: str = "open",
                  authorization: str | None = Header(default=None)):
