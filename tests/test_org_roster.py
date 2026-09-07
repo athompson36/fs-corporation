@@ -30,5 +30,57 @@ class OrgRosterSeedTests(unittest.TestCase):
         self.assertIsNone(product["principal_id"])
 
 
+class OrgAppointTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.c.seed_catalog(CATALOG)
+        self.addCleanup(self.c.close)
+
+    def test_appoint_and_vacate_head(self):
+        row = self.c.appoint_head("human-ceo", "engineering", "eng-cto")
+        self.assertEqual(row["status"], "active")
+        self.assertEqual(row["principal_id"], "eng-cto")
+        seat = self.c.db.execute(
+            "SELECT * FROM department_seats WHERE department_id=?",
+            ("engineering",),
+        ).fetchone()
+        self.assertEqual(seat["principal_id"], "eng-cto")
+        vacated = self.c.vacate_head("human-ceo", "engineering")
+        self.assertEqual(vacated["status"], "vacant")
+        self.assertIsNone(vacated["principal_id"])
+
+    def test_non_ceo_cannot_appoint_without_later_grant_hook(self):
+        # Milestone 1: CEO-only; milestone 2 may allow org.appoint_head grant.
+        with self.assertRaises(PermissionError):
+            self.c.appoint_head("stranger", "engineering", "eng-cto")
+
+    def test_assign_and_release_position(self):
+        self.c.appoint_head("human-ceo", "engineering", "eng-cto")
+        aid = self.c.assign_position(
+            "human-ceo",
+            "engineering:Developer",
+            "dev-1",
+        )["id"]
+        row = self.c.db.execute(
+            "SELECT * FROM position_assignments WHERE id=?",
+            (aid,),
+        ).fetchone()
+        self.assertEqual(row["principal_id"], "dev-1")
+        self.assertEqual(row["status"], "active")
+        self.c.release_position("human-ceo", aid)
+        row = self.c.db.execute(
+            "SELECT * FROM position_assignments WHERE id=?",
+            (aid,),
+        ).fetchone()
+        self.assertEqual(row["status"], "released")
+
+    def test_list_org_shows_vacant_honestly(self):
+        org = self.c.list_org()
+        eng = next(d for d in org["departments"] if d["id"] == "engineering")
+        self.assertEqual(eng["seat"]["status"], "vacant")
+        self.assertIsNone(eng["seat"]["principal_id"])
+
+
 if __name__ == "__main__":
     unittest.main()

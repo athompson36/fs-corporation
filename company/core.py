@@ -882,6 +882,182 @@ class Company:
                     self.db.execute("INSERT OR REPLACE INTO positions VALUES(?,?,?)",(pid,d["id"],title))
             self._event("catalog.seeded",{"departments":len(data["departments"])})
 
+    def appoint_head(self, actor, department_id, principal_id):
+        self._ceo(actor)
+        if not principal_id or not str(principal_id).strip():
+            raise ValueError("principal_id required")
+        dept = self.db.execute(
+            "SELECT id, head_title FROM departments WHERE id=?",
+            (department_id,),
+        ).fetchone()
+        if not dept:
+            raise ValueError("Unknown department")
+        principal_id = str(principal_id).strip()
+        with self.tx():
+            seat = self.db.execute(
+                "SELECT id FROM department_seats WHERE department_id=?",
+                (department_id,),
+            ).fetchone()
+            if not seat:
+                raise ValueError("Seat missing; seed catalog first")
+            self.db.execute(
+                """UPDATE department_seats
+                   SET principal_id=?, title=?, status='active', appointed_by=?,
+                       appointed_at=?, vacated_at=NULL
+                   WHERE department_id=?""",
+                (principal_id, dept["head_title"], actor, now().isoformat(), department_id),
+            )
+            self._event(
+                "org.head_appointed",
+                {"department_id": department_id, "principal_id": principal_id},
+                actor_id=actor,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM department_seats WHERE department_id=?",
+            (department_id,),
+        ).fetchone())
+
+    def vacate_head(self, actor, department_id):
+        self._ceo(actor)
+        dept = self.db.execute(
+            "SELECT id, initially_active FROM departments WHERE id=?",
+            (department_id,),
+        ).fetchone()
+        if not dept:
+            raise ValueError("Unknown department")
+        with self.tx():
+            seat = self.db.execute(
+                "SELECT principal_id FROM department_seats WHERE department_id=?",
+                (department_id,),
+            ).fetchone()
+            if not seat:
+                raise ValueError("Seat missing; seed catalog first")
+            if seat["principal_id"]:
+                self.db.execute(
+                    "UPDATE queue SET status='cancelled' WHERE actor=? AND status='queued'",
+                    (seat["principal_id"],),
+                )
+            status = "vacant" if dept["initially_active"] else "dormant"
+            self.db.execute(
+                """UPDATE department_seats
+                   SET principal_id=NULL, status=?, vacated_at=?
+                   WHERE department_id=?""",
+                (status, now().isoformat(), department_id),
+            )
+            self._event(
+                "org.head_vacated",
+                {"department_id": department_id},
+                actor_id=actor,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM department_seats WHERE department_id=?",
+            (department_id,),
+        ).fetchone())
+
+    def assign_position(self, actor, position_id, principal_id, reports_to_seat_id=None):
+        self._ceo(actor)
+        position = self.db.execute(
+            "SELECT id, department_id FROM positions WHERE id=?",
+            (position_id,),
+        ).fetchone()
+        if not position:
+            raise ValueError("Unknown position")
+        if not principal_id or not str(principal_id).strip():
+            raise ValueError("principal_id required")
+        if reports_to_seat_id and not self.db.execute(
+                "SELECT id FROM department_seats WHERE id=?",
+                (reports_to_seat_id,),
+        ).fetchone():
+            raise ValueError("Unknown reports_to_seat_id")
+        assignment_id = str(uuid.uuid4())
+        principal_id = str(principal_id).strip()
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO position_assignments(
+                       id, position_id, department_id, principal_id, status,
+                       reports_to_seat_id, assigned_by, assigned_at, released_at)
+                   VALUES(?,?,?,?,?,?,?,?,?)""",
+                (
+                    assignment_id,
+                    position_id,
+                    position["department_id"],
+                    principal_id,
+                    "active",
+                    reports_to_seat_id,
+                    actor,
+                    now().isoformat(),
+                    None,
+                ),
+            )
+            self._event(
+                "org.position_assigned",
+                {
+                    "id": assignment_id,
+                    "position_id": position_id,
+                    "principal_id": principal_id,
+                },
+                actor_id=actor,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM position_assignments WHERE id=?",
+            (assignment_id,),
+        ).fetchone())
+
+    def release_position(self, actor, assignment_id):
+        self._ceo(actor)
+        with self.tx():
+            assignment = self.db.execute(
+                "SELECT id FROM position_assignments WHERE id=? AND status='active'",
+                (assignment_id,),
+            ).fetchone()
+            if not assignment:
+                raise ValueError("Active assignment not found")
+            self.db.execute(
+                """UPDATE position_assignments
+                   SET status='released', released_at=?
+                   WHERE id=?""",
+                (now().isoformat(), assignment_id),
+            )
+            self._event(
+                "org.position_released",
+                {"id": assignment_id},
+                actor_id=actor,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM position_assignments WHERE id=?",
+            (assignment_id,),
+        ).fetchone())
+
+    def list_org(self):
+        departments = []
+        for department in self.db.execute(
+                """SELECT id, name, head_title, mission, room_type, initially_active
+                   FROM departments ORDER BY id"""):
+            seat = self.db.execute(
+                "SELECT * FROM department_seats WHERE department_id=?",
+                (department["id"],),
+            ).fetchone()
+            assignments = [
+                dict(row)
+                for row in self.db.execute(
+                    """SELECT * FROM position_assignments
+                       WHERE department_id=? AND status='active'
+                       ORDER BY assigned_at""",
+                    (department["id"],),
+                )
+            ]
+            departments.append({
+                **dict(department),
+                "seat": dict(seat) if seat else {
+                    "department_id": department["id"],
+                    "principal_id": None,
+                    "status": "vacant",
+                    "title": department["head_title"],
+                },
+                "assignments": assignments,
+            })
+        return {"departments": departments}
+
     def seed_models(self,models_path):
         data=json.loads(Path(models_path).read_text())
         with self.tx():
