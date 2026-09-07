@@ -4625,6 +4625,21 @@ class Company:
             (request_id,),
         ).fetchone())
 
+    def remaining_dispatch_budget_cents(self):
+        from company.dispatch_recommend import remaining_budget_cents
+        return remaining_budget_cents(self)
+
+    def dispatch_options(self, project_id):
+        from company.dispatch_recommend import build_dispatch_options
+        return build_dispatch_options(self, project_id)
+
+    def recommend_dispatch(self, actor, project_id, use_live=True):
+        self._ceo_or_admin_companion(actor)
+        from company.dispatch_recommend import mock_recommend
+        # Live path added in Task 2; Task 1 always returns mock.
+        _ = use_live
+        return mock_recommend(self, project_id)
+
     def dispatch_project_brief(self, actor, project_id, brief, department_budgets,
                                acceptance_criteria, due_at=None):
         self._ceo_or_admin_companion(actor)
