@@ -127,23 +127,53 @@ def mock_recommend(company, project_id: str) -> dict:
         "notes": [],
     }
 
+def _coerce_budget_cents(value) -> int:
+    if isinstance(value, bool):
+        raise ValueError("budget_cents must be an integer")
+    if value is None:
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if value != int(value):
+            raise ValueError("budget_cents must be an integer")
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return 0
+        try:
+            as_float = float(stripped)
+        except ValueError as exc:
+            raise ValueError("budget_cents must be an integer") from exc
+        if as_float != int(as_float):
+            raise ValueError("budget_cents must be an integer")
+        return int(as_float)
+    raise ValueError("budget_cents must be an integer")
+
 def validate_suggestion(raw: dict, catalog_ids: set[str], max_cents: int) -> dict:
     brief = str(raw.get("brief") or "").strip()
     criteria = str(raw.get("acceptance_criteria") or "").strip()
     if not brief or not criteria:
         raise ValueError("brief and acceptance_criteria required")
-    departments = []
+    departments_by_id: dict[str, dict] = {}
+    dept_order: list[str] = []
     for item in raw.get("departments") or []:
         dept_id = str(item.get("id") or "").strip()
         if dept_id not in catalog_ids:
             continue
-        amount = money(int(item.get("budget_cents") or 0))
-        amount = max(0, min(amount, max_cents))
-        departments.append({
+        amount = _coerce_budget_cents(item.get("budget_cents"))
+        amount = money(max(0, min(amount, max_cents)))
+        entry = {
             "id": dept_id,
             "budget_cents": amount,
             "recommended": bool(item.get("recommended", True)),
-        })
+        }
+        if dept_id in departments_by_id:
+            dept_order.remove(dept_id)
+        dept_order.append(dept_id)
+        departments_by_id[dept_id] = entry
+    departments = [departments_by_id[d] for d in dept_order]
     if not departments:
         raise ValueError("no valid departments")
     return {

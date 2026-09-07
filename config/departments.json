@@ -93,7 +93,7 @@
         "brand consistency"
       ],
       "room_type": "design-studio",
-      "initially_active": false,
+      "initially_active": true,
       "default_model_profile": "mock-text"
     },
     {
