@@ -1,6 +1,6 @@
 # Design: Host gateway egress via worker NIC (.101)
 
-Date: 2026-09-02. Status: approved (approach A).
+Date: 2026-09-02. Status: **implemented** (approach A). See ADR-019 and `deploy/fs-dev/gateway-egress.sh`.
 
 ## Problem
 

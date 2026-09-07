@@ -1,5 +1,8 @@
 # ChatDev Adapter Slice 2 Implementation Plan
 
+**Status: implemented (v0.3.39).** The step checkboxes below are the original working list
+and are left unticked as a historical record; they are not open work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Phase A — subprocess worker can run live ChatDev when opted in; Phase B — control-plane denies live SDK unless explicit allow.

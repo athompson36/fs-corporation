@@ -2,9 +2,9 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.13 local status:** Cosmic-glass desk and companion chrome. Room detail, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, and fs-dev remain. Live adapters remain disabled.
+**v0.3.41 local status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, and the fs-dev deployment are all in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable.
 
-All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials remain unconfigured and do not block local work.
+All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials are owner-supplied per environment; a clone without them still runs every local check.
 
 **Cross-cutting rules for every item**
 
@@ -91,7 +91,7 @@ Implement [16-api-contract.md](16-api-contract.md) `/api/v1` on loopback.
 
 - [x] Command envelope: `Idempotency-Key`, expected resource/policy version, typed payload
 - [x] Responses: operation id, resource version, status, event correlation id
-- [x] Status codes: 401 / 403 / 409 (stale) / 422 / 429
+- [ ] Status codes: 401 / 403 / 409 (stale) / 422 / 429 — **401/403/409/422 implemented and tested; `429` is not implemented** (no rate limiting in `company/`). Tracked in M10-01.
 - [x] Same key + changed payload → reject; same key + same payload → replay original result
 - [x] Keep mock dispatch only (`draft` / `review` / `prepare_pr`); adapters stay disabled
 - [x] Service module `company/service.py`; tests in `tests/test_api.py`
@@ -121,7 +121,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] `GET /events` cursor pagination (ACL = same as REST reads)
 - [x] Pause stops new dispatch; resume is owner/CEO
 - [x] `python3 -m company backup` / `restore` using the SQLite backup API; restore drill documented in [13-operations.md](13-operations.md)
-- [x] Consultant: authenticated list/decide endpoints; stale-evidence rejection; revision request creates a new digest (does not mutate the old proposal)
+- [ ] Consultant: authenticated list/decide endpoints; stale-evidence rejection; revision request creates a new digest (does not mutate the old proposal) — **endpoints and revision digest done and tested; stale-evidence rejection (`company/consultant.py`) has no test.** Tracked in M10-02.
 
 ## M2 — Organization, models and ChatDev contract
 
@@ -131,9 +131,9 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Persist model profiles and versioned assignments
 - [x] Selection order: task assignment → position override → department default → company default
 - [x] Never broaden data classification on fallback; disabled profiles skipped with a clear error
-- [x] Role benchmark fixtures (deterministic, no vendor claims)
+- [ ] Role benchmark fixtures (deterministic, no vendor claims) — **not present; no fixture files exist.** `record_benchmark` writes `benchmark_results`, but nothing reads it. Tracked in M10-03.
 - [x] Record the pinned ChatDev checkout (`config/upstream.lock.json`); validate `run_workflow` signature against [07-chatdev-integration.md](07-chatdev-integration.md). Fetching a live checkout remains a local operator step.
-- [x] Adapter contract tests with a mock provider: WorkOrder in, isolated session name, usage metadata, cancel/fail mapping; no unapproved tools
+- [ ] Adapter contract tests with a mock provider: WorkOrder in, isolated session name, usage metadata, cancel/fail mapping; no unapproved tools — **`run()` path covered; `MockChatDevAdapter.cancel()` and `.fail()` exist but no test calls either.** Tracked in M10-02.
 - [x] Store work-order + workflow digests; final ChatDev message ≠ project acceptance
 - [x] Hardware skill catalog, gap assignment, study/certify, and dispatch gate (R18). Live documentation fetch remains `NotImplementedError`
 - [x] Quality Control inspection gate before acceptance (R19)
@@ -241,7 +241,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Security: API `127.0.0.1:8000` only; Caddy terminates TLS; `ufw.rules.example` denies LAN:8000
 - [x] Idempotent `deploy/fs-dev/install.sh`, `fs-corporation-api.service`, Caddyfile, `env.example`
 - [x] Health check `GET /api/v1/health` documented and verifiable on loopback and via Caddy
-- [x] Worker Docker scaffold (`Dockerfile.worker`, `docker-compose.workers.yml`) with scratch-directory gateway (`python -m company.worker --envelope/--scratch`); live image on `.101` still pending
+- [x] Worker Docker scaffold (`Dockerfile.worker`, `docker-compose.workers.yml`) with scratch-directory gateway (`python -m company.worker --envelope/--scratch`); image builds and dispatches on the same host, and workers stay `--network none` rather than binding `.101`
 - [x] ADR-016; canonical runbook [25-fs-dev-deployment.md](25-fs-dev-deployment.md)
 - [x] Phase 1 acceptance on physical fs-dev (`192.168.4.100`): install, API, Caddy, companion, pairing, Apple Web Push `applied`
 - [x] Phase 2 (same-host): `FS_CORP_DEFAULT_WORKER_RUNTIME=container`, worker NIC `.101` presence in status, container labels; workers remain `--network none`
@@ -249,6 +249,116 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Same-host worker plane: `worker_plane` on `/api/v1/workers/status` (healthy/degraded/unset, soft); verify script `--require-plane`
 
 **Acceptance:** on a Debian host with static `192.168.4.100`, `install.sh` completes; `fs-corporation-api` is active; `curl` to loopback `/api/v1/health` returns 200; phone opens `https://192.168.4.100`, companion loads with same-origin API and owner token; port 8000 is not reachable from LAN; denial tests still pass. Container worker image builds locally; live adapter dispatch remains fail-closed.
+
+## M10 — Audit remediation (2026-09-07)
+
+**Depends on M1–M9.** Opened by the full-project audit at 0.3.41. Every item here is a gap
+the audit confirmed against code, not a new feature. Nothing in M10 blocks the optional
+tracks (TailscaleKit, second worker host, ChatDev egress).
+
+### M10-01: Correctness and durability
+
+- [ ] **HTTP `429` and request throttling.** No rate limiting exists in `company/`, yet
+      [16-api-contract.md](16-api-contract.md) implies `429` is part of the contract.
+      *Acceptance:* a documented per-principal limit returns `429` with a `Retry-After`
+      header; a test drives a principal past the limit and asserts the code; unauthenticated
+      routes (`/health`, webhook ingress, pairing redeem) have their own documented policy.
+- [ ] **Run migrations at startup, or detect drift.** `Company()` calls `apply_schema`, which
+      uses `CREATE TABLE IF NOT EXISTS` and therefore cannot add columns. A database created
+      by the application can silently miss column-only migrations such as
+      `0011_pairing_access_level`.
+      *Acceptance:* startup either runs `alembic upgrade head` or compares `alembic_version`
+      against the head and fails closed with a clear message; a test creates a database at an
+      older revision and asserts the chosen behavior.
+- [ ] **Record idempotency atomically with the effect it protects.** `remember_command`
+      commits in a transaction separate from the handler (`company/service.py`), so a crash
+      between them lets a retry re-execute unless a domain-level key happens to catch it.
+      *Acceptance:* the mutation and its idempotency record commit together, or the handler
+      is proven safe by a domain key; a test simulates failure between the two.
+- [ ] **Close the worker-completion transaction gap.** `company/worker.py` updates the queue
+      and emits `task.worker_completed` outside `tx()`, so a crash can leave a produced task
+      still queued or leased.
+      *Acceptance:* queue transition and event persist in one transaction; a test asserts no
+      intermediate state survives a simulated failure.
+- [ ] **Add an idempotency-key retention policy.** `command_idempotency` grows without bound
+      and has no TTL or eviction.
+      *Acceptance:* documented retention window plus a prune path with a test.
+
+### M10-02: Test gaps behind previously claimed items
+
+- [ ] **Adapter `cancel` / `fail` mapping tests.** `MockChatDevAdapter.cancel()` and `.fail()`
+      exist in `company/adapters.py` with no caller in `tests/`.
+      *Acceptance:* tests assert the returned shape and that neither path produces an
+      accepted artifact. Re-checks the M2 adapter-contract item.
+- [ ] **Consultant stale-evidence rejection test.** `company/consultant.py` raises on stale
+      evidence; nothing exercises it.
+      *Acceptance:* a test passes a mismatched `expected_source_hash` and asserts the refusal.
+      Re-checks the M1-07 item.
+- [ ] **Non-loopback bind refusal test.** `company/service.py` refuses to bind a non-loopback
+      address without `--allow-remote`; untested.
+      *Acceptance:* a test asserts the refusal and that `--allow-remote` permits it.
+- [ ] **SSE stream test.** `GET /api/v1/events/stream` has no test.
+      *Acceptance:* a test consumes at least one event frame and asserts the cursor contract.
+
+### M10-03: Financial model completeness
+
+- [ ] **Separate actual billed cost from simulated credits.** The schema has simulated
+      credits (`ledger`), estimates (`work_orders.max_cost_cents`), and reservations, but no
+      billed-cost table, so the required separation is incomplete. `invoke_model` returns
+      `cost_cents` that is never persisted.
+      *Acceptance:* a billed-cost record in integer minor units, written when a live provider
+      call returns, distinct from simulated spend in `/api/v1/company` and the budget view.
+- [ ] **Model real revenue.** No revenue table exists.
+      *Acceptance:* a revenue record in integer minor units, never mixed with simulated
+      credits in any total.
+- [ ] **Give `benchmark_results` and `model_profiles` a read path or remove them.** Both are
+      written and never read by application code; live routing reads JSON config instead.
+      *Acceptance:* either a consumer with a test, or removal with a migration note.
+- [ ] **Role benchmark fixtures (deterministic, no vendor claims).** Carried from M2; no
+      fixture files exist.
+      *Acceptance:* committed fixtures plus a test that reads them through the benchmark path.
+
+### M10-04: Operator visibility and UI
+
+- [ ] **Fix the hanging companion build.** `cd companion && npm run build` never terminates:
+      `tsc` passes and the main bundle finishes in ~600 ms, then `vite-plugin-pwa` 0.21.2
+      (`injectManifest`, `src/sw.ts`) prints `Building src/sw.ts service worker` and hangs at
+      0% CPU. `dist/sw.js` is never emitted although `dist/registerSW.js` is, so a deployed
+      companion requests a service worker that does not exist. `deploy/fs-dev/install.sh`
+      runs this build, so an install can appear to stall.
+      *Acceptance:* the build exits non-interactively and emits `dist/sw.js`; offline load and
+      update-on-reload work on a phone. Investigate the plugin version first — an upgrade or a
+      switch to `generateSW` may be enough.
+- [ ] **Surface operational status in the UI.** `workers/status`, `chatdev/status`,
+      `github/status`, `model/status`, `feeds`, and `slos` are API-only today.
+      *Acceptance:* a desk section rendering these from live responses, showing nothing when
+      an endpoint is unavailable rather than inventing state.
+- [ ] **Display the version.** No UI surface shows one; `GET /api/v1/health` already returns
+      it, and `companion/package.json` has drifted behind the backend.
+      *Acceptance:* desk and companion render the backend version; companion package version
+      tracks releases.
+- [ ] **Keyboard access for HQ room tiles.** Isometric and plan tiles in `company/service.py`
+      are click-only SVG with no focus or key handler; the list view is already accessible.
+      *Acceptance:* tiles are focusable and activate on Enter/Space.
+- [ ] **Replace `window.prompt` in the companion.** It currently drives real mutations
+      (inbox response, escalation, project enroll, dispatch), which blocks the main thread and
+      degrades screen-reader and mobile use.
+      *Acceptance:* in-app form controls with labels for each of those four flows.
+
+### M10-05: Documentation and decision hygiene
+
+- [x] **ADRs for four undocumented decisions:** GitHub webhook ingress, path-scoped Tailscale
+      Funnel, the same-host worker plane, and the ChatDev adapter slices. Each shipped with a
+      spec but no entry in [decisions.md](decisions.md). Added as ADR-021 through ADR-024,
+      each recorded retroactively and marked as such.
+- [ ] **Keep plan checkboxes honest.** Plans under `docs/superpowers/plans/` carry a
+      `Status:` line; the per-step boxes stay unticked once a plan is marked implemented.
+      *Acceptance:* a bundle check, or a documented convention in
+      [15-testing.md](15-testing.md).
+
+**Acceptance for M10:** no roadmap item is marked `[x]` without code or a test behind it;
+`VERIFICATION.md` matches what the suite actually proves; and the test suite passes both
+with and without a developer `.env` exported.
 
 ## Suggested first production slice
 
@@ -279,4 +389,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Same-host worker plane on `.101`** (`worker_plane` on `/workers/status`). ChatDev adapter slice 3 delivered. Next optional: TailscaleKit; dedicated second worker host; full ChatDev deps in worker image for egress; furnished HQ room art deferred.
+**M10-01: correctness and durability gaps** found by the 2026-09-07 audit — starting with
+HTTP `429`, then Alembic-on-startup and atomic idempotency. M9 is complete: the same-host
+worker plane on `.101` shipped in 0.3.41.
+
+Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
+dependencies plus controlled egress in the worker image; furnished HQ room art.

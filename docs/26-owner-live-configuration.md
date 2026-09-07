@@ -29,7 +29,7 @@ python3 scripts/check_owner_config.py --env-file /etc/fs-corporation/secrets.env
 |---|---|---|
 | fs-dev host | Debian 12+ you control | Production install |
 | Primary LAN IP | `FS_CORP_LAN_IP`, Caddyfile | Phone on Wi‑Fi |
-| Worker NIC (phase 2) | `FS_CORP_WORKER_NIC_IP=192.168.4.101` | Container workers |
+| Same-host worker plane | `FS_CORP_WORKER_NIC_IP=192.168.4.101` | Second address on the same host; reported as `worker_plane`, soft check, also the gateway egress source |
 | TLS | Caddy `tls internal` or real cert | HTTPS companion |
 | SSH/sudo | Operator access | Install, updates |
 | Firewall | ufw: 22/443; deny LAN:8000 | Security model |
@@ -87,7 +87,7 @@ Today `invoke_model` uses `mock` offline, OpenAI-compatible `/chat/completions` 
 
 | Item | Notes |
 |---|---|
-| Docker on worker host | `.101` or same host for build test |
+| Docker | On the control-plane host; workers run same-host with `--network none` |
 | Image | `docker compose --profile workers build` or `docker build -f deploy/fs-dev/Dockerfile.worker -t fs-corporation-worker:local .` |
 | No owner token in worker | Scratch gateway only |
 
@@ -126,6 +126,6 @@ Owner token, App private key, model keys, Tailscale auth keys, VAPID private key
 2. GitHub App + disposable repo IDs
 3. One model key + model ID
 4. One feed URL
-5. Worker image build on `.101`
+5. Worker image build on the control-plane host
 6. Tailscale (if off-LAN)
 7. VAPID (if push beats polling)

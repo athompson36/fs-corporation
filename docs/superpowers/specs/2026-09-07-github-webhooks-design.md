@@ -1,6 +1,6 @@
 # Design: GitHub webhook receiver (M4 completion)
 
-Date: 2026-09-07. Status: implementing.
+Date: 2026-09-07. Status: **implemented** (v0.3.39). Live `ping`, `push`, and `pull_request` deliveries returned 200 on fs-dev.
 
 ## Goal
 

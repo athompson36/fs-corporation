@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.env_guard import AmbientEnvIsolatedTestCase
+
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location(
     "check_owner_config", ROOT / "scripts" / "check_owner_config.py")
@@ -12,8 +14,9 @@ assert _spec.loader is not None
 _spec.loader.exec_module(coc)
 
 
-class OwnerConfigCheckTests(unittest.TestCase):
+class OwnerConfigCheckTests(AmbientEnvIsolatedTestCase):
     def test_missing_required_reports_github_not_ready(self):
+        # file_configured falls back to os.environ; the base class clears ambient keys.
         env = {k: "" for _, k, _, _ in coc.CHECKS}
         self.assertFalse(all(coc.file_configured(env, k) for k in (
             "GITHUB_APP_ID", "GITHUB_INSTALLATION_ID", "GITHUB_PRIVATE_KEY_FILE")))

@@ -1,5 +1,8 @@
 # ChatDev Adapter Slice 3 Implementation Plan
 
+**Status: implemented (v0.3.40).** The step checkboxes below are the original working list
+and are left unticked as a historical record; they are not open work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Optional ChatDev pin inside `fs-corporation-worker` image via build-arg; default image stays mock-only; container dispatch does not leak control-plane ChatDev allow env.

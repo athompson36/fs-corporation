@@ -1,6 +1,6 @@
 # Design: Tailscale Funnel for GitHub webhooks
 
-Date: 2026-09-07. Status: opted-in on fs-dev; live serve blocked on Tailscale Funnel consent.
+Date: 2026-09-07. Status: **implemented** (v0.3.37). Funnel consent granted; `https://fs-dev.tail824ab1.ts.net/api/v1/github/webhooks` serves live github.com deliveries.
 
 ## Goal
 

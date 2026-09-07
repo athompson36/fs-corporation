@@ -4,6 +4,7 @@ from unittest.mock import patch
 from company.core import Company
 from company.feed_fetch import parse_feed
 from company.model_provider import complete
+from tests.env_guard import AmbientEnvIsolatedTestCase
 from tests.test_core import install, policy
 
 
@@ -16,8 +17,9 @@ SAMPLE_RSS = b"""<?xml version="1.0"?>
 </item></channel></rss>"""
 
 
-class ModelLiveTests(unittest.TestCase):
+class ModelLiveTests(AmbientEnvIsolatedTestCase):
     def setUp(self):
+        super().setUp()
         self.c = Company()
         install(self.c, policy(self.c))
         self.addCleanup(self.c.close)
@@ -28,7 +30,9 @@ class ModelLiveTests(unittest.TestCase):
         }}
 
     def test_invoke_model_fail_closed_without_key(self):
-        with patch("company.model_provider.model_configured", return_value=False):
+        # invoke_model reads the credential env var directly, so clear it rather than
+        # patching model_configured (which invoke_model never calls).
+        with patch.dict("os.environ", {}, clear=True):
             with self.assertRaises(NotImplementedError):
                 self.c.invoke_model("live", "hello", self.registry)
 

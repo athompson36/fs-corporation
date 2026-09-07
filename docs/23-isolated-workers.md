@@ -16,7 +16,7 @@ Workers may request only:
 - `gateway_check` — authority recheck before effects
 - `store_artifact` — write bytes under the task scratch root
 - `execute_mock` — record a deterministic mock deliverable after checks pass
-- `invoke_model` — mock profiles only; live providers remain `NotImplementedError`
+- `invoke_model` — mock profiles always; a live provider runs only when its credential env var is present in the control-plane process, and raises `NotImplementedError` otherwise. Container workers have no network, so a live call is served by the parent gateway, never from inside the container.
 
 Policy changes, pause, hire, QC, and other control-plane operations are denied.
 
@@ -30,7 +30,7 @@ Payload fields (inside the standard command envelope):
 
 - `worker_id` — lease owner (defaults to authenticated principal)
 - `scratch_root` — writable directory for artifact bytes (defaults to a temp dir)
-- `runtime` — `subprocess` (default) or `container`
+- `runtime` — `subprocess` or `container`. Omitted, it follows `FS_CORP_DEFAULT_WORKER_RUNTIME` (`subprocess` unless set); fs-dev sets `container` and fails closed with 422 when container dispatch is not ready.
 - `approval` — optional approval id for gated actions
 
 In-process `POST /api/v1/tasks/{task_id}/dispatch` remains available for local tests without isolation.

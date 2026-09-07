@@ -10,7 +10,7 @@ Runbook for a single Debian host that runs the FS-Corporation control API on loo
 |------|---------|--------|
 | LAN edge (Caddy) | `192.168.4.100:443` | TLS (`tls internal`); static companion + `/api/*` proxy |
 | Control API | `127.0.0.1:8000` | systemd `fs-corporation-api`; not exposed on LAN |
-| Worker NIC (phase 2) | `192.168.4.101` | Reserved for container workers / internal traffic |
+| Same-host worker plane | `192.168.4.101` | Second address on this host; `worker_plane` health signal and gateway egress source. Workers do not bind it |
 | Tailscale | `100.x.x.x` | Optional second `https://` site block in `Caddyfile` |
 
 ## Prerequisites
@@ -38,7 +38,7 @@ Edit `/etc/fs-corporation/env` if paths or IPs differ from defaults.
 ssh andrew@192.168.4.100 'sudo bash ~/fs-corporation-deploy/run-install.sh'
 ```
 
-That sets `FS_CORP_DATA_DIR=/Data/fs-corporation/data`, binds the data tree into the `fs-dev-data` share (`/Volumes/fs-dev-data/fs-corporation`), and starts Caddy + the API. Worker NIC `192.168.4.101` is already on `eno2`.
+That sets `FS_CORP_DATA_DIR=/Data/fs-corporation/data`, binds the data tree into the `fs-dev-data` share (`/Volumes/fs-dev-data/fs-corporation`), and starts Caddy + the API. The worker plane address `192.168.4.101` is already on `eno2`.
 
 Rotate the owner token after any exposure:
 
@@ -185,6 +185,6 @@ Companion assets are rebuilt; systemd restarts the API.
 ## Limitations
 
 - `--data-dir` on `company.service` is part of the fs-dev contract; ensure the installed package version supports it or align flags with `python -m company.service --help`.
-- Container worker `main()` may still be a stub until gateway proxy is fully implemented; subprocess workers remain the dev default.
-- Dedicated worker traffic on NIC `192.168.4.101` is documented but not required for same-host dispatch.
+- Container workers are implemented over the scratch-directory gateway and are the fs-dev default when Docker, the image, and scratch are ready; subprocess remains the default elsewhere. Because containers run `--network none`, they cannot make billed model calls.
+- NIC `192.168.4.101` is the same-host worker plane, reported as `worker_plane` on `/api/v1/workers/status`. It is an identity and health signal; workers do not bind to it and same-host dispatch does not require it.
 - Live GitHub, billing, and model providers remain owner-configured and fail-closed until wired in config.

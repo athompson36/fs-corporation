@@ -12,7 +12,7 @@ flowchart LR
   Caddy -->|"/api/*"| API["company.service\n127.0.0.1:8000"]
   Caddy -->|static| PWA["Companion dist"]
   API --> DB[("SQLite\n/var/lib/fs-corporation")]
-  Workers["Docker workers\n(phase 2, .101)"] -.->|gateway only| API
+  Workers["Docker workers\n(same host, --network none)"] -.->|scratch gateway| API
 ```
 
 | Component | Phase | Bind / path | Notes |
@@ -21,8 +21,8 @@ flowchart LR
 | Caddy edge | 1 | `192.168.4.100:443` | TLS (`tls internal`); companion + `/api/*` proxy |
 | Companion PWA | 1 | `/var/lib/fs-corporation/companion/dist` | Built by `install.sh`; same-origin API in production |
 | Tailscale site | 1 (optional) | `https://100.x.x.x` | Second Caddy block; same `lan_site` import |
-| Worker host NIC | 2 | `192.168.4.101` | Reserved for container workers / internal traffic |
-| Docker workers | 2 | `network_mode: none` | Image scaffold only until live adapters configured |
+| Same-host worker plane | 2 | `192.168.4.101` | Second address on this host. Identity and health signal reported as `worker_plane`; also the gateway egress source when `FS_CORP_GATEWAY_EGRESS=worker_nic`. Workers do not bind it |
+| Docker workers | 2 | `network_mode: none` | Same host as the control plane; scratch-directory gateway, no network |
 
 **Hybrid rule:** native control plane + Caddy edge on the owned host; **Docker for workers only** (ADR-016). Do not containerize the control API in phase 1.
 
@@ -31,9 +31,17 @@ flowchart LR
 | Address | Phase | Role |
 |---------|-------|------|
 | `192.168.4.100` | 1 | Primary LAN edge — static IP on the host's primary interface; Caddy HTTPS |
-| `192.168.4.101` | 2 | Reserved worker / internal NIC — document only; no install steps until phase 2 |
+| `192.168.4.101` | 2 | Same-host worker plane — a second address on the same machine, not a second machine |
 
 Configure the host with a static `192.168.4.100/24` (or your LAN prefix) before running install. DNS is not required for LAN phone access.
+
+**What `.101` is and is not.** It is a worker-plane *identity* on this host: set
+`FS_CORP_WORKER_NIC_IP=192.168.4.101` and `/api/v1/workers/status` reports `worker_plane` as
+`healthy` (address present), `degraded` (configured but not assigned to any interface), or
+`unset` (not configured). The check is **soft** — a degraded plane never blocks container
+dispatch, because workers run `--network none` and never bind the address. Its one functional
+use is gateway egress: with `FS_CORP_GATEWAY_EGRESS=worker_nic`, control-plane outbound traffic
+leaves via `.101`. A genuinely separate worker *host* remains an optional future track.
 
 ## Phone access
 
@@ -232,6 +240,79 @@ Or set **`FS_CORP_WORKER_CHATDEV=1`** before `install.sh` / `run-install.sh` to 
 
 The reserved NIC **`192.168.4.101`** is the **same-host worker plane** (identity + optional API egress). Same-host dispatch does not bind Docker to that address. A dedicated **second physical host** for workers remains optional and is not required by this plane.
 
+## Environment variable reference
+
+Complete list of `FS_CORP_*` variables read by code in `company/`, `scripts/`, and
+`deploy/`. All are optional; each shows its default. Provider credentials
+(`MODEL_PROVIDER_API_KEY`, `ANTHROPIC_API_KEY`, `GITHUB_*`, `VAPID_*`) live in
+`secrets.env` and are covered in [26-owner-live-configuration.md](26-owner-live-configuration.md).
+
+### Read by the running service (`company/`)
+
+| Variable | Default | Effect |
+|---|---|---|
+| `FS_CORP_ALLOW_CORS` | unset | `1` permits cross-origin companion requests; dev only |
+| `FS_CORP_PUBLIC_URL` | request base URL | Public base URL advertised in pairing and remote-access payloads |
+| `FS_CORP_WORKER_SCRATCH` | a temp directory | Host scratch root when a dispatch omits `scratch_root` |
+| `FS_CORP_DEFAULT_WORKER_RUNTIME` | `subprocess` | `subprocess` or `container` when a dispatch omits `runtime` |
+| `FS_CORP_WORKER_IMAGE` | `fs-corporation-worker:local` | Image used by `ContainerWorkerRuntime` |
+| `FS_CORP_WORKER_SCRATCH_HOST` | unset | Absolute *host* path when the API itself runs in a container (Docker-from-Docker on macOS). Tests clear it; see `tests/env_guard.py` |
+| `FS_CORP_WORKER_NIC_IP` | unset | Worker-plane address; drives `worker_plane` state and gateway egress |
+| `FS_CORP_GATEWAY_EGRESS` | `default` | `worker_nic` routes control-plane egress via the worker plane |
+| `FS_CORP_GATEWAY_EGRESS_TABLE` | `101` | Policy routing table id; must match `gateway-egress.sh` |
+| `FS_CORP_GATEWAY_EGRESS_PRIORITY` | `1000` | `ip rule` priority; must match `gateway-egress.sh` |
+| `FS_CORP_SERVICE_USER` | `fs-corp` | Service account whose uid the egress `ip rule` matches |
+| `FS_CORP_TAILSCALE_AUTHKEY` | unset | Tailscale auth key for unattended join |
+| `FS_CORP_TAILSCALE_IP` | unset | Tailnet IPv4 reported by `/api/v1/remote-access` |
+| `FS_CORP_TAILSCALE_FUNNEL_WEBHOOKS` | unset | Opt in to Funnel-exposed webhook ingress |
+| `FS_CORP_GITHUB_WEBHOOK_PUBLIC_URL` | unset | Public webhook URL reported in `github/status` |
+| `FS_CORP_WORKER_CHATDEV` | unset | Build/report ChatDev presence in the worker image |
+
+`FS_CORP_API_HOST` and `FS_CORP_API_PORT` appear in `deploy/fs-dev/env.example` and
+`scripts/deploy_to_fs_dev.sh` but **nothing reads them**. The bind address comes from
+`--host` / `--port`, which `fs-corporation-api.service` hardcodes to `127.0.0.1:8000`.
+Changing them has no effect; edit the unit instead.
+
+### Read by install and deploy scripts
+
+| Variable | Default | Effect |
+|---|---|---|
+| `FS_CORP_INSTALL_DIR` | `/opt/fs-corporation` | Install prefix for `install.sh` |
+| `FS_CORP_CONFIG_DIR` | `/etc/fs-corporation` | Config and secrets directory |
+| `FS_CORP_ENV_FILE` | `${CONFIG_DIR}/env` | Non-secret environment file |
+| `FS_CORP_DATA_DIR` | `/var/lib/fs-corporation` | Data tree root (database, scratch, companion dist) |
+| `FS_CORP_DB` | `${DATA_DIR}/company.db` | Database path baked into the systemd unit |
+| `FS_CORP_COMPANION_DIST` | `${DATA_DIR}/companion/dist` | Where built companion assets are installed for Caddy |
+| `FS_CORP_SKIP_CADDY` | `0` | `1` skips Caddy install |
+| `FS_CORP_SKIP_WORKER_BUILD` | `0` | `1` skips the worker image build |
+| `FS_CORP_FS_DEV_HOST` | `andrew@192.168.4.100` | SSH target for `deploy_to_fs_dev.sh` |
+| `FS_CORP_DEPLOY_ROOT` | `$REMOTE_HOME/fs-corporation-deploy` | Remote staging root |
+| `FS_CORP_REMOTE_REPO` | `$DEPLOY_ROOT/repo` | Remote checkout path |
+| `FS_CORP_REMOTE_APP` | `/opt/fs-corporation` | Remote install prefix |
+| `FS_CORP_REMOTE_DATA` | `/Data/fs-corporation/data` | Remote data tree |
+| `FS_CORP_SMB_LINK` | `/media/andrew/Data/fs-corporation` | SMB share mount used by the deploy script |
+| `FS_CORP_TAILSCALE_HOSTNAME` | `fs-dev` | Hostname used when joining the tailnet |
+| `FS_CORP_FUNNEL_HTTPS_PORT` | `443` | Funnel listen port |
+| `FS_CORP_FUNNEL_APPLY_TIMEOUT_SEC` | `45` | Wait budget for Funnel to apply |
+
+### Read by verification and exercise scripts
+
+| Variable | Default | Effect |
+|---|---|---|
+| `FS_CORP_TOKEN` / `FS_CORP_OWNER_TOKEN` | unset | Owner bearer token for exercise scripts; `--token` or `--token-file` take precedence |
+| `FS_CORP_TOKEN_FILE` | `${CONFIG_DIR}/owner.token` in `install.sh`, unset elsewhere | Path to a file holding the owner token |
+| `FS_CORP_DB` | `/data/company.db` in exercise scripts | Database path when `--db` is omitted |
+| `FS_CORP_API_BASE` | per script (`http://192.168.4.100`, `http://localhost:8013`) | API base URL when `--base` is omitted |
+| `FS_CORP_PYTHON` | `/opt/fs-corporation/.venv/bin/python` | Interpreter used by `verify_fs_dev_pilot.sh` |
+| `FS_CORP_SCRIPTS` | `/opt/fs-corporation/scripts` | Script directory on the host |
+| `FS_CORP_PILOT_FEED_ID` | `github-blog` | Feed id used by the pilot verification |
+| `FS_CORP_PILOT_FEED_URL` | `https://github.blog/feed/` | Feed URL used by the pilot verification |
+| `FS_CORP_LAN_IP` | `192.168.4.100` | LAN address printed in the post-install companion URL |
+
+ChatDev opt-in uses its own namespace: `CHATDEV_HOME`, `CHATDEV_ENABLE`, `CHATDEV_PIN`,
+`CHATDEV_REF`, `CHATDEV_WORKFLOW`, `CHATDEV_ALLOW_CONTROL_PLANE`, and
+`CHATDEV_SKIP_PIN_CHECK`. See [07-chatdev-integration.md](07-chatdev-integration.md).
+
 ## Upgrades
 
 ```bash
@@ -253,7 +334,8 @@ Same-host container default, `.101` **worker plane** status (`worker_plane`), an
 ## Limitations
 
 - `--data-dir` on `company.service` is part of the fs-dev contract; align installed package version with `python -m company.service --help`.
-- Container worker `main()` may still be a stub until gateway proxy is fully implemented; subprocess workers remain the dev default.
+- Container workers are implemented over the scratch-directory gateway and are the fs-dev default when Docker, the image, and scratch are ready; subprocess remains the default elsewhere. Because containers run `--network none`, they cannot make billed model calls.
+- A worker image built before the current `Dockerfile.worker` will lack the entrypoint and the `org.fs_corporation.chatdev_*` labels. Rebuild after upgrading; `GET /api/v1/chatdev/status` reports `worker_image_chatdev` from those labels.
 - Live GitHub, billing, and model providers remain owner-configured and fail-closed until wired in config.
 - `tls internal` uses a private CA; phones will warn until the cert is trusted or replaced with a real certificate.
 

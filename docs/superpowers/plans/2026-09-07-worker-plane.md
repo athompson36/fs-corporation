@@ -1,5 +1,8 @@
 # Same-host worker plane Implementation Plan
 
+**Status: implemented (v0.3.41).** The step checkboxes below are the original working list
+and are left unticked as a historical record; they are not open work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Expose `worker_plane` on `/api/v1/workers/status`, soft verify warnings, and document same-host `.101` plane (v0.3.41).

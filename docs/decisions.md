@@ -22,6 +22,10 @@
 | ADR-017 | 2026-09-01 | Cosmic-restraint visual system | Owner-selected palette and glass chrome for desk + companion. Metrics and HQ tiles bind only to persisted API state. Furnished room art stays deferred. |
 | ADR-018 | 2026-09-01 | QR pairing with scoped access levels | CEO desk issues one-time tickets with `read_only`, `user`, or `admin` levels. Redeem creates service principals with explicit scopes — never root owner token or `*`. `FS_CORP_PUBLIC_URL` shapes pair URLs; optional `FS_CORP_TAILSCALE_AUTHKEY` returns only on redeem. PWA cannot join kernel VPN; native shell may consume auth key later. |
 | ADR-020 | 2026-09-07 | Impact briefs via HTTP, no auto-publish | List/create/correct exposed at `/api/v1/impact-briefs` and signal correct; briefs remain proposals; signal text never amends policy. |
+| ADR-021 | 2026-09-07 | Signed GitHub webhook ingress as the only unauthenticated mutation | `POST /api/v1/github/webhooks` verifies HMAC `X-Hub-Signature-256` instead of a bearer token; deliveries persist for idempotency; payload content is task data, never authority. |
+| ADR-022 | 2026-09-07 | Path-scoped Tailscale Funnel for webhooks only | Funnel exposes one path publicly so github.com can reach a LAN host; opt-in per host, no LAN port forwarding, no public exposure of the control API. |
+| ADR-023 | 2026-09-07 | Same-host worker plane on `.101` with a soft health signal | `.101` is a second address on the control-plane host, reported as `worker_plane`; degraded state warns but never blocks dispatch, because `--network none` workers never bind it. |
+| ADR-024 | 2026-09-07 | ChatDev adapter in three opt-in slices, denied in the control plane by default | Live SDK runs only inside a worker; the control plane refuses it unless `CHATDEV_ALLOW_CONTROL_PLANE` is set; the image pin is verified and surfaced through image labels. |
 
 ### ADR-010 detail
 
@@ -79,7 +83,9 @@
 
 **Context.** M3 requires isolated workers that cannot read the control-plane database or mutate policy. The queue, gateway recheck, and mock ChatDev adapter already exist in-process.
 
-**Decision.** Add `company.worker` with a `SubprocessWorkerRuntime` that spawns a child process. The child runs `MockChatDevAdapter` locally and requests effects through a pipe to the parent, which enforces an allowlisted gateway. `ContainerWorkerRuntime` is defined but raises `NotImplementedError` until Docker and a worker image are available. Persist `worker_runs` for audit.
+**Decision.** Add `company.worker` with a `SubprocessWorkerRuntime` that spawns a child process. The child runs `MockChatDevAdapter` locally and requests effects through a pipe to the parent, which enforces an allowlisted gateway. `ContainerWorkerRuntime` runs `--network none` containers over a scratch-directory gateway; it fails closed with `NotImplementedError` when Docker or the worker image is unavailable. Persist `worker_runs` for audit.
+
+**Status update (0.3.41).** `ContainerWorkerRuntime` is implemented and is the fs-dev default when Docker, the image, and scratch are ready (`FS_CORP_DEFAULT_WORKER_RUNTIME=container`). The `NotImplementedError` path is now the unready case, not the whole runtime.
 
 **Alternatives considered.**
 
@@ -128,5 +134,61 @@
 - Server-side Tailscale join for phones: rejected — kernel VPN join is device-local; PWA cannot join; native shell may consume auth key in phase 2.
 
 **Consequences.** Alembic `0010_pairing_tickets`, `0011_pairing_access_level`. Routes `GET/POST /api/v1/remote-access*`. Companion auto-redeems hash on load and scope-gates UI. Dev preview may set `FS_CORP_ALLOW_CORS=1` for loopback companion on `:4173`.
+
+### ADR-021 detail
+
+**Context.** M4 needed github.com to deliver events into the company. Every other mutation requires a bearer token, but GitHub cannot present one. Recorded retroactively on 2026-09-07 during the full-project audit; the decision shipped in 0.3.39.
+
+**Decision.** `POST /api/v1/github/webhooks` skips the bearer check and authenticates the *request* instead: HMAC SHA-256 over the raw body against `GITHUB_WEBHOOK_SECRET`, compared in constant time. Unsigned, mismatched, or unconfigured requests are rejected. Deliveries persist in `github_webhook_deliveries` keyed by delivery id so a redelivery is a replay, not a second effect. Webhook payload content is task data only; it never changes policy, grants, or budgets.
+
+**Alternatives considered.**
+
+- Poll the GitHub API instead: rejected — higher latency and API cost for the same information, and still needs credentials.
+- A shared bearer token in a query string: rejected — leaks into logs and proxy history, and GitHub offers HMAC natively.
+- Accept unsigned events when the secret is unset: rejected — that is fail-open. Without a configured secret the route refuses everything.
+
+**Consequences.** Alembic `0012_github_webhook_deliveries`. `GET /api/v1/github/status` reports `webhook_secret_configured` without returning the secret. Live `ping`, `push`, and `pull_request` deliveries returned 200 on fs-dev. Spec: `docs/superpowers/specs/2026-09-07-github-webhooks-design.md`.
+
+### ADR-022 detail
+
+**Context.** fs-dev sits on a private LAN behind `192.168.4.100` with no public address. github.com must reach exactly one path. Recorded retroactively on 2026-09-07; shipped in 0.3.37.
+
+**Decision.** Use Tailscale Funnel scoped to the webhook path rather than opening the LAN. `deploy/fs-dev/tailscale-funnel-webhooks.sh` serves `/api/v1/github/webhooks` at the tailnet DNS name, gated on `FS_CORP_TAILSCALE_FUNNEL_WEBHOOKS`. Off by default; the operator opts in per host and Tailscale requires a separate consent step.
+
+**Alternatives considered.**
+
+- Router port forwarding to `.100`: rejected — exposes the whole Caddy edge, and the control API sits behind it.
+- A public cloud relay: rejected — a new vendor and a second place credentials could leak, for one inbound path.
+- Funnel the entire site: rejected — the companion and desk have no reason to be internet-reachable.
+
+**Consequences.** `company/tailscale_funnel.py` probes state and reports it in `GET /api/v1/github/status` as `funnel_webhooks`. `FS_CORP_GITHUB_WEBHOOK_PUBLIC_URL` records the URL to paste into the GitHub App. The public surface is one path that already fails closed without a valid HMAC (ADR-021). Spec: `docs/superpowers/specs/2026-09-07-tailscale-funnel-webhooks-design.md`.
+
+### ADR-023 detail
+
+**Context.** ADR-016 reserved `192.168.4.101` for workers, and documentation drifted toward calling it a "worker host". It is a second address on the *same* machine. Operators had no way to see whether it was actually assigned. Shipped in 0.3.41.
+
+**Decision.** Name it the **same-host worker plane** and expose `worker_plane` on `GET /api/v1/workers/status` as `{mode, ip, present, state, reasons}`, where `state` is `healthy` (configured and assigned), `degraded` (configured but absent from every interface), or `unset`. The check is **soft**: a degraded plane never blocks container dispatch. `scripts/verify_fs_dev_workers.py` warns on stderr, and only the explicit `--require-plane` flag turns a degraded plane into a non-zero exit.
+
+**Alternatives considered.**
+
+- Fail closed on a missing `.101`: rejected — workers run `--network none` and never bind the address, so blocking dispatch would deny work for a condition that does not affect it. The one thing `.101` does affect, gateway egress, already reports its own readiness.
+- Stay silent when unset: rejected — operators could not tell a deliberate single-address host from a misconfigured one.
+- Provision a genuinely separate worker host now: deferred — no capacity case yet; it stays an optional track.
+
+**Consequences.** `company/worker_status.py` gains `worker_plane_summary()`. Flat `worker_nic_ip` / `worker_nic_present` remain inside `gateway_egress` for compatibility. Documentation now says "same-host worker plane" wherever it previously said "worker host". Spec: `docs/superpowers/specs/2026-09-07-worker-plane-design.md`.
+
+### ADR-024 detail
+
+**Context.** ADR-001 and ADR-009 require that upstream workflow code with tool execution never run in the privileged control process. Enabling ChatDev in one step would have coupled the SDK, the worker path, and the image together, with no safe intermediate state. Shipped as 0.3.38 through 0.3.40.
+
+**Decision.** Three opt-in slices, each independently reversible. Slice 1 adds `ChatDevAdapter` calling the pinned `run_workflow` when `CHATDEV_HOME` is set, fail-closed otherwise, tested against a fake SDK. Slice 2 runs it in the worker and makes the control plane **deny** the live SDK unless `CHATDEV_ALLOW_CONTROL_PLANE` is explicitly set. Slice 3 makes the ChatDev pin an optional build argument of the worker image; the default image stays mock-only, and container dispatch does not forward the control-plane allow flag.
+
+**Alternatives considered.**
+
+- Install ChatDev in the control-plane virtualenv: rejected — that is exactly the boundary ADR-001 exists to protect.
+- Follow ChatDev `main`: rejected by ADR-002; the pin is verified and reported.
+- Bake ChatDev into the default worker image: rejected — every deployment would carry the dependency and its supply-chain surface whether or not it was used.
+
+**Consequences.** `GET /api/v1/chatdev/status` reports `pin`, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, and `worker_image_chatdev` read from `org.fs_corporation.chatdev_*` image labels. `CHATDEV_SKIP_PIN_CHECK` exists for offline builds and is surfaced as `pin_check_skipped` rather than hidden. Live ChatDev execution is still unverified: the image carries pinned source, not a full dependency install, and `--network none` workers have no egress. Specs: `docs/superpowers/specs/2026-09-07-chatdev-adapter-slice{1,2,3}-design.md`.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

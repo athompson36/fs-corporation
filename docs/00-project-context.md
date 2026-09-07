@@ -40,7 +40,9 @@ Research creates evidence and proposals. External pages cannot amend policy. Dep
 
 ## What this bundle actually establishes
 
-A deterministic Python/SQLite reference core tests policy revisions, scoped grants, budget enforcement, approvals, Quality Control inspection, Human Resources training certification, employee hire/training/performance records, acceptance, event persistence, signal records, virtual expansion and hardware skill gating. Documentation defines the larger service and UI. Live external adapters deliberately raise NotImplementedError. This is the starting baseline for Cursor, not a completed implementation of every requirement.
+A deterministic Python/SQLite reference core tests policy revisions, scoped grants, budget enforcement, approvals, Quality Control inspection, Human Resources training certification, employee hire/training/performance records, acceptance, event persistence, signal records, virtual expansion and hardware skill gating. Documentation defines the larger service and UI.
+
+Live external adapters are opt-in and fail closed: without owner credentials they raise `NotImplementedError`, which is what a fresh clone sees. On the owner's configured host, GitHub webhooks, the market feed, and model invocation have run live. This remains a baseline for Cursor, not a completed implementation of every requirement; see [14-roadmap.md](14-roadmap.md) for open items and [../VERIFICATION.md](../VERIFICATION.md) for what has actually been verified.
 
 ## Added requirements
 

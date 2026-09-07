@@ -1,5 +1,8 @@
 # ChatDev Adapter Slice 1 Implementation Plan
 
+**Status: implemented.** The step checkboxes below are the original working list and are
+left unticked as a historical record; they are not open work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Opt-in `ChatDevAdapter` that calls pinned ChatDev `run_workflow` when `CHATDEV_HOME` is set; fail-closed otherwise; contract tests with a fake SDK.

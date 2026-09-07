@@ -1,6 +1,6 @@
 # Design: Tailscale QR pairing + iOS native handoff
 
-Date: 2026-09-02. Status: approved (approach A, iOS first).
+Date: 2026-09-02. Status: **implemented** (approach A, iOS first). See ADR-018; Android handoff extends it.
 
 ## Goals
 

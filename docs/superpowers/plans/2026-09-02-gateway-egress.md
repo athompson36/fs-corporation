@@ -1,5 +1,8 @@
 # Gateway egress via .101 — Implementation Plan
 
+**Status: implemented.** Delivered as ADR-019. The step checkboxes below are the original
+working list and are left unticked as a historical record; they are not open work.
+
 > **For agentic workers:** Implement task-by-task. Steps use checkbox syntax.
 
 **Goal:** Opt-in host policy routing so the `fs-corp` API egresses via `192.168.4.101` without giving containers a network.

@@ -45,6 +45,7 @@ FS_CORP_INSTALL_DIR=${REMOTE_APP}
 FS_CORP_DATA_DIR=${REMOTE_DATA}
 FS_CORP_DB=${REMOTE_DATA}/company.db
 FS_CORP_TOKEN_FILE=/etc/fs-corporation/owner.token
+# Documentation only: nothing reads these; the systemd unit hardcodes the bind address.
 FS_CORP_API_HOST=127.0.0.1
 FS_CORP_API_PORT=8000
 FS_CORP_COMPANION_DIST=${REMOTE_DATA}/companion/dist

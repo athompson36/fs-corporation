@@ -1,30 +1,22 @@
 import multiprocessing
-import os
 import tempfile
 import unittest
 from pathlib import Path
 from company.core import Company
 from company.worker import (
     ContainerWorkerRuntime, SubprocessWorkerRuntime, build_worker_envelope, worker_entrypoint)
+from tests.env_guard import AmbientEnvIsolatedTestCase
 from tests.test_core import install, policy
 
 
-class WorkerIsolationTests(unittest.TestCase):
+class WorkerIsolationTests(AmbientEnvIsolatedTestCase):
     def setUp(self):
+        super().setUp()
         self.c = Company()
         install(self.c, policy(self.c))
         self.scratch = tempfile.TemporaryDirectory()
         self.addCleanup(self.scratch.cleanup)
         self.addCleanup(self.c.close)
-        # Host .env may set FS_CORP_WORKER_SCRATCH_HOST (Docker-from-Docker); never use it in unit tests.
-        self._prev_scratch_host = os.environ.pop("FS_CORP_WORKER_SCRATCH_HOST", None)
-        self.addCleanup(self._restore_scratch_host)
-
-    def _restore_scratch_host(self):
-        if self._prev_scratch_host is None:
-            os.environ.pop("FS_CORP_WORKER_SCRATCH_HOST", None)
-        else:
-            os.environ["FS_CORP_WORKER_SCRATCH_HOST"] = self._prev_scratch_host
 
     def test_envelope_excludes_control_plane_secrets(self):
         self.c.queue_task("head", "app", "draft", 10, "w1")
