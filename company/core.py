@@ -2186,6 +2186,155 @@ class Company:
                         actor_id=actor, project_id=row["project_id"])
         return dict(self.db.execute("SELECT * FROM owner_requests WHERE id=?", (request_id,)).fetchone())
 
+    def create_cross_dept_request(
+            self, actor, *, project_id, requesting_department_id,
+            delivering_department_id, budget_owner, due_at,
+            acceptance_criteria, escalation_path, budget_cents, subject, brief):
+        if not self.db.execute(
+                "SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
+            raise ValueError("Project not found")
+        known = {
+            row[0] for row in self.db.execute(
+                "SELECT id FROM departments WHERE id IN (?,?)",
+                (requesting_department_id, delivering_department_id),
+            )
+        }
+        if requesting_department_id not in known:
+            raise ValueError(f"Unknown department {requesting_department_id}")
+        if delivering_department_id not in known:
+            raise ValueError(f"Unknown department {delivering_department_id}")
+        if requesting_department_id == delivering_department_id:
+            raise ValueError("Cross-department request requires different departments")
+        if not self.department_dispatchable(project_id, delivering_department_id):
+            raise ValueError(
+                f"Department {delivering_department_id} is dormant for this project; activate first")
+
+        is_ceo = actor == self.ceo or str(actor).startswith("companion-admin-")
+        if not is_ceo:
+            requesting_seat = self.db.execute(
+                """SELECT principal_id FROM department_seats
+                   WHERE department_id=? AND status='active'""",
+                (requesting_department_id,),
+            ).fetchone()
+            if not requesting_seat or requesting_seat["principal_id"] != actor:
+                raise PermissionError("Seated requesting department head required")
+
+        required = {
+            "budget_owner": budget_owner,
+            "due_at": due_at,
+            "acceptance_criteria": acceptance_criteria,
+            "escalation_path": escalation_path,
+            "subject": subject,
+            "brief": brief,
+        }
+        normalized = {}
+        for field, value in required.items():
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{field} required")
+            normalized[field] = value.strip()
+        try:
+            datetime.fromisoformat(normalized["due_at"].replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("due_at must be an ISO-8601 timestamp") from exc
+        money(budget_cents)
+
+        request_id = str(uuid.uuid4())
+        created_at = now().isoformat()
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO cross_department_requests(
+                       id, project_id, requesting_department_id,
+                       delivering_department_id, budget_owner, due_at,
+                       acceptance_criteria, escalation_path, budget_cents, status,
+                       created_by, created_at, accepted_by, accepted_at, subject, brief)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    request_id, project_id, requesting_department_id,
+                    delivering_department_id, normalized["budget_owner"],
+                    normalized["due_at"], normalized["acceptance_criteria"],
+                    normalized["escalation_path"], budget_cents,
+                    "pending_acceptance", actor, created_at, None, None,
+                    normalized["subject"], normalized["brief"],
+                ),
+            )
+            self._event(
+                "cross_department.request_created",
+                {
+                    "id": request_id,
+                    "requesting_department_id": requesting_department_id,
+                    "delivering_department_id": delivering_department_id,
+                    "budget_cents": budget_cents,
+                    "status": "pending_acceptance",
+                },
+                actor_id=actor,
+                project_id=project_id,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM cross_department_requests WHERE id=?",
+            (request_id,),
+        ).fetchone())
+
+    def list_cross_dept_requests(self, actor):
+        if actor == self.ceo or str(actor).startswith("companion-admin-"):
+            rows = self.db.execute(
+                "SELECT * FROM cross_department_requests ORDER BY created_at, id")
+        else:
+            rows = self.db.execute(
+                """SELECT request.*
+                   FROM cross_department_requests AS request
+                   JOIN department_seats AS seat
+                     ON seat.department_id=request.delivering_department_id
+                   WHERE seat.status='active' AND seat.principal_id=?
+                   ORDER BY request.created_at, request.id""",
+                (actor,),
+            )
+        return {"items": [dict(row) for row in rows]}
+
+    def accept_cross_dept_request(self, actor, request_id):
+        request = self.db.execute(
+            "SELECT * FROM cross_department_requests WHERE id=?",
+            (request_id,),
+        ).fetchone()
+        if not request:
+            raise ValueError("Cross-department request not found")
+        if request["status"] != "pending_acceptance":
+            raise ValueError("Cross-department request is not pending acceptance")
+
+        is_ceo = actor == self.ceo or str(actor).startswith("companion-admin-")
+        if not is_ceo:
+            seat = self.db.execute(
+                """SELECT principal_id FROM department_seats
+                   WHERE department_id=? AND status='active'""",
+                (request["delivering_department_id"],),
+            ).fetchone()
+            if not seat or seat["principal_id"] != actor:
+                raise PermissionError("Seated delivering department head required")
+
+        accepted_at = now().isoformat()
+        with self.tx():
+            current = self.db.execute(
+                "SELECT status FROM cross_department_requests WHERE id=?",
+                (request_id,),
+            ).fetchone()
+            if not current or current["status"] != "pending_acceptance":
+                raise ValueError("Cross-department request is not pending acceptance")
+            self.db.execute(
+                """UPDATE cross_department_requests
+                   SET status='accepted', accepted_by=?, accepted_at=?
+                   WHERE id=?""",
+                (actor, accepted_at, request_id),
+            )
+            self._event(
+                "cross_department.request_accepted",
+                {"id": request_id, "status": "accepted"},
+                actor_id=actor,
+                project_id=request["project_id"],
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM cross_department_requests WHERE id=?",
+            (request_id,),
+        ).fetchone())
+
     def dispatch_project_brief(self, actor, project_id, brief, department_budgets,
                                acceptance_criteria, due_at=None):
         self._ceo_or_admin_companion(actor)

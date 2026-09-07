@@ -13,6 +13,7 @@
 | Project | Upstream/fork IDs, branch policy, brief, classification | Enrollment requires explicit scope |
 | Task | Owner, dependencies, state, inputs, output hashes | State transition validated and idempotent |
 | WorkOrder | Task, policy/model versions, max cost, workflow digest | Immutable execution envelope |
+| CrossDepartmentRequest | Project, requesting/delivering departments, budget owner, due date, acceptance and escalation | Requesting and accepting actors must occupy the corresponding active head seat, except CEO/admin overrides |
 | Approval | Decision type, exact payload hash, approver, expiry | Single use; valid current authority |
 | BudgetAccount | Scope, period, limit, reserved and actual amounts | Atomic check and reservation |
 | Artifact | Hash, storage URI, producer, version, license/data class | Acceptance binds exact bytes or commit |
@@ -23,13 +24,14 @@
 
 ## Reference tables
 
-`company/schema.py` and Alembic revisions `0001_initial` through `0014_org_hierarchy`
+`company/schema.py` and Alembic revisions `0001_initial` through `0015_cross_dept_work_orders`
 create settings, policies, proposals, approvals, tasks, ledger, completions, signals,
 expansions, events (with envelope columns that do not change the audit hash),
 consultant_proposals, identities, departments, positions, **department_seats**,
 **position_assignments**, **project_department_activations**, projects, delegations, model
-profiles/assignments, work orders, **project_dispatches**, **dispatch_assignments**, queue,
-outbox, reservations, artifacts, GitHub enrollment/effects/webhook deliveries, impact
+profiles/assignments, work orders, **project_dispatches**, **dispatch_assignments**,
+**cross_department_requests**, queue, outbox, reservations, artifacts, GitHub
+enrollment/effects/webhook deliveries, impact
 briefs, budget periods, memories, command idempotency, benchmark results, consultant
 review cooldowns, skills, acquired_skills, project_capabilities, learning_assignments,
 qc_inspections, employees, training_records, performance_goals and performance_reviews,
@@ -69,6 +71,7 @@ Events include policy.proposed, policy.approved, delegation.revoked, task.queued
 task.started, artifact.created, review.completed, project.accepted, project.dispatched,
 dispatch.assigned, org.head_appointed, org.head_vacated, org.position_assigned,
 org.position_released, org.department_activated, budget.reserved, cost.reconciled,
+cross_department.request_created, cross_department.request_accepted,
 signal.ingested, expansion.proposed, room.built, project.hardware_enrolled,
 skill.learning_assigned, skill.studied, skill.acquired, quality.inspected, employee.hired,
 performance.goal_set and performance.reviewed. Consumers deduplicate by event ID and

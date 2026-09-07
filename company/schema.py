@@ -181,6 +181,16 @@ CREATE TABLE IF NOT EXISTS dispatch_assignments(
   id TEXT PRIMARY KEY, dispatch_id TEXT NOT NULL REFERENCES project_dispatches(id),
   assignee TEXT NOT NULL, assigned_by TEXT NOT NULL, assigned_at TEXT NOT NULL,
   queue_task_id TEXT, status TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS cross_department_requests(
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id),
+  requesting_department_id TEXT NOT NULL REFERENCES departments(id),
+  delivering_department_id TEXT NOT NULL REFERENCES departments(id),
+  budget_owner TEXT NOT NULL, due_at TEXT NOT NULL,
+  acceptance_criteria TEXT NOT NULL, escalation_path TEXT NOT NULL,
+  budget_cents INTEGER NOT NULL, status TEXT NOT NULL,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+  accepted_by TEXT, accepted_at TEXT,
+  subject TEXT NOT NULL, brief TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (

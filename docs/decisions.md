@@ -259,4 +259,26 @@ idempotency key for retry-safe command execution. In v0.3.51 the desk and compan
 this persisted inbox and assignment path alongside honest seat/roster state; the UI does not
 derive authority from titles or reporting lines.
 
+### ADR-029 detail
+
+**Context.** Cross-department commitments need ownership, schedule, acceptance, and
+escalation metadata before they become executable worker tasks. Adding these mutable
+coordination fields to immutable execution `work_orders` would mix organizational acceptance
+with the policy-bound runtime envelope.
+
+**Decision.** Persist `cross_department_requests` separately. A non-CEO creator must occupy
+the active requesting-department head seat; a non-CEO accepter must occupy the active
+delivering-department head seat. CEO and authenticated admin companions are explicit
+overrides. Delivering departments must be active for the project. Org-chart edges, titles,
+and chat content grant no authority.
+
+**Alternatives considered.** Extending `work_orders` was rejected because accepting a
+departmental request is not worker execution authorization. Copying the delivering principal
+at creation was rejected because a later vacancy or replacement must take effect immediately.
+Auto-activating dormant departments was rejected because activation remains an owner action.
+
+**Consequences.** Alembic `0015_cross_dept_work_orders` adds the table. Create and accept
+emit transactional audit events. The authenticated API supports create, actor-scoped delivery
+list, and accept; no user-visible UI ships, so the package remains 0.3.51.
+
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

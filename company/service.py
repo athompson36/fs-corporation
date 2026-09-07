@@ -860,6 +860,53 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "organization.read")
         return company.list_head_inbox(ident["principal_id"])
 
+    @app.get("/api/v1/cross-department-requests")
+    def cross_department_requests(
+            authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        return company.list_cross_dept_requests(ident["principal_id"])
+
+    @app.post("/api/v1/cross-department-requests")
+    def cross_department_request_create(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident,
+            idempotency_key,
+            payload,
+            lambda: (
+                company.create_cross_dept_request(
+                    ident["principal_id"], **payload),
+                200,
+            ),
+        )
+
+    @app.post("/api/v1/cross-department-requests/{request_id}/accept")
+    def cross_department_request_accept(
+            request_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident,
+            idempotency_key,
+            payload | {"request_id": request_id},
+            lambda: (
+                company.accept_cross_dept_request(
+                    ident["principal_id"], request_id),
+                200,
+            ),
+        )
+
     @app.post("/api/v1/dispatches/{dispatch_id}/assign")
     def dispatch_assign(
             dispatch_id: str, body: Command,

@@ -16,10 +16,13 @@ grant-checked queue path.
 
 Maintain the department queue, translate CEO objectives into deliverables, estimate resources, assign capable workers, review evidence, coordinate dependencies, report outcomes and propose process/staffing changes. Heads own results within their mandate; they do not invent project goals or create permissions by consensus.
 
-**Design only:** cross-department requests will be work orders with a requesting department,
-delivering department, approved objective, budget owner, due date, acceptance criteria and
-escalation path. Task 7 remains unimplemented. A shared specialist may belong to one
-position with several project assignments; permissions remain task-specific.
+Cross-department requests are persisted separately from execution work orders with explicit
+requesting and delivering departments, subject/brief, budget owner, due date, acceptance
+criteria, escalation path and integer-cent budget. A seated requesting head may create one;
+the current seated delivering head may list and accept it. CEO/admin companions may create,
+list and accept as an explicit override. Unknown departments, dormant delivery without
+project activation, and vacant-head acceptance fail closed. A shared specialist may belong
+to one position with several project assignments; permissions remain task-specific.
 
 Quality Control inspects product artifacts before acceptance. Human Resources oversees employee development and training, including hire records, documented training files, performance goals and reviews. See [21-quality-hr.md](21-quality-hr.md) and [22-employee-development.md](22-employee-development.md).
 

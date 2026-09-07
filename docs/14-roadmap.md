@@ -225,6 +225,9 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Head inbox read and grant/roster-checked dispatch assignment into the specialist queue;
       v0.3.51 desk and companion surfaces render catalog/seat/roster state and provide
       scoped assignment forms without inventing occupied seats
+- [x] Additive cross-department request API persists explicit requesting/delivering
+      departments, budget owner, due date, acceptance criteria, escalation path and budget;
+      dormant delivery fails closed and only the seated delivering head or CEO/admin accepts
 - [x] Owner inbox (`owner_requests`) with head escalation and CEO response
 - [x] Unified decisions inbox; reuse existing approve/reject endpoints
 - [x] SSE event stream; PWA polls as fallback
@@ -380,10 +383,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M10-03 billed cost / revenue tables shipped (0.3.48).** Phone GitHub assign-by-address
-shipped (0.3.49). Next: remaining M10-03 (benchmark read path or removal; role fixtures),
-or **M10-04** UI items (version display, status surface, desk keyboard access,
-`window.prompt` replacement for remaining flows).
+**Cross-department request API shipped additively at 0.3.51.** Next: remaining M10-03
+(benchmark read path or removal; role fixtures), or **M10-04** UI items (version display,
+desk keyboard access, `window.prompt` replacement for remaining flows).
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
 dependencies plus controlled egress in the worker image; furnished HQ room art.
