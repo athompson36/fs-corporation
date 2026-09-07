@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from company import __version__
 from company.core import Company, now
 from company.service import create_app
@@ -66,6 +67,25 @@ class CompanionApiTests(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertEqual(body["version"], __version__)
         self.assertEqual(body["db"], self.c.db_path)
+
+    @patch("company.github_app.github_configured", return_value=True)
+    @patch("company.github_app.installation_account_login", return_value="acme")
+    @patch("company.github_app.ensure_corp_write_repo")
+    @patch("company.github_app.repo_by_full_name")
+    def test_github_assign_by_address(self, by_name, ensure_corp, _acct, _cfg):
+        by_name.return_value = {"id": 11, "name": "demo", "full_name": "acme/demo", "owner": {"login": "acme"}}
+        ensure_corp.return_value = ({"id": 22, "name": "demo-corp", "full_name": "acme/demo-corp"}, True)
+        r = self.client.post(
+            "/api/v1/projects/demo/github-assign",
+            json={"payload": {"upstream": "https://github.com/acme/demo"}},
+            headers={"Authorization": "Bearer owner-token", "Idempotency-Key": "gh-assign-1"},
+        )
+        self.assertEqual(r.status_code, 200)
+        result = r.json()["result"]
+        self.assertEqual(result["upstream"]["id"], "11")
+        self.assertEqual(result["write_repo"]["full_name"], "acme/demo-corp")
+        detail = self.client.get("/api/v1/projects/demo", headers={"Authorization": "Bearer owner-token"})
+        self.assertEqual(detail.json()["github"]["fork_repo_id"], "22")
 
     def test_consultant_in_decisions_inbox(self):
         ConsultantDesk(self.c).submit("consultant", PROPOSAL)

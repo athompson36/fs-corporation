@@ -73,7 +73,7 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 | Screen | Actions (scope-gated) |
 |---|---|
 | Dashboard | Company stats; pause/resume when `company.pause` / `company.resume` |
-| Projects | List/detail; enroll and dispatch when `project.enroll` |
+| Projects | List/detail; enroll; assign GitHub by upstream address (auto `{repo}-corp`); dispatch when `project.enroll` |
 | Decisions | Approve/reject when `policy.approve` or `consultant.decide` |
 | Inbox | Respond when `company.pause`; escalate when `owner.escalate` |
 | Settings | API URL, token, scope summary; clear token to re-pair |
@@ -83,6 +83,7 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 - `GET /api/v1/dashboard`
 - `GET /api/v1/projects`, `GET /api/v1/projects/{id}`
 - `POST /api/v1/projects/{id}/dispatch-brief`
+- `POST /api/v1/projects/{id}/github-assign` — upstream URL/`owner/repo` → same-owner `{repo}-corp` enrollment
 - `GET /api/v1/decisions/inbox`
 - `GET /api/v1/owner-inbox`, `POST /api/v1/owner-inbox`, `POST /api/v1/owner-inbox/{id}/respond`
 - `GET /api/v1/remote-access` — status + `pairing_levels` catalog

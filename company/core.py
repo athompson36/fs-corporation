@@ -170,6 +170,14 @@ class Company:
         if actor != self.ceo:
             raise PermissionError("CEO authority required")
 
+    def _ceo_or_admin_companion(self, actor):
+        """CEO string or paired admin companion (phone CEO mobile)."""
+        if actor == self.ceo:
+            return
+        if str(actor).startswith("companion-admin-"):
+            return
+        raise PermissionError("CEO authority required")
+
     def _is_qc(self,actor):
         return actor=="qc" or str(actor).startswith("quality:")
 
@@ -883,7 +891,7 @@ class Company:
             return aid
 
     def enroll_project(self,actor,project_id,brief,classification="internal"):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         if classification not in {"public","internal","restricted"}:raise ValueError("Unknown data classification")
         if not project_id or not brief.strip():raise ValueError("Project id and brief required")
         with self.tx():
@@ -895,7 +903,7 @@ class Company:
         return project_id
 
     def enroll_github(self,actor,project_id,upstream_repo_id,fork_repo_id,protected_branches,branch_prefix,permitted_actions):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         self._lists(protected_branches,"protected_branches")
         self._lists(permitted_actions,"permitted_actions")
         if not branch_prefix or "*" in branch_prefix:raise ValueError("Explicit branch prefix required")
@@ -906,6 +914,51 @@ class Company:
                 (project_id,upstream_repo_id,fork_repo_id,canonical(protected_branches),
                  branch_prefix,canonical(permitted_actions)))
             self._event("github.enrolled",{"project_id":project_id,"fork_repo_id":fork_repo_id},actor_id=actor,project_id=project_id)
+
+    def assign_github_by_address(self, actor, project_id, upstream_address):
+        """Paste upstream github.com address; ensure same-owner {repo}-corp; enroll both ids."""
+        self._ceo_or_admin_companion(actor)
+        from company.github_app import (
+            github_configured, parse_github_address, installation_account_login,
+            repo_by_full_name, ensure_corp_write_repo,
+        )
+        if not github_configured():
+            raise NotImplementedError(
+                "GitHub App is not configured; set GITHUB_APP_ID, GITHUB_INSTALLATION_ID, "
+                "and GITHUB_PRIVATE_KEY_FILE")
+        if not project_id or not str(project_id).strip():
+            raise ValueError("Project id required")
+        owner, name = parse_github_address(upstream_address)
+        account = installation_account_login()
+        if owner.lower() != account.lower():
+            raise ValueError(
+                f"Upstream owner {owner!r} must match the GitHub App installation account {account!r} "
+                "for same-owner -corp write repos")
+        upstream = repo_by_full_name(owner, name)
+        write_repo, created = ensure_corp_write_repo(owner, name)
+        upstream_id = str(upstream.get("id") or "")
+        write_id = str(write_repo.get("id") or "")
+        if not upstream_id or not write_id:
+            raise ValueError("GitHub did not return repository ids")
+        brief = f"GitHub {upstream.get('full_name') or f'{owner}/{name}'}"
+        self.enroll_project(actor, str(project_id).strip(), brief)
+        prefix = f"company/{str(project_id).strip()}/"
+        self.enroll_github(
+            actor, str(project_id).strip(), upstream_id, write_id,
+            ["main"], prefix, ["push", "open_pr", "prepare_pr"])
+        return {
+            "project_id": str(project_id).strip(),
+            "upstream": {
+                "id": upstream_id,
+                "full_name": upstream.get("full_name") or f"{owner}/{name}",
+            },
+            "write_repo": {
+                "id": write_id,
+                "full_name": write_repo.get("full_name") or f"{owner}/{name}-corp",
+            },
+            "created_write_repo": created,
+            "branch_prefix": prefix,
+        }
 
     def worktree_path(self,project_id,task_id):
         return f"workspaces/{project_id}/{task_id}"
@@ -1671,8 +1724,19 @@ class Company:
                WHERE t.project=? ORDER BY q.created_at DESC""", (project_id,))]
         dispatches = [dict(r) for r in self.db.execute(
             "SELECT * FROM project_dispatches WHERE project_id=? ORDER BY created_at", (project_id,))]
+        github = None
+        enr = self.db.execute("SELECT * FROM github_enrollments WHERE project_id=?", (project_id,)).fetchone()
+        if enr:
+            github = {
+                "upstream_repo_id": enr["upstream_repo_id"],
+                "fork_repo_id": enr["fork_repo_id"],
+                "branch_prefix": enr["branch_prefix"],
+                "protected_branches": json.loads(enr["protected_branches"]),
+                "permitted_actions": json.loads(enr["permitted_actions"]),
+            }
         return {**summary, "tasks": tasks, "timeline": timeline,
                 "qc_inspections": qc, "dispatches": dispatches,
+                "github": github,
                 "skill_gaps": self.project_skill_gaps(project_id)}
 
     def decisions_inbox(self):
@@ -1858,7 +1922,7 @@ class Company:
 
     def dispatch_project_brief(self, actor, project_id, brief, departments, acceptance_criteria,
                                budget_cents, due_at=None):
-        self._ceo(actor)
+        self._ceo_or_admin_companion(actor)
         money(budget_cents)
         if not brief or not str(brief).strip():
             raise ValueError("Brief required")

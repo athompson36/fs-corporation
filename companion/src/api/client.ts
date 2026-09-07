@@ -114,6 +114,10 @@ export class ApiClient {
     return this.post("/api/v1/projects", { id, brief }, `enroll-${id}`);
   }
 
+  assignGithub(projectId: string, upstream: string) {
+    return this.post(`/api/v1/projects/${projectId}/github-assign`, { upstream }, `gh-assign-${projectId}`);
+  }
+
   dispatchBrief(projectId: string, brief: string, departments: string[], acceptance_criteria: string, budget_cents: number) {
     return this.post(`/api/v1/projects/${projectId}/dispatch-brief`, {
       brief, departments, acceptance_criteria, budget_cents,

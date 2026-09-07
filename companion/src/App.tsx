@@ -44,6 +44,10 @@ export default function App() {
   const [inbox, setInbox] = useState<OwnerRequest[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [projectDetail, setProjectDetail] = useState<Record<string, unknown> | null>(null);
+  const [ghUpstream, setGhUpstream] = useState("");
+  const [ghProjectId, setGhProjectId] = useState("");
+  const [ghBusy, setGhBusy] = useState(false);
+  const [ghResult, setGhResult] = useState<string | null>(null);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [pushSubscriptions, setPushSubscriptions] = useState<{ id: string; endpoint: string }[]>([]);
 
@@ -268,6 +272,71 @@ export default function App() {
                 </div>
               ))}
               {canEnroll(scopes) && (
+                <div className="card">
+                  <h2>Assign GitHub by address</h2>
+                  <p className="muted">Paste upstream only. Creates same-owner {"{repo}"}-corp for writes.</p>
+                  <label className="muted" htmlFor="gh-upstream">Upstream (owner/repo or github.com URL)</label>
+                  <input
+                    id="gh-upstream"
+                    type="text"
+                    value={ghUpstream}
+                    placeholder="owner/repo"
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setGhUpstream(v);
+                      const m = v.trim().replace(/\.git\/?$/, "").match(/github\.com\/([^/\s]+)\/([^/\s]+)|([^/\s]+)\/([^/\s]+)/);
+                      if (m && !ghProjectId) {
+                        const name = (m[2] || m[4] || "").replace(/\.git$/, "");
+                        if (name) setGhProjectId(name);
+                      }
+                    }}
+                  />
+                  <label className="muted" htmlFor="gh-project">Company project id</label>
+                  <input
+                    id="gh-project"
+                    type="text"
+                    value={ghProjectId}
+                    placeholder="project-id"
+                    onChange={(e) => setGhProjectId(e.target.value)}
+                  />
+                  <div className="actions">
+                    <button
+                      className="primary"
+                      type="button"
+                      disabled={ghBusy || !ghUpstream.trim() || !ghProjectId.trim()}
+                      onClick={async () => {
+                        setGhBusy(true);
+                        setError(null);
+                        setGhResult(null);
+                        try {
+                          const out = await api.assignGithub(ghProjectId.trim(), ghUpstream.trim()) as {
+                            result?: {
+                              upstream?: { full_name?: string; id?: string };
+                              write_repo?: { full_name?: string; id?: string };
+                              created_write_repo?: boolean;
+                            };
+                          };
+                          const r = out.result || out;
+                          setGhResult(
+                            `Upstream ${(r as {upstream?:{full_name?:string}}).upstream?.full_name} → write ` +
+                            `${(r as {write_repo?:{full_name?:string}}).write_repo?.full_name}` +
+                            `${(r as {created_write_repo?:boolean}).created_write_repo ? " (created)" : " (existing)"}`,
+                          );
+                          await refresh();
+                        } catch (e) {
+                          setError(String(e));
+                        } finally {
+                          setGhBusy(false);
+                        }
+                      }}
+                    >
+                      Assign GitHub
+                    </button>
+                  </div>
+                  {ghResult && <p className="muted">{ghResult}</p>}
+                </div>
+              )}
+              {canEnroll(scopes) && (
                 <div className="actions">
                   <button className="primary" type="button" onClick={async () => {
                     const id = window.prompt("Project id");
@@ -283,6 +352,12 @@ export default function App() {
               <h2>{selectedProject}</h2>
               <p>{String(projectDetail.brief)}</p>
               <p className="muted">Departments: {(projectDetail.departments as string[])?.join(", ") || "none"}</p>
+              {projectDetail.github != null && (
+                <p className="muted">
+                  GitHub upstream id {String((projectDetail.github as {upstream_repo_id?: string}).upstream_repo_id)}
+                  {" · "}write id {String((projectDetail.github as {fork_repo_id?: string}).fork_repo_id)}
+                </p>
+              )}
               {canEnroll(scopes) && (
                 <div className="actions">
                   <button className="primary" type="button" onClick={async () => {

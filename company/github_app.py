@@ -142,6 +142,68 @@ def repo_by_id(repo_id: str) -> dict:
     return github_request("GET", f"/repositories/{repo_id}")
 
 
+def parse_github_address(raw: str) -> tuple[str, str]:
+    """Return (owner, name) from owner/name or https://github.com/owner/name[.git]."""
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError("GitHub address required")
+    value = raw.strip().rstrip("/")
+    if value.endswith(".git"):
+        value = value[:-4]
+    lower = value.lower()
+    if "://" in value:
+        if "github.com/" not in lower:
+            raise ValueError("Only github.com addresses are supported")
+        path = value.split("github.com/", 1)[1]
+        path = path.split("?", 1)[0].split("#", 1)[0]
+    else:
+        path = value
+    parts = [p for p in path.split("/") if p]
+    if len(parts) != 2:
+        raise ValueError("Expected owner/repo or https://github.com/owner/repo")
+    owner, name = parts[0], parts[1]
+    if not owner or not name or owner.startswith(".") or name.startswith("."):
+        raise ValueError("Invalid owner/repo")
+    return owner, name
+
+
+def installation_account_login() -> str:
+    install = app_request("GET", f"/app/installations/{_installation_id()}")
+    login = ((install.get("account") or {}).get("login") or "").strip()
+    if not login:
+        raise NotImplementedError("GitHub App installation account is unavailable")
+    return login
+
+
+def repo_by_full_name(owner: str, name: str) -> dict:
+    return github_request("GET", f"/repos/{owner}/{name}")
+
+
+def ensure_corp_write_repo(owner: str, upstream_name: str) -> tuple[dict, bool]:
+    """Ensure same-owner `{upstream_name}-corp` exists. Returns (repo, created)."""
+    if not upstream_name or upstream_name.endswith("-corp"):
+        raise ValueError("Upstream repo name required (without -corp suffix)")
+    corp_name = f"{upstream_name}-corp"
+    try:
+        return repo_by_full_name(owner, corp_name), False
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code != 404:
+            raise
+    body = {
+        "name": corp_name,
+        "private": True,
+        "description": f"FS-Corporation write workspace for {owner}/{upstream_name}",
+        "auto_init": True,
+    }
+    try:
+        github_request("GET", f"/orgs/{owner}")
+        created = github_request("POST", f"/orgs/{owner}/repos", json_body=body)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code != 404:
+            raise
+        created = github_request("POST", "/user/repos", json_body=body)
+    return created, True
+
+
 def ensure_branch(owner: str, repo: str, branch: str, base_sha: str) -> None:
     path = f"/repos/{owner}/{repo}/git/refs/heads/{branch}"
     try:

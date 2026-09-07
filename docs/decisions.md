@@ -28,6 +28,7 @@
 | ADR-024 | 2026-09-07 | ChatDev adapter in three opt-in slices, denied in the control plane by default | Live SDK runs only inside a worker; the control plane refuses it unless `CHATDEV_ALLOW_CONTROL_PLANE` is set; the image pin is verified and surfaced through image labels. |
 | ADR-025 | 2026-09-07 | Companion PWA uses generateSW + importScripts for push | Vite 6 + injectManifest hung building `src/sw.ts`; generateSW emits `dist/sw.js`; push lives in `public/sw-push.js`; Node 18 needs a crypto polyfill and Workbox development mode to avoid terser. |
 | ADR-026 | 2026-09-07 | Billed cost and revenue tables separate from simulated ledger | Live invoke writes `billed_costs` with honest cents + usage_tokens; revenue via CEO `record_revenue`; status exposes separate sums (ADR-007). |
+| ADR-027 | 2026-09-07 | Phone GitHub assign by address with same-owner -corp write repo | Companion pastes upstream URL; API creates/reuses `{repo}-corp`; enrolls both ids; companion-admin may act as CEO mobile for enroll/dispatch. |
 
 ### ADR-010 detail
 

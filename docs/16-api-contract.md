@@ -62,7 +62,8 @@ listed scope can still receive 403 from those routes.
 | GET /events | Cursor-paginated audit/activity (`limit`, default 50; optional `project_id`) | audit.read |
 | GET /headquarters | Event-projected rooms and departments | company.read |
 | GET /headquarters/rooms/{id} | Persisted tasks, staff, deliverables, costs and decisions for one expansion room | company.read |
-| POST /projects/{id}/github-enrollment | Enroll upstream/fork repo IDs and branch policy | project.enroll (CEO) |
+| POST /projects/{id}/github-enrollment | Enroll upstream/fork repo IDs and branch policy | project.enroll (CEO or admin companion) |
+| POST /projects/{id}/github-assign | Paste upstream github.com address; create/reuse `{repo}-corp`; enroll | project.enroll (CEO or admin companion) |
 | GET /github/status | GitHub App connectivity + `webhook_secret_configured` (no secrets returned) | company.read |
 | POST /github/webhooks | Signed GitHub App webhook ingress (HMAC; no bearer) | webhook secret |
 | GET /model/status | Model provider connectivity (no secrets returned) | company.read |
@@ -124,7 +125,9 @@ These routes pass the scope check above and then apply a further identity check 
 | `POST /push/subscriptions/{id}/revoke` | company.pause | CEO, or the principal that owns the subscription |
 | `POST /owner-inbox` | owner.escalate | CEO, or a principal registered in `identities` |
 | `POST /feeds`, `POST /feeds/{id}/poll` | project.enroll / company.pause | CEO principal (`_ceo`) |
-| `POST /projects/{id}/github-enrollment` | project.enroll | CEO principal (`_ceo`) |
+| `POST /projects/{id}/github-enrollment` | project.enroll | CEO or `companion-admin-*` (`_ceo_or_admin_companion`) |
+| `POST /projects/{id}/github-assign` | project.enroll | CEO or `companion-admin-*`; live GitHub App; same-owner `{repo}-corp` |
+| `POST /projects/{id}/dispatch-brief` | project.enroll | CEO or `companion-admin-*` |
 | `POST /remote-access/pairing`, `POST /remote-access/revoke/{principal_id}` | company.pause | CEO principal (`_ceo`). The route table says "owner only" because the owner *is* the CEO principal by default; the code compares against the CEO id, not an `owner` kind. `paired_devices` on `GET /remote-access` is likewise CEO-only and returns `[]` for others |
 | `GET /employees/{id}/training`, `GET /employees/{id}/performance`, `GET /hr/development`, `POST /employees`, `POST /training/schedule`, `POST /employees/{id}/goals`, `POST /employees/{id}/reviews` | organization.read | `_hr_or_ceo`: the CEO, or an actor `people:<title>` where title is `HR Director`, `People Director`, or `Training Specialist`. `GET /employees/{id}` additionally allows the employee reading their own record |
 

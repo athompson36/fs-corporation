@@ -504,6 +504,8 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 result, code = handler()
             except PermissionError as exc:
                 raise HTTPException(status_code=403, detail=str(exc)) from exc
+            except NotImplementedError as exc:
+                raise HTTPException(status_code=501, detail=str(exc)) from exc
             except LookupError as exc:
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
             except ValueError as exc:
@@ -1016,6 +1018,18 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 str(payload["upstream_repo_id"]), str(payload["fork_repo_id"]),
                 payload.get("protected_branches") or ["main"],
                 payload["branch_prefix"], payload.get("permitted_actions") or ["open_pr"]),
+            200))
+
+    @app.post("/api/v1/projects/{project_id}/github-assign")
+    def github_assign(project_id: str, body: Command, authorization: str | None = Header(default=None),
+                      idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        """Paste upstream github.com address; create/reuse same-owner {repo}-corp; enroll."""
+        ident = principal(authorization)
+        scoped(ident, "project.enroll")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"project_id": project_id}, lambda: (
+            company.assign_github_by_address(
+                ident["principal_id"], project_id, str(payload.get("upstream") or "")),
             200))
 
     @app.get("/api/v1/github/status")

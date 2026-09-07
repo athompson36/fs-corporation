@@ -375,9 +375,10 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M10-03 billed cost / revenue tables shipped (0.3.48).** Next: remaining M10-03
-(benchmark read path or removal; role fixtures), or **M10-04** UI items (status surface,
-version display, desk keyboard access, `window.prompt` replacement).
+**M10-03 billed cost / revenue tables shipped (0.3.48).** Phone GitHub assign-by-address
+shipped (0.3.49). Next: remaining M10-03 (benchmark read path or removal; role fixtures),
+or **M10-04** UI items (version display, status surface, desk keyboard access,
+`window.prompt` replacement for remaining flows).
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
 dependencies plus controlled egress in the worker image; furnished HQ room art.
