@@ -3035,6 +3035,8 @@ class Company:
                 raise ValueError("keys list or all_overlay=true required")
             changed = []
             for key in keys:
+                if not isinstance(key, str):
+                    raise ValueError("each key must be a string")
                 if key not in EDITABLE_KEYS:
                     raise ValueError(f"Unknown or read-only setting: {key}")
                 if key not in changed:

@@ -157,6 +157,14 @@ class SettingsApiTests(unittest.TestCase):
         )
         self.assertEqual(p.status_code, 422)
 
+    def test_reset_malformed_keys_422(self):
+        r = self.client.post(
+            "/api/v1/settings/reset",
+            json={"payload": {"keys": [["FS_CORP_SSE_IDLE_SEC"]]}},
+            headers={**self.h, "Idempotency-Key": "reset-bad-keys"},
+        )
+        self.assertEqual(r.status_code, 422)
+
     def test_write_routes_reject_unknown_fields(self):
         patch_response = self.client.patch(
             "/api/v1/settings",
