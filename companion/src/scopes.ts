@@ -25,3 +25,7 @@ export function canRespondInbox(scopes: string[] | undefined): boolean {
 export function canEscalate(scopes: string[] | undefined): boolean {
   return hasScope(scopes, "owner.escalate");
 }
+
+export function canManageOrganization(scopes: string[] | undefined): boolean {
+  return hasScope(scopes, "organization.write");
+}

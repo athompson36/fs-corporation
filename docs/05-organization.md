@@ -2,11 +2,24 @@
 
 The company blueprint includes Executive, Product, Engineering, Quality Control, Art/Design, Media/Audio, Marketing, Sales/Partnerships, Finance, Legal/Compliance, Human Resources, IT/Security, Facilities/Procurement and Customer Success. The canonical department catalog, initial activation flags, heads, specialist positions and measures are in `config/departments.json`. Prompts exist for each department in `prompts/departments/`. Human Resources retains catalog id `people`.
 
+## Implemented organization handoff
+
+The reference core persists one head seat per catalog department plus active specialist
+assignments. `GET /api/v1/org` exposes the catalog, honest `active` / `vacant` / `dormant`
+seat state, and roster. The desk and companion render those records without turning vacant
+seats into activity. CEO/admin companions can explicitly activate a dormant department for
+a project. Dispatch requires an explicit budget for each department; occupied heads receive
+persisted inbox items and can assign rostered or project-granted specialists through the
+grant-checked queue path.
+
 ## Department head responsibilities
 
 Maintain the department queue, translate CEO objectives into deliverables, estimate resources, assign capable workers, review evidence, coordinate dependencies, report outcomes and propose process/staffing changes. Heads own results within their mandate; they do not invent project goals or create permissions by consensus.
 
-Cross-department requests are work orders with a requesting department, delivering department, approved objective, budget owner, due date, acceptance criteria and escalation path. Finance prevents double-counting allocated cost. A shared specialist may belong to one position with several project assignments; permissions remain task-specific.
+**Design only:** cross-department requests will be work orders with a requesting department,
+delivering department, approved objective, budget owner, due date, acceptance criteria and
+escalation path. Task 7 remains unimplemented. A shared specialist may belong to one
+position with several project assignments; permissions remain task-specific.
 
 Quality Control inspects product artifacts before acceptance. Human Resources oversees employee development and training, including hire records, documented training files, performance goals and reviews. See [21-quality-hr.md](21-quality-hr.md) and [22-employee-development.md](22-employee-development.md).
 

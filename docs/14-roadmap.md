@@ -223,7 +223,8 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Project list/detail and dispatch-brief with per-department budgets; dormant
       departments require project activation and vacant heads remain explicitly blocked
 - [x] Head inbox read and grant/roster-checked dispatch assignment into the specialist queue;
-      desk and companion presentation remains the next UI task
+      v0.3.51 desk and companion surfaces render catalog/seat/roster state and provide
+      scoped assignment forms without inventing occupied seats
 - [x] Owner inbox (`owner_requests`) with head escalation and CEO response
 - [x] Unified decisions inbox; reuse existing approve/reject endpoints
 - [x] SSE event stream; PWA polls as fallback
@@ -330,10 +331,10 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
 - [ ] **Keyboard access for HQ room tiles.** Isometric and plan tiles in `company/service.py`
       are click-only SVG with no focus or key handler; the list view is already accessible.
       *Acceptance:* tiles are focusable and activate on Enter/Space.
-- [ ] **Replace `window.prompt` in the companion.** It currently drives real mutations
-      (inbox response, escalation, project enroll, dispatch), which blocks the main thread and
-      degrades screen-reader and mobile use.
-      *Acceptance:* in-app form controls with labels for each of those four flows.
+- [ ] **Replace remaining `window.prompt` in the companion.** The v0.3.51 project dispatch
+      flow now uses labeled per-department budget controls. Inbox response, escalation, and
+      project enroll still block the main thread and degrade screen-reader/mobile use.
+      *Acceptance:* in-app form controls with labels for those remaining three flows.
 
 ### M10-05: Documentation and decision hygiene
 

@@ -121,6 +121,30 @@ export class ApiClient {
     return this.get<Record<string, unknown>>(`/api/v1/projects/${id}`);
   }
 
+  org() {
+    return this.get<{ departments: OrgDepartment[] }>("/api/v1/org");
+  }
+
+  headInbox() {
+    return this.get<{ items: HeadDispatch[] }>("/api/v1/inbox/head");
+  }
+
+  assignDispatch(dispatchId: string, assignee: string, action: string, costCents: number) {
+    return this.post(
+      `/api/v1/dispatches/${dispatchId}/assign`,
+      { assignee, action, cost_cents: costCents },
+      `assign-${dispatchId}-${assignee}`,
+    );
+  }
+
+  activateDepartment(projectId: string, departmentId: string) {
+    return this.post(
+      `/api/v1/projects/${projectId}/departments/${departmentId}/activate`,
+      {},
+      `activate-${projectId}-${departmentId}`,
+    );
+  }
+
   decisions() {
     return this.get<{ items: DecisionItem[] }>("/api/v1/decisions/inbox");
   }
@@ -237,5 +261,37 @@ export type OwnerRequest = {
   body: string;
   kind: string;
   department_id: string;
+  status: string;
+};
+
+export type OrgAssignment = {
+  id: string;
+  position_id: string;
+  department_id: string;
+  principal_id: string;
+  status: string;
+};
+
+export type OrgDepartment = {
+  id: string;
+  name: string;
+  initially_active: number | boolean;
+  seat: {
+    id?: string;
+    status: string;
+    principal_id: string | null;
+    title: string;
+  };
+  assignments: OrgAssignment[];
+};
+
+export type HeadDispatch = {
+  id: string;
+  project_id: string;
+  department_id: string;
+  head_principal_id: string | null;
+  brief: string;
+  acceptance_criteria: string;
+  budget_cents: number;
   status: string;
 };

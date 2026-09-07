@@ -1,6 +1,7 @@
 # Design: Org hierarchy, rules, and project handoff
 
-Date: 2026-09-07. Status: **approved design** (not yet implemented).
+Date: 2026-09-07. Status: **implemented through milestone 4** (v0.3.51);
+milestone 5 cross-department work orders remain deferred.
 
 ## Goal
 
@@ -40,17 +41,17 @@ Natural-language org rules stay **proposals** until compiled into grant fields a
 
 Catalog remains seed truth: `config/departments.json` → `departments` + `positions`.
 
-### Proposed tables
+### Implemented tables
 
 **`department_seats`**
 
 - One active head seat per department (enforced).
-- Columns (proposed): `id`, `department_id`, `principal_id` (nullable when vacant), `title`, `status` (`active` | `vacant` | `dormant`), `appointed_by`, `appointed_at`, `vacated_at`.
+- Columns: `id`, `department_id`, `principal_id` (nullable when vacant), `title`, `status` (`active` | `vacant` | `dormant`), `appointed_by`, `appointed_at`, `vacated_at`.
 
 **`position_assignments`**
 
 - Specialist bound to a catalog position.
-- Columns (proposed): `id`, `position_id`, `department_id`, `principal_id`, `status` (`active` | `released`), `reports_to_seat_id` (optional, informational), `assigned_by`, `assigned_at`, `released_at`.
+- Columns: `id`, `position_id`, `department_id`, `principal_id`, `status` (`active` | `released`), `reports_to_seat_id` (optional, informational), `assigned_by`, `assigned_at`, `released_at`.
 
 **Link to `employees`:** when an employee acts as a principal, link via principal/employee mapping or shared id convention; do not duplicate permission in employee rows.
 
@@ -73,7 +74,7 @@ CEO dispatch brief
   → evidence / QC / accept (existing paths)
 ```
 
-### Dispatch status (proposed)
+### Dispatch status (implemented handoff subset)
 
 | Status | Meaning |
 |---|---|
@@ -127,16 +128,16 @@ Hard checks in application code / action gateway:
 
 Rule amendments: heads propose diffs via existing policy proposal flow; CEO approves a specific version; activation increments policy version and revalidates queued work.
 
-## API (proposed)
+## API (implemented milestone 4 surface)
 
 | Method | Purpose | Auth note |
 |---|---|---|
 | `GET /api/v1/org` | Departments, seats, assignments, activation | `organization.read`; honest vacant/dormant |
 | `POST /api/v1/org/heads` | Appoint / vacate | `org.appoint_head` or CEO |
 | `POST /api/v1/org/assignments` | Assign / release specialist | `org.assign_position` or CEO |
-| `POST /api/v1/projects/{id}/activate-department` | Activate dormant dept for project | CEO / scoped grant |
-| `POST .../dispatch` (existing) | Tightened brief dispatch | CEO / admin-companion |
-| Head inbox read | List `queued_for_head` / blocked for actor | authenticated principal |
+| `POST /api/v1/projects/{id}/departments/{department_id}/activate` | Activate dormant dept for project | CEO / admin-companion |
+| `POST /api/v1/projects/{id}/dispatch-brief` | Tightened brief dispatch | CEO / admin-companion |
+| `GET /api/v1/inbox/head` | List `queued_for_head` / blocked for actor | `organization.read` |
 | `POST /api/v1/dispatches/{id}/assign` | Head assigns specialist | seat + grant |
 
 Actor identity remains outside model inputs (bearer → principal). Idempotency keys on appoint/assign/dispatch commands.
@@ -153,8 +154,9 @@ Actor identity remains outside model inputs (bearer → principal). Idempotency 
 1. **Roster + seed** — migrations, appoint/vacate/assign APIs, unit tests; optional opt-in demo principal map.
 2. **Rules wiring** — activation, seat, roster, grant checks on assign/approve/dispatch.
 3. **Handoff** — dispatch status + head inbox + assign → queue.
-4. **UI** — desk + companion org/inbox; update capability matrix, roadmap, decisions, handoff.
-5. **Cross-dept WO** — schema fields + create/accept (may trail).
+4. **UI** — implemented in v0.3.51: desk + companion org/inbox, assignment,
+   activation, and explicit per-department dispatch budgets.
+5. **Cross-dept WO** — not implemented; schema fields + create/accept remain Task 7.
 
 ## Testing (acceptance)
 

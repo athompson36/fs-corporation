@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ApiClient,
   DecisionItem,
+  HeadDispatch,
+  OrgDepartment,
   OwnerRequest,
   loadSettings,
   redeemPairing,
@@ -14,11 +16,12 @@ import {
   canEnroll,
   canEscalate,
   canPause,
+  canManageOrganization,
   canRespondInbox,
   canResume,
 } from "./scopes";
 
-type Tab = "dashboard" | "projects" | "decisions" | "inbox" | "diagnostics" | "settings";
+type Tab = "dashboard" | "projects" | "organization" | "decisions" | "inbox" | "diagnostics" | "settings";
 
 type LocalCandidate = {
   id: string;
@@ -52,6 +55,8 @@ export default function App() {
   const [projects, setProjects] = useState<Record<string, unknown>[]>([]);
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
   const [inbox, setInbox] = useState<OwnerRequest[]>([]);
+  const [organization, setOrganization] = useState<OrgDepartment[]>([]);
+  const [headInbox, setHeadInbox] = useState<HeadDispatch[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [projectDetail, setProjectDetail] = useState<Record<string, unknown> | null>(null);
   const [ghUpstream, setGhUpstream] = useState("");
@@ -64,6 +69,15 @@ export default function App() {
   const [diagBusy, setDiagBusy] = useState(false);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [pushSubscriptions, setPushSubscriptions] = useState<{ id: string; endpoint: string }[]>([]);
+  const [activateProjectId, setActivateProjectId] = useState("");
+  const [activateDepartmentId, setActivateDepartmentId] = useState("");
+  const [assignDispatchId, setAssignDispatchId] = useState("");
+  const [assignAssignee, setAssignAssignee] = useState("");
+  const [assignAction, setAssignAction] = useState("");
+  const [assignCost, setAssignCost] = useState("");
+  const [dispatchBrief, setDispatchBrief] = useState("");
+  const [dispatchCriteria, setDispatchCriteria] = useState("");
+  const [dispatchBudgets, setDispatchBudgets] = useState("");
 
   const scopes = settings.scopes;
   const api = useMemo(() => new ApiClient(settings), [settings]);
@@ -112,17 +126,21 @@ export default function App() {
     setError(null);
     setOffline(false);
     try {
-      const [d, p, dec, own, local] = await Promise.all([
+      const [d, p, dec, own, org, heads, local] = await Promise.all([
         api.dashboard(),
         api.projects(),
         api.decisions(),
         api.ownerInbox("open"),
+        api.org(),
+        api.headInbox(),
         api.localRepos().catch(() => null),
       ]);
       setDashboard(d);
       setProjects(p.projects);
       setDecisions(dec.items);
       setInbox(own.items);
+      setOrganization(org.departments);
+      setHeadInbox(heads.items);
       if (local) {
         setLocalReposRoot(local.root);
         setLocalCandidates(local.candidates);
@@ -233,6 +251,18 @@ export default function App() {
   const accessBadge = settings.access_level === "read_only"
     ? "Read only"
     : settings.label || (settings.access_level ? settings.access_level : null);
+  const canManageOrg = canManageOrganization(scopes);
+
+  function departmentBudgetsFromLines(raw: string): Record<string, number> {
+    return Object.fromEntries(
+      raw.split(/\n/)
+        .map((line) => {
+          const [id, amount] = line.split("=");
+          return [id?.trim(), Number(amount?.trim())] as const;
+        })
+        .filter(([id, amount]) => Boolean(id) && Number.isInteger(amount) && amount >= 0),
+    );
+  }
 
   if (!settings.token) {
     return (
@@ -448,22 +478,137 @@ export default function App() {
                 </p>
               )}
               {canEnroll(scopes) && (
-                <div className="actions">
-                  <button className="primary" type="button" onClick={async () => {
-                    const depts = window.prompt("Departments (comma-separated)", "engineering,product");
-                    const brief = window.prompt("Brief for heads", String(projectDetail.brief));
-                    const criteria = window.prompt("Acceptance criteria", "Deliverable reviewed");
-                    if (!depts || !brief || !criteria) return;
-                    const departmentBudgets = Object.fromEntries(
-                      depts.split(",").map((s) => [s.trim(), 500]).filter(([id]) => id),
+                <form onSubmit={async (event) => {
+                  event.preventDefault();
+                  const departmentBudgets = departmentBudgetsFromLines(dispatchBudgets);
+                  if (!Object.keys(departmentBudgets).length) {
+                    setError("Enter at least one valid department=budget line.");
+                    return;
+                  }
+                  try {
+                    await api.dispatchBrief(
+                      selectedProject,
+                      dispatchBrief.trim() || String(projectDetail.brief),
+                      departmentBudgets,
+                      dispatchCriteria.trim(),
                     );
-                    await api.dispatchBrief(selectedProject, brief, departmentBudgets, criteria);
+                    setDispatchBrief("");
+                    setDispatchCriteria("");
+                    setDispatchBudgets("");
                     await refresh();
                     setSelectedProject(null);
-                  }}>Dispatch to heads</button>
-                </div>
+                  } catch (e) {
+                    setError(String(e));
+                  }
+                }}>
+                  <h3>Dispatch to heads</h3>
+                  <label htmlFor="dispatch-brief">Brief for heads</label>
+                  <textarea id="dispatch-brief" value={dispatchBrief}
+                    placeholder={String(projectDetail.brief)}
+                    onChange={(e) => setDispatchBrief(e.target.value)} />
+                  <label htmlFor="dispatch-criteria">Acceptance criteria</label>
+                  <textarea id="dispatch-criteria" required value={dispatchCriteria}
+                    onChange={(e) => setDispatchCriteria(e.target.value)} />
+                  <label htmlFor="dispatch-budgets">Department budget (¢), one department=amount per line</label>
+                  <textarea id="dispatch-budgets" required value={dispatchBudgets}
+                    placeholder={"engineering=500\nproduct=300"}
+                    onChange={(e) => setDispatchBudgets(e.target.value)} />
+                  <div className="actions">
+                    <button className="primary" type="submit">Dispatch to heads</button>
+                  </div>
+                </form>
               )}
             </div>
+          )}
+        </section>
+      )}
+
+      {tab === "organization" && (
+        <section>
+          <p className="lede">Catalog, persisted seat status, and roster. Vacant and dormant seats are not healthy workers.</p>
+          {organization.map((department) => (
+            <div key={department.id} className="card">
+              <strong>{department.id} · {department.name}</strong>
+              <div className="muted">
+                Head seat: {department.seat.status} · {department.seat.principal_id || "vacant"}
+              </div>
+              <div className="muted">
+                Roster: {department.assignments.length
+                  ? department.assignments.map((a) => `${a.principal_id} (${a.position_id})`).join(", ")
+                  : "none"}
+              </div>
+            </div>
+          ))}
+          {!organization.length && <p className="muted">No organization catalog returned.</p>}
+          {canManageOrg && (
+            <form className="card" onSubmit={async (event) => {
+              event.preventDefault();
+              try {
+                await api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim());
+                setActivateProjectId("");
+                setActivateDepartmentId("");
+                await refresh();
+              } catch (e) {
+                setError(String(e));
+              }
+            }}>
+              <h2>Activate dormant department for project</h2>
+              <label htmlFor="activate-project">Project id</label>
+              <input id="activate-project" required value={activateProjectId}
+                onChange={(e) => setActivateProjectId(e.target.value)} />
+              <label htmlFor="activate-department">Department id</label>
+              <input id="activate-department" required value={activateDepartmentId}
+                onChange={(e) => setActivateDepartmentId(e.target.value)} />
+              <div className="actions"><button className="primary" type="submit">Activate</button></div>
+            </form>
+          )}
+          <h2>Head inbox</h2>
+          {headInbox.map((dispatch) => (
+            <div key={dispatch.id} className="card">
+              <strong>{dispatch.project_id} · {dispatch.department_id}</strong>
+              <div className="muted">{dispatch.status} · budget {dispatch.budget_cents}¢</div>
+              <p>{dispatch.brief}</p>
+              <p className="muted">Acceptance: {dispatch.acceptance_criteria}</p>
+              {canManageOrg && dispatch.status === "queued_for_head" && (
+                <button type="button" onClick={() => setAssignDispatchId(dispatch.id)}>Assign</button>
+              )}
+            </div>
+          ))}
+          {!headInbox.length && <p className="muted">No open head dispatches.</p>}
+          {canManageOrg && assignDispatchId && (
+            <form className="card" onSubmit={async (event) => {
+              event.preventDefault();
+              try {
+                await api.assignDispatch(
+                  assignDispatchId,
+                  assignAssignee.trim(),
+                  assignAction.trim(),
+                  Number(assignCost),
+                );
+                setAssignDispatchId("");
+                setAssignAssignee("");
+                setAssignAction("");
+                setAssignCost("");
+                await refresh();
+              } catch (e) {
+                setError(String(e));
+              }
+            }}>
+              <h2>Assign dispatch</h2>
+              <label htmlFor="assign-assignee">Assignee principal</label>
+              <input id="assign-assignee" required value={assignAssignee}
+                onChange={(e) => setAssignAssignee(e.target.value)} />
+              <label htmlFor="assign-action">Action</label>
+              <input id="assign-action" required value={assignAction}
+                onChange={(e) => setAssignAction(e.target.value)} />
+              <label htmlFor="assign-cost">Cost (¢)</label>
+              <input id="assign-cost" required type="number" min="0" value={assignCost}
+                onChange={(e) => setAssignCost(e.target.value)} />
+              <div className="actions">
+                <button className="primary" type="submit">Queue assignment</button>
+                <button type="button" onClick={() => setAssignDispatchId("")}>Cancel</button>
+              </div>
+            </form>
           )}
         </section>
       )}
@@ -608,6 +753,7 @@ export default function App() {
         {([
           ["dashboard", "Home"],
           ["projects", "Projects"],
+          ["organization", "Org"],
           ["decisions", "Decisions"],
           ["inbox", "Inbox"],
           ["diagnostics", "Diagnostics"],

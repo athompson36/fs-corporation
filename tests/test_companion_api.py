@@ -72,6 +72,30 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("department_budgets: departmentBudgets", client_source)
         self.assertNotIn("brief, departments, acceptance_criteria, budget_cents", client_source)
 
+    def test_desk_surfaces_org_head_inbox_assignment_and_budget_map(self):
+        desk_source = (
+            Path(__file__).resolve().parents[1] / "company" / "service.py"
+        ).read_text()
+        self.assertIn('id="org-list"', desk_source)
+        self.assertIn("'/api/v1/org'", desk_source)
+        self.assertIn("seat.principal_id || 'vacant'", desk_source)
+        self.assertIn('id="head-inbox-list"', desk_source)
+        self.assertIn("'/api/v1/inbox/head'", desk_source)
+        self.assertIn("department_budgets: departmentBudgets", desk_source)
+        self.assertIn("'/api/v1/dispatches/' + encodeURIComponent(dispatch.id) + '/assign'", desk_source)
+
+    def test_companion_wires_org_handoff_and_activation_clients(self):
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        client_source = (root / "api" / "client.ts").read_text()
+        app_source = (root / "App.tsx").read_text()
+        self.assertIn('"/api/v1/org"', client_source)
+        self.assertIn('"/api/v1/inbox/head"', client_source)
+        self.assertIn("/dispatches/${dispatchId}/assign", client_source)
+        self.assertIn("/departments/${departmentId}/activate", client_source)
+        self.assertIn('"organization"', app_source)
+        self.assertIn("Department budget (¢)", app_source)
+        self.assertNotIn("[s.trim(), 500]", app_source)
+
     def test_dashboard_unauthenticated(self):
         self.assertEqual(self.client.get("/api/v1/dashboard").status_code, 401)
 

@@ -255,6 +255,8 @@ appointment was deferred because reassignment should be an explicit state transi
 **Consequences.** The API exposes scoped inbox read and assignment commands, while core
 authorization remains authoritative. The queue write precedes the assignment transaction
 so queue validation failure cannot mark a dispatch assigned; callers should use the API's
-idempotency key for retry-safe command execution.
+idempotency key for retry-safe command execution. In v0.3.51 the desk and companion expose
+this persisted inbox and assignment path alongside honest seat/roster state; the UI does not
+derive authority from titles or reporting lines.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

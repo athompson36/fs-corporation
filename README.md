@@ -2,7 +2,7 @@
 
 A persistent AI corporation inspired by ChatDev: CEO governance, delegated department heads, mixed-model teams, controlled project forks, market intelligence, and a headquarters that grows with accepted work.
 
-**Deliverable status: v0.3.50 local-repos candidates + Diagnostics + v0.3.49 phone GitHub assign-by-address + v0.3.48 billed cost/revenue tables + v0.3.47 companion PWA build (generateSW) + v0.3.46 M10-02 test gaps + v0.3.45 worker-completion transaction + v0.3.44 atomic idempotency + v0.3.43 Alembic-on-startup + v0.3.42 HTTP 429 + v0.3.41 same-host worker plane on `.101` + live github.com Funnel webhooks (ping+push) + impact-brief API + live GitHub pilot + model/feed adapters + Docker/container workers + Web Push + ChatDev worker live path (control-plane deny by default) + optional ChatDev worker image labels on `/chatdev/status`.** Billed model pricing needs `FS_CORP_MODEL_CENTS_PER_1K_TOKENS` (or profile rate); a dedicated second worker host still needs owner follow-up.
+**Deliverable status: v0.3.51 desk + companion organization roster/head handoff UI + v0.3.50 local-repos candidates + Diagnostics + v0.3.49 phone GitHub assign-by-address + v0.3.48 billed cost/revenue tables + v0.3.47 companion PWA build (generateSW) + v0.3.46 M10-02 test gaps + v0.3.45 worker-completion transaction + v0.3.44 atomic idempotency + v0.3.43 Alembic-on-startup + v0.3.42 HTTP 429 + v0.3.41 same-host worker plane on `.101` + live github.com Funnel webhooks (ping+push) + impact-brief API + live GitHub pilot + model/feed adapters + Docker/container workers + Web Push + ChatDev worker live path (control-plane deny by default) + optional ChatDev worker image labels on `/chatdev/status`.** Billed model pricing needs `FS_CORP_MODEL_CENTS_PER_1K_TOKENS` (or profile rate); a dedicated second worker host still needs owner follow-up.
 
 Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-corporation.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
 
@@ -40,11 +40,11 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 | Employee hire, training files, goals and trends | Implemented locally; overdue training blocks hired dispatch |
 | Master Consultant | Heuristic scan, durable CEO decisions, revision/work-order handoff |
 | ChatDev, GitHub and market integration interfaces | GitHub live when App configured; signed webhooks when `GITHUB_WEBHOOK_SECRET` set; feed poll live for approved RSS/Atom URLs; ChatDev opt-in when `CHATDEV_HOME` set (`GET /api/v1/chatdev/status` incl. `worker_image_chatdev`; worker live when `chatdev: true`; control-plane needs `CHATDEV_ALLOW_CONTROL_PLANE=1`); optional ChatDev in worker Docker image; doc fetch still disabled |
-| 14 departments, roster, activation and role prompts | Persistent seats/assignments; dormant dispatch requires activation and per-department budgets; head inbox + grant/roster-checked assignment queues specialist work |
-| CEO desk and headquarters projection | Cosmic-glass HTML/SVG desk; 2D + isometric tiles; room selection opens persisted work; companion shares the same tokens |
+| 14 departments, roster, activation and role prompts | Persistent seats/assignments; dormant dispatch requires explicit project activation and per-department budgets; desk + companion show honest seat/roster state and head inbox; grant/roster-checked assignment queues specialist work |
+| CEO desk and headquarters projection | Cosmic-glass HTML/SVG desk; 2D + isometric tiles; room selection opens persisted work; organization and head-handoff forms use the authenticated API; companion shares the same tokens |
 | Isolated subprocess workers with gateway allowlist | Implemented; fs-dev defaults to container when ready; workers remain `--network none` |
 | fs-dev production hosting | systemd + Caddy + Docker workers; same-host `.101` worker plane (`worker_plane` on `/workers/status`) + optional API egress via policy routing |
-| Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented; Web Push live when VAPID keys configured; native Expo shell for iOS/Android Tailscale handoff |
+| Mobile CEO companion PWA + dashboard APIs | Implemented; org catalog/seats/roster, head inbox/assign, dormant-department activation, and explicit department budgets; LAN HTTPS and Tailscale access documented; Web Push live when VAPID keys configured; native Expo shell for iOS/Android Tailscale handoff |
 | Live providers inside worker boundary | Model invoke when key set; GitHub when App installed; feed fetch for approved URLs; ChatDev live in worker when `chatdev: true` + pin-verified home (default mock otherwise); doc fetch not connected |
 
 ## Documentation map

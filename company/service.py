@@ -72,6 +72,8 @@ h2 { font-size: 1.05rem; }
 .tag-proposal { color: #d8c4ff; border: 1px solid rgba(139,92,246,0.45); }
 .tag-warning { color: var(--warning); border: 1px solid rgba(245,185,66,0.4); }
 button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer; padding: 0; font: inherit; text-align: left; }
+input, textarea { width: 100%; color: var(--soft); background: rgba(8,12,22,0.6); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 0.45rem; margin: 0.2rem 0 0.6rem; }
+form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; padding-top: 0.6rem; }
 #iso, #floor { width: 100%; max-height: 16rem; }
 #iso [data-room-id], #floor [data-room-id] { cursor: pointer; }
 .iso-rise { transform-box: fill-box; transform-origin: center bottom; animation: iso-rise 0.7s ease-out; }
@@ -140,11 +142,28 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 <section class="glass" id="status"><h2>Status</h2><pre id="status-json">Loading…</pre></section>
 <section class="glass" id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul></section>
 <section class="glass" id="projects"><h2>Projects</h2><ul id="project-list"></ul>
+<form id="dispatch-form" class="compact">
+<h3>Dispatch brief to heads</h3>
+<label for="dispatch-project">Project id</label><input id="dispatch-project" required/>
+<label for="dispatch-brief">Brief</label><textarea id="dispatch-brief" required></textarea>
+<label for="dispatch-criteria">Acceptance criteria</label><textarea id="dispatch-criteria" required></textarea>
+<label for="dispatch-budgets">Department budgets (one <code>department=¢</code> per line)</label>
+<textarea id="dispatch-budgets" placeholder="engineering=500&#10;product=300" required></textarea>
+<button type="submit" class="chip">Dispatch</button>
+<p id="dispatch-status" class="muted"></p>
+</form>
 <h3>Local candidates</h3>
 <p class="muted">Folders under local repos/ on the host. Enroll creates a company project (id = folder name).</p>
 <ul id="local-repo-list"></ul>
 </section>
-<section class="glass" id="departments"><h2>Departments</h2><ul id="department-list"></ul></section>
+<section class="glass" id="departments"><h2>Organization</h2>
+<p class="muted">Catalog, persisted seat status, and roster. Vacant and dormant seats are not active workers.</p>
+<ul id="org-list"></ul>
+</section>
+<section class="glass" id="head-inbox"><h2>Head inbox</h2>
+<p class="muted">Open dispatches returned for this authenticated principal.</p>
+<ul id="head-inbox-list"></ul>
+</section>
 <section class="glass" id="people"><h2>People</h2><ul id="people-list"></ul></section>
 <section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="budget"><h2>Budget</h2>
@@ -211,6 +230,37 @@ function listed(items, fn) {
   return arr.length ? arr.map(fn).join(', ') : 'none';
 }
 function pad(n) { return String(n).padStart(2, '0'); }
+function parseDepartmentBudgets(raw) {
+  const departmentBudgets = {};
+  raw.split(/\\n/).forEach(line => {
+    const parts = line.split('=');
+    const id = (parts[0] || '').trim();
+    const amount = Number((parts[1] || '').trim());
+    if (id && Number.isInteger(amount) && amount >= 0) departmentBudgets[id] = amount;
+  });
+  return departmentBudgets;
+}
+document.getElementById('dispatch-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const departmentBudgets = parseDepartmentBudgets(document.getElementById('dispatch-budgets').value);
+  const status = document.getElementById('dispatch-status');
+  if (!Object.keys(departmentBudgets).length) {
+    status.textContent = 'Enter at least one valid department=budget line.';
+    return;
+  }
+  const projectId = document.getElementById('dispatch-project').value.trim();
+  const res = await fetch('/api/v1/projects/' + encodeURIComponent(projectId) + '/dispatch-brief', {
+    method: 'POST',
+    headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'desk-dispatch-' + Date.now()},
+    body: JSON.stringify({payload: {
+      brief: document.getElementById('dispatch-brief').value.trim(),
+      acceptance_criteria: document.getElementById('dispatch-criteria').value.trim(),
+      department_budgets: departmentBudgets
+    }})
+  });
+  status.textContent = res.ok ? 'Dispatch created.' : await res.text();
+  if (res.ok) { event.target.reset(); load(); }
+});
 function setHqView(mode) {
   document.getElementById('iso').hidden = mode !== 'iso';
   document.getElementById('floor').hidden = mode !== 'plan';
@@ -340,6 +390,51 @@ async function openRoom(roomId) {
   lines.forEach(line => { const li = document.createElement('li'); li.textContent = line; facts.appendChild(li); });
   location.hash = 'room-detail';
 }
+function renderHeadInbox(items) {
+  const list = document.getElementById('head-inbox-list');
+  list.innerHTML = '';
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No open head dispatches.';
+    list.appendChild(li);
+    return;
+  }
+  items.forEach(dispatch => {
+    const li = document.createElement('li');
+    li.appendChild(document.createTextNode(
+      dispatch.project_id + ' · ' + dispatch.department_id + ' · ' + dispatch.status
+      + ' · budget ' + dispatch.budget_cents + '¢'));
+    if (dispatch.status === 'queued_for_head') {
+      const form = document.createElement('form');
+      form.className = 'compact';
+      form.innerHTML = '<label>Assignee principal<input name="assignee" required></label>'
+        + '<label>Action<input name="action" required></label>'
+        + '<label>Cost (¢)<input name="cost" type="number" min="0" required></label>'
+        + '<button class="chip" type="submit">Assign</button><span class="muted"></span>';
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const fields = new FormData(form);
+        const res = await fetch(
+          '/api/v1/dispatches/' + encodeURIComponent(dispatch.id) + '/assign',
+          {
+            method: 'POST',
+            headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'desk-assign-' + dispatch.id},
+            body: JSON.stringify({payload: {
+              assignee: fields.get('assignee'),
+              action: fields.get('action'),
+              cost_cents: Number(fields.get('cost'))
+            }})
+          }
+        );
+        form.querySelector('span').textContent = res.ok ? ' Assigned.' : ' ' + await res.text();
+        if (res.ok) load();
+      });
+      li.appendChild(form);
+    }
+    list.appendChild(li);
+  });
+}
 async function load() {
   const status = await fetch('/api/v1/company', {headers});
   document.getElementById('status-json').textContent = await status.text();
@@ -416,9 +511,16 @@ async function load() {
     li.textContent = 'local-repos unavailable';
     localReposEl.appendChild(li);
   }
-  const depts = await fetch('/api/v1/departments', {headers});
-  const dj = await depts.json();
-  fill('department-list', dj.departments||[], d => d.id + ' — ' + d.name + ' — ' + d.head_title);
+  const org = await fetch('/api/v1/org', {headers});
+  const oj = await org.json();
+  fill('org-list', oj.departments||[], d => {
+    const seat = d.seat || {};
+    const roster = listed(d.assignments, a => a.principal_id + ' (' + a.position_id + ')');
+    return d.id + ' — ' + seat.status + ' — ' + (seat.principal_id || 'vacant') + ' — roster: ' + roster;
+  });
+  const headInbox = await fetch('/api/v1/inbox/head', {headers});
+  const hij = await headInbox.json();
+  renderHeadInbox(hij.items || []);
   const people = await fetch('/api/v1/hr/development', {headers});
   const peoplej = await people.json();
   fill('people-list', peoplej.employees || peoplej.assignments || [], p => (p.display_name || p.employee_id || p.id) + ' — ' + (p.position_id || p.status || ''));
@@ -434,7 +536,7 @@ async function load() {
   const company = dashj.company || {};
   document.getElementById('metric-projects').textContent = pad((pj.projects||[]).length);
   document.getElementById('metric-decisions').textContent = pad((ij.items||[]).length);
-  document.getElementById('metric-departments').textContent = pad((dj.departments||[]).length);
+  document.getElementById('metric-departments').textContent = pad((oj.departments||[]).length);
   document.getElementById('budget-json').textContent = JSON.stringify({
     simulated_spend_cents: company.simulated_spend_cents,
     billed_cost_cents: company.billed_cost_cents,
