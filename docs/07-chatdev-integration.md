@@ -39,7 +39,24 @@ Use the pinned repository's own installation instructions and lockfile (`uv sync
 
 Use a minimal workflow and deterministic mock provider compatible with the pinned schema. Assert input/output, session isolation, usage metadata, cancellation and failure mapping. Verify a tool cannot reach unauthorized filesystem paths, endpoints or credentials. Only after that test passes enable one real text provider for one bounded task.
 
-`company/adapters.py` supplies WorkOrder and a disabled ChatDevAdapter. It has no invocation path to the upstream SDK today. An SDK signature inspection is not end-to-end compatibility testing. Live ChatDev remains untested in this starter.
+`company/adapters.py` supplies WorkOrder and `ChatDevAdapter`. When `CHATDEV_HOME` points at a checkout at the pin (verified via `git rev-parse HEAD` against the pinned commit) containing `runtime/sdk.py`, the adapter imports the pinned SDK via `importlib`, validates workflow digest and tool allowlist, and normalizes `WorkflowRunResult` with `accepted: false`. Without `CHATDEV_HOME`, when `runtime/sdk.py` is missing, or when the checkout HEAD does not match the pin, `ChatDevAdapter.run` raises `NotImplementedError` with a pointer to this document.
+
+**Tool allowlist is not YAML sanitization.** WorkOrder payload `tools` is checked against `{none, mock_fs}` only. That gate does **not** parse or rewrite upstream workflow YAML. A workflow file can still declare nodes, tools, or providers that exceed company policy. Slice 1 does **not** implement full graph schema validation against the pinned parser; treat workflow bytes as untrusted task data until a later slice validates graphs before dispatch.
+
+**Production posture:** the live ChatDev SDK must **not** run inside the control-plane API process by default. Slice 2 denies control-plane execution unless `CHATDEV_ALLOW_CONTROL_PLANE=1` (local desk experiments). Production execution uses the **isolated subprocess worker**: when `payload.chatdev is True` (or the envelope workflow digest matches the fixture digest) and `CHATDEV_HOME` is pin-verified, `run_isolated_work` calls `ChatDevAdapter` with `allow_control_plane=True`. Otherwise workers keep `MockChatDevAdapter`. A requested live path that is not ready returns an error — no silent mock fallback.
+
+Contract tests in `tests/test_chatdev_adapter.py` use a fake SDK and `fixtures/chatdev/minimal_workflow.yaml` for digest checks. Live upstream execution remains an owner opt-in step outside CI.
+
+## Opt-in configuration
+
+| Env | Meaning |
+|---|---|
+| `CHATDEV_HOME` | Absolute path to a checkout at the pin (must contain `runtime/sdk.py`; HEAD must match pin) |
+| `CHATDEV_WORKFLOW` | Optional absolute path to workflow YAML; default: `fixtures/chatdev/minimal_workflow.yaml` |
+| `CHATDEV_SKIP_PIN_CHECK` | Test/dev escape hatch: set to `1` to skip git pin verification (status reports `pin_check_skipped`) |
+| `CHATDEV_ALLOW_CONTROL_PLANE` | Set to `1` to allow live SDK in the API process (desk/dev only; workers pass `allow_control_plane=True` internally) |
+
+Probe readiness with `GET /api/v1/chatdev/status` (requires `company.read`): `{pin, home_set, configured, pin_verified, control_plane_allowed, worker_live_ready, workflow}` plus optional `pin_check_skipped` — no secrets returned. `worker_live_ready` mirrors pin-verified home readiness; `control_plane_allowed` reflects the escape hatch env.
 
 ## Upgrades
 

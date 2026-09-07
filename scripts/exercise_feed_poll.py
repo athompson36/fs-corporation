@@ -41,7 +41,10 @@ def main() -> int:
         print("poll:", json.dumps(polled, indent=2))
         status = polled.get("status")
         ingested = polled.get("ingested", 0)
-        return 0 if status == "applied" and ingested > 0 else 2
+        # Replay of an already-applied poll has no ingested count; still success.
+        if status == "applied" and (ingested > 0 or "ingested" not in polled):
+            return 0
+        return 2
     except urllib.error.HTTPError as exc:
         print(exc.read().decode(), file=sys.stderr)
         return 1

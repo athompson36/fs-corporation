@@ -68,7 +68,7 @@ export default function App() {
       clearPairingHash();
       if (data.tailscale_auth_key) {
         setError(
-          "Paired. Auth key received — use the iOS native companion to copy it into Tailscale "
+          "Paired. Auth key received — use the native companion (iOS or Android) to copy it into Tailscale "
           + "(Use an auth key), or paste it manually in the Tailscale app, then open the companion on the tailnet.",
         );
       }

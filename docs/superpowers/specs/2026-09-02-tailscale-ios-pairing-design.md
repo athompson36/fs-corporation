@@ -60,7 +60,7 @@ Userspace `libtailscale` / TailscaleKit is a future option (app becomes a node w
 
 ## Non-goals
 
-- Android native handoff
+- ~~Android native handoff~~ — see [2026-09-03-android-tailscale-handoff-design.md](2026-09-03-android-tailscale-handoff-design.md)
 - Dedicated second worker host
 - Embedding TailscaleKit userspace VPN
 - Changing WireGuard `wg0`

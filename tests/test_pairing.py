@@ -104,6 +104,7 @@ class PairingTests(unittest.TestCase):
         self.assertEqual(redeemed["tailscale_auth_key"], "tskey-auth-test-only")
         self.assertEqual(redeemed["vpn"]["status"], "configured")
         self.assertEqual(redeemed["vpn"]["ios_handoff"], "clipboard_open_app")
+        self.assertEqual(redeemed["vpn"]["android_handoff"], "clipboard_open_app")
         self.assertEqual(redeemed["access_level"], "read_only")
         self.assertIn("companion_url", redeemed)
         self.assertNotIn("tskey-auth-test-only", issued["pair_url"])

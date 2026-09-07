@@ -104,8 +104,16 @@ def github_request(method: str, path: str, *, json_body: dict | None = None, exp
 
 
 def status_summary() -> dict:
+    from company.github_webhooks import webhook_secret_configured
+    from company.tailscale_funnel import probe_funnel_webhooks
+    funnel = probe_funnel_webhooks()
     if not github_configured():
-        return {"configured": False, "live": False}
+        return {
+            "configured": False,
+            "live": False,
+            "webhook_secret_configured": webhook_secret_configured(),
+            "funnel_webhooks": funnel,
+        }
     try:
         app = app_request("GET", "/app")
         install = app_request("GET", f"/app/installations/{_installation_id()}")
@@ -117,9 +125,17 @@ def status_summary() -> dict:
             "app_id": app.get("id"),
             "installation_id": install.get("id"),
             "account": (install.get("account") or {}).get("login"),
+            "webhook_secret_configured": webhook_secret_configured(),
+            "funnel_webhooks": funnel,
         }
     except Exception as exc:
-        return {"configured": True, "live": False, "error": str(exc)}
+        return {
+            "configured": True,
+            "live": False,
+            "error": str(exc),
+            "webhook_secret_configured": webhook_secret_configured(),
+            "funnel_webhooks": funnel,
+        }
 
 
 def repo_by_id(repo_id: str) -> dict:
@@ -163,3 +179,19 @@ def open_pull_request(owner: str, repo: str, title: str, head: str, base: str, b
         "base": base,
         "body": body,
     })
+
+
+def merge_pull_request(
+    owner: str,
+    repo: str,
+    pull_number: int,
+    *,
+    commit_title: str | None = None,
+    merge_method: str = "squash",
+) -> dict:
+    """Merge an open pull request. Requires App permission to merge on the repo."""
+    body: dict = {"merge_method": merge_method}
+    if commit_title:
+        body["commit_title"] = commit_title
+    return github_request(
+        "PUT", f"/repos/{owner}/{repo}/pulls/{int(pull_number)}/merge", json_body=body)

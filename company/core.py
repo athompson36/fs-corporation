@@ -875,18 +875,27 @@ class Company:
             self._event("github.effect_recorded",{"id":eid,"operation":operation},project_id=project_id)
             return dict(self.db.execute("SELECT * FROM github_effects WHERE id=?",(eid,)).fetchone())
 
-    def apply_github_effect(self,project_id,task_id,operation,repo_id,branch,head_sha=None,expected_sha=None,path=None):
+    def apply_github_effect(self,project_id,task_id,operation,repo_id,branch,head_sha=None,expected_sha=None,path=None,pr_number=None):
         """Authorize, record, then attempt a live write. Live GitHub stays fail-closed."""
         self.authorize_github_effect(project_id,operation,repo_id,branch,
                                     head_sha=head_sha,expected_sha=expected_sha,path=path)
         row=self.record_github_effect(project_id,task_id,operation,repo_id,branch)
         if row["status"]=="live_unavailable":
             return row
+        if operation=="merge" and pr_number is None:
+            prior=self.db.execute(
+                """SELECT remote_id FROM github_effects
+                   WHERE project_id=? AND task_id=? AND operation='open_pr' AND status='applied'
+                   ORDER BY rowid DESC LIMIT 1""",
+                (project_id,task_id)).fetchone()
+            if prior and prior["remote_id"]:
+                pr_number=prior["remote_id"]
         from .adapters import GitHubAdapter, WorkOrder
         order=WorkOrder(
             task_id,project_id,self.policy()["version"],"github-effect",0,
             {"operation":operation,"repo_id":repo_id,"branch":branch,
              "head_sha":head_sha,"expected_sha":expected_sha,"path":path,
+             "pr_number":pr_number,
              "worktree":self.worktree_path(project_id,task_id)})
         try:
             result = GitHubAdapter().execute(order)
@@ -911,6 +920,47 @@ class Company:
                            "html_url": result.get("html_url")}, project_id=project_id)
         return dict(self.db.execute("SELECT * FROM github_effects WHERE id=?",(row["id"],)).fetchone())
 
+    def ingest_github_webhook(self, event: str, delivery_id: str, payload: dict) -> dict:
+        """Persist an allowlisted webhook delivery. Payload is task data, not authority."""
+        from .github_webhooks import normalize_event
+        if payload.get("_ignored"):
+            return {"status": "ignored", "delivery_id": delivery_id, "event": event}
+        existing = self.db.execute(
+            "SELECT * FROM github_webhook_deliveries WHERE delivery_id=?", (delivery_id,)
+        ).fetchone()
+        if existing:
+            return {
+                "status": "duplicate",
+                "delivery_id": delivery_id,
+                "event": existing["event"],
+                "repo_id": existing["repo_id"],
+                "summary": existing["summary"],
+            }
+        normalized = normalize_event(event, payload)
+        with self.tx():
+            self.db.execute(
+                "INSERT INTO github_webhook_deliveries VALUES(?,?,?,?,?,?)",
+                (delivery_id, event, normalized.get("repo_id"), normalized["summary"],
+                 now().isoformat(), "accepted"),
+            )
+            self._event(
+                "github.webhook_received",
+                {
+                    "delivery_id": delivery_id,
+                    "event": event,
+                    "repo_id": normalized.get("repo_id"),
+                    "summary": normalized["summary"],
+                    "trusted_instruction": False,
+                },
+            )
+        return {
+            "status": "accepted",
+            "delivery_id": delivery_id,
+            "event": event,
+            "repo_id": normalized.get("repo_id"),
+            "summary": normalized["summary"],
+        }
+
     def create_impact_brief(self,signal_id,project_id,affected_summary,recommended_action,cost_cents,authority):
         money(cost_cents)
         sig=self.db.execute("SELECT * FROM signals WHERE id=?",(signal_id,)).fetchone()
@@ -930,12 +980,17 @@ class Company:
             self._event("intelligence.brief_created",{"id":bid,"signal_id":signal_id},project_id=project_id)
             return dict(self.db.execute("SELECT * FROM impact_briefs WHERE id=?",(bid,)).fetchone())
 
+    def list_impact_briefs(self):
+        return [dict(r) for r in self.db.execute(
+            "SELECT * FROM impact_briefs ORDER BY id")]
+
     def correct_signal(self,signal_id,note):
         with self.tx():
             sig=self.db.execute("SELECT * FROM signals WHERE id=?",(signal_id,)).fetchone()
             if not sig:raise ValueError("Signal not found")
             self.db.execute("UPDATE impact_briefs SET status='corrected' WHERE signal_id=?",(signal_id,))
             self._event("intelligence.corrected",{"signal_id":signal_id,"note":note})
+        return {"signal_id":signal_id,"status":"corrected","note":note}
 
     def approve_feed_source(self,actor,source_id,url):
         """CEO-only enrollment of a live feed. Does not poll or fetch."""
@@ -1914,7 +1969,9 @@ class Company:
             "vpn": {
                 "provider": "tailscale",
                 "status": "configured" if key else "live_unavailable",
+                # Both platforms: copy key + open Tailscale; OS forbids silent VPN inject.
                 "ios_handoff": "clipboard_open_app" if key else None,
+                "android_handoff": "clipboard_open_app" if key else None,
             },
         }
         if key:

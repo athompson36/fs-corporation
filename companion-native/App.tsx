@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Linking,
+  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -13,10 +13,9 @@ import { WebView } from "react-native-webview";
 import * as Clipboard from "expo-clipboard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { httpOriginIfPrivate } from "./network";
+import { authKeyInstructions, openTailscaleApp } from "./tailscale";
 
 const STORAGE_KEY = "fs-corp-native-session";
-const TAILSCALE_APP = "tailscale://";
-const TAILSCALE_STORE = "https://apps.apple.com/app/tailscale/id1470499037";
 
 type Session = {
   token: string;
@@ -34,7 +33,12 @@ type RedeemResponse = {
   label?: string;
   scopes?: string[];
   tailscale_auth_key?: string;
-  vpn?: { provider?: string; status?: string; ios_handoff?: string };
+  vpn?: {
+    provider?: string;
+    status?: string;
+    ios_handoff?: string;
+    android_handoff?: string;
+  };
 };
 
 function ticketFromText(raw: string): { origin: string; ticket: string } | null {
@@ -104,11 +108,6 @@ export default function App() {
     });
   }, []);
 
-  const openTailscale = useCallback(async () => {
-    const can = await Linking.canOpenURL(TAILSCALE_APP);
-    await Linking.openURL(can ? TAILSCALE_APP : TAILSCALE_STORE);
-  }, []);
-
   const runPair = useCallback(async () => {
     setBusy(true);
     setError(null);
@@ -130,12 +129,16 @@ export default function App() {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setSession(next);
 
-      if (data.tailscale_auth_key) {
+      const wantsVpn =
+        Boolean(data.tailscale_auth_key) &&
+        (data.vpn?.ios_handoff === "clipboard_open_app" ||
+          data.vpn?.android_handoff === "clipboard_open_app" ||
+          !data.vpn);
+
+      if (wantsVpn && data.tailscale_auth_key) {
         await Clipboard.setStringAsync(data.tailscale_auth_key);
-        setStatus(
-          "Auth key copied. In Tailscale: profile → Log in → (…) → Use an auth key → Paste. Then return here.",
-        );
-        await openTailscale();
+        setStatus(authKeyInstructions());
+        await openTailscaleApp();
         if (!polling.current) {
           polling.current = true;
           setStatus("Waiting for Tailscale companion URL…");
@@ -156,7 +159,7 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }, [paste, openTailscale]);
+  }, [paste]);
 
   if (webviewUrl && session) {
     const injected = `
@@ -193,6 +196,11 @@ export default function App() {
     );
   }
 
+  const platformHint =
+    Platform.OS === "android"
+      ? "Android: after Tailscale opens, use account → Log in → Use an auth key → Paste."
+      : "iOS: after Tailscale opens, use profile → (…) → Use an auth key → Paste.";
+
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.pad}>
@@ -201,6 +209,7 @@ export default function App() {
           On home Wi‑Fi, paste the CEO desk pair URL. We redeem it, copy the Tailscale auth key, and open
           Tailscale for a one-paste join. Then the companion loads on the tailnet.
         </Text>
+        <Text style={styles.muted}>{platformHint}</Text>
         <TextInput
           style={styles.input}
           value={paste}
@@ -222,7 +231,7 @@ export default function App() {
             <Text style={styles.btnText}>Open companion</Text>
           </TouchableOpacity>
         ) : null}
-        <TouchableOpacity style={styles.btnSecondary} onPress={openTailscale}>
+        <TouchableOpacity style={styles.btnSecondary} onPress={() => openTailscaleApp()}>
           <Text style={styles.btnText}>Open Tailscale</Text>
         </TouchableOpacity>
         {status ? <Text style={styles.muted}>{status}</Text> : null}

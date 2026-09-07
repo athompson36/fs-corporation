@@ -28,7 +28,7 @@ Only the owner may issue pairing tickets (`POST /api/v1/remote-access/pairing`).
 
 - **Same LAN (fs-dev):** set `FS_CORP_PUBLIC_URL=https://192.168.4.100` on the host; QR pair URLs use that origin. First redeem must happen on Wi‑Fi.
 - **Off-LAN:** `FS_CORP_TAILSCALE_AUTHKEY` in `secrets.env`. Key returns **only** on redeem. `deploy/fs-dev/tailscale-join.sh` joins the server and enables Caddy on the tailnet IP.
-- **iOS native (`companion-native`):** copies auth key, opens Tailscale for one-paste **Use an auth key**, polls `companion_url`, then loads the PWA. (iOS forbids silent third-party VPN injection.)
+- **Native (`companion-native`):** iOS and Android copy the auth key, open Tailscale for one-paste **Use an auth key**, poll `companion_url`, then load the PWA. (Neither OS allows silent third-party VPN injection.)
 - **PWA alone** cannot join kernel VPN — use the native shell for off-LAN auto-handoff.
 
 ## fs-dev production (LAN + Tailscale)

@@ -7,7 +7,8 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from company.adapters import MockChatDevAdapter, WorkOrder
+from company.adapters import ChatDevAdapter, MockChatDevAdapter, WorkOrder
+from company.chatdev_runtime import chatdev_home_ready
 
 ALLOWED_WORKER_OPS = frozenset({"gateway_check", "execute_mock", "store_artifact", "invoke_model"})
 GW_REQUEST = "gw-request.json"
@@ -19,6 +20,17 @@ def _normalize_digest(row):
     if not row:
         return "mock-workflow"
     return row[0] if isinstance(row, tuple) else row["workflow_digest"]
+
+
+def _want_live_chatdev(envelope: dict) -> bool:
+    payload = envelope.get("payload") or {}
+    if payload.get("chatdev") is True:
+        return True
+    try:
+        from company.chatdev_runtime import workflow_digest
+        return envelope.get("workflow_digest") == workflow_digest()
+    except Exception:
+        return False
 
 
 def build_worker_envelope(company, worker_id: str, task_id: str, approval=None):
@@ -58,10 +70,23 @@ def run_isolated_work(envelope: dict, scratch_root: Path, request, text_artifact
     if not check.get("allow"):
         return {"type": "error", "reason": check.get("reason", "denied")}
 
+    tools = list(payload.get("tools") or ["none"])
     order = WorkOrder(
         task_id, payload["project"], check["policy_version"],
-        envelope.get("workflow_digest") or "mock-workflow", payload["cost"], {"tools": ["none"]})
-    adapter_result = MockChatDevAdapter().run(order)
+        envelope.get("workflow_digest") or "mock-workflow", payload["cost"],
+        {
+            "tools": tools,
+            "task_prompt": payload.get("task_prompt") or payload.get("prompt") or f"task {task_id}",
+        })
+    if _want_live_chatdev(envelope):
+        if not chatdev_home_ready():
+            return {"type": "error", "reason": "ChatDev requested but CHATDEV_HOME not ready"}
+        try:
+            adapter_result = ChatDevAdapter().run(order, allow_control_plane=True)
+        except Exception as exc:
+            return {"type": "error", "reason": str(exc)}
+    else:
+        adapter_result = MockChatDevAdapter().run(order)
     scratch_file = scratch_root / f"{task_id}.txt"
     scratch_file.write_text(adapter_result["final_message"], encoding="utf-8")
 

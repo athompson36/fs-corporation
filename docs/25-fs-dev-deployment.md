@@ -45,7 +45,21 @@ Configure the host with a static `192.168.4.100/24` (or your LAN prefix) before 
 
 Production builds should set `VITE_API_BASE=` (empty) so relative `/api/*` requests go through Caddy. See [24-mobile-companion.md](24-mobile-companion.md).
 
+### Tailscale Funnel (optional — GitHub webhooks only)
+
+To let github.com deliver signed webhooks without a public LAN IP:
+
+1. Enable Funnel for the `fs-dev` node in the Tailscale admin (consent URL from `tailscale funnel` / ACL `funnel`).
+2. Set `FS_CORP_TAILSCALE_FUNNEL_WEBHOOKS=1` in `/etc/fs-corporation/env` (pilot `deploy_to_fs_dev.sh` writes this into `env.prepared`).
+3. Run `sudo bash /opt/fs-corporation/deploy/fs-dev/tailscale-funnel-webhooks.sh apply` (times out in 45s if Funnel ACL is missing — does not hang install).
+4. Use the URL from `GET /api/v1/github/status` → `funnel_webhooks.public_url` as the GitHub App webhook URL (only present when Funnel is actually serving the path).
+5. Optional check: `python3 scripts/exercise_funnel_webhook.py`.
+
+This mounts **only** `/api/v1/github/webhooks` (HMAC still required). It does not Funnel the companion or CEO desk.
+
 ### Tailscale (optional)
+
+- `deploy/fs-dev/tailscale-join.sh` joins the host and patches Caddy for the tailnet IP.
 
 1. Install Tailscale on the host and phone; join the same tailnet.
 2. Uncomment the Tailscale `https://` block in [`deploy/fs-dev/Caddyfile`](../deploy/fs-dev/Caddyfile) and set `100.x.x.x` from `tailscale ip -4`.

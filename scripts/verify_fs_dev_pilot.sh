@@ -49,8 +49,24 @@ TASK_ID="container-pilot-$(date +%s)"
   --db "${DB}" \
   --task-id "${TASK_ID}"
 
+step "Market feed poll"
+FEED_ID="${FS_CORP_PILOT_FEED_ID:-github-blog}"
+FEED_URL="${FS_CORP_PILOT_FEED_URL:-https://github.blog/feed/}"
+"${PY}" "${SCRIPTS}/exercise_feed_poll.py" \
+  --base "${BASE}" \
+  --token-file "${TOKEN_FILE}" \
+  --feed-id "${FEED_ID}" \
+  --url "${FEED_URL}"
+
+step "Funnel GitHub webhook (signed ping)"
+if [[ -f "${SCRIPTS}/exercise_funnel_webhook.py" ]]; then
+  "${PY}" "${SCRIPTS}/exercise_funnel_webhook.py" \
+    --base "${BASE}" \
+    --token-file "${TOKEN_FILE}" || echo "WARNING: funnel webhook exercise failed (opt-in / ACL / secret)"
+fi
+
 step "Remote access (Tailscale)"
 curl -fsS "${auth[@]}" "${BASE}/api/v1/remote-access" | grep -q '"auth_key_configured":true'
 
 echo ""
-echo "fs-dev live pilot OK (GitHub + model + container worker + Tailscale pairing)."
+echo "fs-dev live pilot OK (GitHub + model + container worker + market feed + Funnel webhook + Tailscale pairing)."

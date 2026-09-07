@@ -233,14 +233,17 @@ configure_gateway_egress() {
 
 configure_tailscale() {
   local script="${INSTALL_DIR}/deploy/fs-dev/tailscale-join.sh"
+  local funnel="${INSTALL_DIR}/deploy/fs-dev/tailscale-funnel-webhooks.sh"
   local secrets="${CONFIG_DIR}/secrets.env"
-  chmod +x "${script}"
+  chmod +x "${script}" "${funnel}"
   if [[ -n "${FS_CORP_TAILSCALE_AUTHKEY:-}" ]] || grep -q '^FS_CORP_TAILSCALE_AUTHKEY=.' "${secrets}" 2>/dev/null; then
     log "Joining Tailscale (auth key present; value not logged)"
     bash "${script}" || log "WARNING: tailscale-join failed — continue; fix and re-run script"
   else
     log "No FS_CORP_TAILSCALE_AUTHKEY; skipping Tailscale join"
   fi
+  # Opt-in path-scoped Funnel for GitHub webhooks only (never funnels companion /).
+  bash "${funnel}" apply || log "WARNING: tailscale-funnel-webhooks apply failed (enable Funnel ACL or set FS_CORP_TAILSCALE_FUNNEL_WEBHOOKS=1)"
 }
 
 ensure_docker_access() {

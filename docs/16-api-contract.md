@@ -46,6 +46,9 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | GET /employees/{id}/performance | Score trend and goals | organization.read |
 | POST /model-assignments | Propose role/provider assignment | model.assign |
 | POST /signals | Record source evidence | intelligence.ingest |
+| GET /impact-briefs | List impact briefs (no auto-publish) | company.read |
+| POST /impact-briefs | Propose a brief from a signal (`signal_id`, `project_id`, `affected_summary`, `recommended_action`, `cost_cents`, `authority`) | intelligence.ingest |
+| POST /signals/{id}/correct | Mark linked briefs corrected (`payload.note`) | intelligence.ingest |
 | POST /learning/{id}/study | Record HTTPS study evidence for a skill assignment | intelligence.ingest |
 | POST /learning/{id}/certify | Independent certification of study evidence (HR or CEO) | artifact.accept |
 | POST /expansions | Cost facilities work | facilities.propose |
@@ -54,8 +57,10 @@ Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0
 | GET /headquarters | Event-projected rooms and departments | company.read |
 | GET /headquarters/rooms/{id} | Persisted tasks, staff, deliverables, costs and decisions for one expansion room | company.read |
 | POST /projects/{id}/github-enrollment | Enroll upstream/fork repo IDs and branch policy | project.enroll (CEO) |
-| GET /github/status | GitHub App connectivity (no secrets returned) | company.read |
+| GET /github/status | GitHub App connectivity + `webhook_secret_configured` (no secrets returned) | company.read |
+| POST /github/webhooks | Signed GitHub App webhook ingress (HMAC; no bearer) | webhook secret |
 | GET /model/status | Model provider connectivity (no secrets returned) | company.read |
+| GET /chatdev/status | ChatDev opt-in readiness: pin, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, workflow path; optional `pin_check_skipped` (no secrets) | company.read |
 | GET /feeds | List CEO-approved market feed sources | company.read |
 | POST /feeds | Approve an HTTPS feed URL (`payload.id`, `payload.url`) | project.enroll (CEO) |
 | POST /feeds/{id}/poll | Poll an approved feed and ingest signals | company.pause (CEO) |

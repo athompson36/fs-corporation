@@ -99,7 +99,7 @@ Today `invoke_model` uses `mock` offline, OpenAI-compatible `/chat/completions` 
 | Image model | `IMAGE_PROVIDER_API_KEY` | Profile placeholder only |
 | Learning fetch | Approved HTTPS URLs + egress allowlist | `LearningAdapter` fail-closed |
 | ChatDev live | Pinned checkout + workflow YAML + model in worker | `ChatDevAdapter` fail-closed |
-| GitHub webhooks | Public HTTPS URL + webhook secret | Outbound pilot does not require |
+| GitHub webhooks | Path-scoped Funnel + `GITHUB_WEBHOOK_SECRET` + App webhook URL | Inbound events from github.com |
 | Production SLOs | Measurement source + windows | API ready; no samples |
 | Real billing | Payment provider | Separate from simulated credits |
 

@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from company.adapters import GitHubAdapter, WorkOrder
 from company.core import Company
@@ -36,6 +36,40 @@ class GitHubLiveAdapterTests(unittest.TestCase):
         self.assertEqual(result["status"], "applied")
         self.assertEqual(result["remote_id"], "42")
         self.assertEqual(self.c.db.execute("SELECT COUNT(*) FROM github_effects WHERE task_id='t1'").fetchone()[0], 1)
+
+    @patch("company.github_app.github_configured", return_value=True)
+    @patch("company.github_app.repo_by_id")
+    @patch("company.github_app.merge_pull_request")
+    def test_apply_github_effect_live_merge_uses_prior_pr(self, merge_pr, repo_by_id, configured):
+        self.c.enroll_github(
+            "human-ceo", "app", "111", "222", ["main"], "company/app/",
+            ["push", "open_pr", "merge"])
+        with self.c.tx():
+            self.c.db.execute(
+                "INSERT INTO github_effects VALUES(?,?,?,?,?,?,?,?)",
+                ("eid-open", "app", "t-merge", "open_pr", "222", "company/app/t-merge", "applied", "42"))
+        repo_by_id.return_value = {"owner": {"login": "acme"}, "name": "pilot", "default_branch": "main"}
+        merge_pr.return_value = {
+            "merged": True, "sha": "deadbeef",
+            "html_url": "https://github.com/acme/pilot/pull/42",
+        }
+        result = self.c.apply_github_effect("app", "t-merge", "merge", "222", "company/app/t-merge")
+        self.assertEqual(result["status"], "applied")
+        self.assertEqual(result["remote_id"], "deadbeef")
+        merge_pr.assert_called_once_with("acme", "pilot", 42, commit_title=ANY)
+
+    def test_merge_requires_explicit_permit_and_pr_number(self):
+        with self.assertRaises(PermissionError):
+            self.c.authorize_github_effect("app", "merge", "222", "company/app/t1")
+        self.c.enroll_github(
+            "human-ceo", "app", "111", "222", ["main"], "company/app/",
+            ["push", "open_pr", "merge"])
+        self.assertTrue(self.c.authorize_github_effect("app", "merge", "222", "company/app/t1"))
+        with patch("company.github_app.github_configured", return_value=True):
+            with self.assertRaises(ValueError):
+                GitHubAdapter().execute(WorkOrder(
+                    "t1", "app", 1, "github-effect", 0,
+                    {"operation": "merge", "repo_id": "222", "branch": "company/app/t1"}))
 
     @patch("company.github_app.status_summary")
     def test_status_endpoint(self, summary):

@@ -134,7 +134,7 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 <section class="glass" id="projects"><h2>Projects</h2><ul id="project-list"></ul></section>
 <section class="glass" id="departments"><h2>Departments</h2><ul id="department-list"></ul></section>
 <section class="glass" id="people"><h2>People</h2><ul id="people-list"></ul></section>
-<section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Sourced signal events only.</p><ul id="intelligence-list"></ul></section>
+<section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="budget"><h2>Budget</h2>
 <p class="muted">Simulated credits, not billed cost.</p>
 <pre id="budget-json">Loading…</pre>
@@ -358,7 +358,13 @@ async function load() {
   const people = await fetch('/api/v1/hr/development', {headers});
   const peoplej = await people.json();
   fill('people-list', peoplej.employees || peoplej.assignments || [], p => (p.display_name || p.employee_id || p.id) + ' — ' + (p.position_id || p.status || ''));
-  fill('intelligence-list', (ej.items||[]).filter(item => String(item.kind).startsWith('signal')), item => item.kind + ' @ ' + item.at);
+  const briefs = await fetch('/api/v1/impact-briefs', {headers});
+  const bj = await briefs.json();
+  fill('intelligence-list', bj.briefs||[], b => {
+    let summary = '';
+    try { summary = (JSON.parse(b.body||'{}').affected_summary) || ''; } catch (e) { summary = ''; }
+    return (b.id||'').slice(0,12) + ' — ' + (b.status||'') + (summary ? ' — ' + summary : '');
+  });
   const dash = await fetch('/api/v1/dashboard', {headers});
   const dashj = await dash.json();
   const company = dashj.company || {};
@@ -874,6 +880,33 @@ def create_app(company: Company) -> FastAPI:
         payload = envelope(ident, body)
         return run(ident, idempotency_key, payload, lambda: ({"id": company.ingest_signal(**payload)}, 200))
 
+    @app.get("/api/v1/impact-briefs")
+    def list_impact_briefs(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"briefs": company.list_impact_briefs()}
+
+    @app.post("/api/v1/impact-briefs")
+    def create_impact_brief(body: Command, authorization: str | None = Header(default=None),
+                            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "intelligence.ingest")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_impact_brief(
+                payload["signal_id"], payload["project_id"], payload["affected_summary"],
+                payload["recommended_action"], payload.get("cost_cents", 0), payload["authority"]),
+            200))
+
+    @app.post("/api/v1/signals/{signal_id}/correct")
+    def correct_signal(signal_id: str, body: Command, authorization: str | None = Header(default=None),
+                       idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "intelligence.ingest")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"signal_id": signal_id}, lambda: (
+            company.correct_signal(signal_id, payload["note"]), 200))
+
     @app.post("/api/v1/expansions")
     def expansions(body: Command, authorization: str | None = Header(default=None), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
         ident = principal(authorization)
@@ -961,6 +994,27 @@ def create_app(company: Company) -> FastAPI:
         from company.github_app import status_summary
         return status_summary()
 
+    @app.post("/api/v1/github/webhooks")
+    async def github_webhooks(
+        request: Request,
+        x_github_event: str | None = Header(default=None),
+        x_github_delivery: str | None = Header(default=None),
+        x_hub_signature_256: str | None = Header(default=None),
+    ):
+        """GitHub App webhook ingress. Auth is HMAC only; no bearer token."""
+        from company.github_webhooks import WebhookError, parse_and_verify
+        body = await request.body()
+        try:
+            event, delivery_id, payload = parse_and_verify(
+                body=body,
+                event=x_github_event,
+                delivery_id=x_github_delivery,
+                signature_header=x_hub_signature_256,
+            )
+        except WebhookError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+        return company.ingest_github_webhook(event, delivery_id, payload)
+
     @app.get("/api/v1/model/status")
     def model_status(authorization: str | None = Header(default=None)):
         ident = principal(authorization)
@@ -1004,6 +1058,13 @@ def create_app(company: Company) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "company.read")
         from company.worker_status import status_summary
+        return status_summary()
+
+    @app.get("/api/v1/chatdev/status")
+    def chatdev_status(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        from company.chatdev_runtime import status_summary
         return status_summary()
 
     @app.get("/api/v1/remote-access")

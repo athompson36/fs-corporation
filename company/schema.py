@@ -151,6 +151,9 @@ CREATE TABLE IF NOT EXISTS pairing_tickets(
   id TEXT PRIMARY KEY, ticket_hash TEXT NOT NULL, created_by TEXT NOT NULL,
   created_at TEXT NOT NULL, expires_at TEXT NOT NULL, status TEXT NOT NULL,
   redeemed_at TEXT, companion_principal TEXT, access_level TEXT NOT NULL DEFAULT 'admin');
+CREATE TABLE IF NOT EXISTS github_webhook_deliveries(
+  delivery_id TEXT PRIMARY KEY, event TEXT NOT NULL, repo_id TEXT,
+  summary TEXT NOT NULL, received_at TEXT NOT NULL, status TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (

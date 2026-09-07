@@ -15,8 +15,9 @@ class WorkflowAdapter(Protocol):
     def run(self, order: WorkOrder) -> dict: ...
 
 class ChatDevAdapter:
-    def run(self, order: WorkOrder) -> dict:
-        raise NotImplementedError("Live ChatDev execution requires the isolated worker and action gateway; see docs/07-chatdev-integration.md")
+    def run(self, order: WorkOrder, *, allow_control_plane: bool = False) -> dict:
+        from company import chatdev_runtime
+        return chatdev_runtime.run_work_order(order, allow_control_plane=allow_control_plane)
 
 class MockChatDevAdapter:
     """Contract double. Does not invoke upstream ChatDev or a live provider."""
@@ -58,6 +59,8 @@ class GitHubAdapter:
             raise ValueError("GitHub WorkOrder requires operation, repo_id and branch")
         if operation == "open_pr":
             return self._open_pr(order, repo_id, branch)
+        if operation == "merge":
+            return self._merge(order, repo_id, branch)
         if operation in {"push", "prepare_pr"}:
             return self._push(order, repo_id, branch)
         raise ValueError(f"Unsupported GitHub operation: {operation}")
@@ -103,6 +106,26 @@ class GitHubAdapter:
             "remote_id": str(pr.get("number") or pr.get("id")),
             "html_url": pr.get("html_url"),
             "operation": "open_pr",
+        }
+
+    def _merge(self, order: WorkOrder, repo_id: str, branch: str) -> dict:
+        from . import github_app
+        pr_number = order.payload.get("pr_number")
+        if pr_number is None or str(pr_number).strip() == "":
+            raise ValueError("merge requires pr_number from a prior open_pr effect")
+        repo = self._repo(repo_id)
+        owner = repo["owner"]["login"]
+        name = repo["name"]
+        result = github_app.merge_pull_request(
+            owner, name, int(pr_number),
+            commit_title=f"FS-Corporation merge: {order.project_id}/{order.task_id}",
+        )
+        return {
+            "status": "applied",
+            "remote_id": result.get("sha") or str(pr_number),
+            "html_url": result.get("html_url"),
+            "operation": "merge",
+            "merged": bool(result.get("merged")),
         }
 
     def _push(self, order: WorkOrder, repo_id: str, branch: str) -> dict:

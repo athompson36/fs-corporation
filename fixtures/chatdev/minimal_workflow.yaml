@@ -1,0 +1,14 @@
+# Company fixture for ChatDev adapter digest tests. Not a claimed runnable production graph.
+version: "2"
+vars: {}
+graph:
+  nodes:
+    - id: start
+      type: start
+    - id: end
+      type: end
+  edges:
+    - from: start
+      to: end
+  start: start
+  end: end

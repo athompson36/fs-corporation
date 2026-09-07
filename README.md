@@ -2,7 +2,7 @@
 
 A persistent AI corporation inspired by ChatDev: CEO governance, delegated department heads, mixed-model teams, controlled project forks, market intelligence, and a headquarters that grows with accepted work.
 
-**Deliverable status: v0.3.25 live GitHub pilot + model/feed adapters + Docker dev + container workers (default on fs-dev) + Web Push (VAPID) + fs-dev worker install path.** ChatDev, billed model usage in production workers, and dedicated worker-host egress on `.101` still need owner follow-up.
+**Deliverable status: v0.3.39 live github.com Funnel webhooks (ping+push) + impact-brief API + live GitHub pilot + model/feed adapters + Docker/container workers + Web Push + ChatDev worker live path (control-plane deny by default).** Billed model usage in production workers and dedicated worker-host egress on `.101` still need owner follow-up.
 
 Start with [START_HERE.md](START_HERE.md), then open [the Cursor workspace](fs-corporation.code-workspace). Copy the prompt from [CURSOR_KICKOFF.md](CURSOR_KICKOFF.md) into Cursor Agent.
 
@@ -33,19 +33,19 @@ On Windows use `py -3.12` in place of `python3`. The demo creates `.local/compan
 | Integer budgets, reservations, period caps | Implemented for simulated spend |
 | Project acceptance and approved room growth | Implemented using synthetic artifact hashes |
 | Model profile selection with capability/data filtering | Implemented selector; mock invoke; OpenAI-compatible live invoke when `MODEL_PROVIDER_API_KEY` set |
-| Signal ingestion and impact briefs | Implemented; live RSS/Atom poll ingests signals from CEO-approved HTTPS feeds |
+| Signal ingestion and impact briefs | Implemented; live RSS/Atom poll; HTTP list/create/correct; desk lists briefs (no auto-publish) |
 | Hardware firmware skill gaps and learning | Implemented locally; live documentation fetch disabled |
 | Quality Control inspection before acceptance | Implemented locally; producer and CEO cannot inspect |
 | Human Resources development and training | Implemented locally; catalog id `people` |
 | Employee hire, training files, goals and trends | Implemented locally; overdue training blocks hired dispatch |
 | Master Consultant | Heuristic scan, durable CEO decisions, revision/work-order handoff |
-| ChatDev, GitHub and market integration interfaces | GitHub live when App configured; feed poll live for approved RSS/Atom URLs; ChatDev and doc fetch still disabled |
+| ChatDev, GitHub and market integration interfaces | GitHub live when App configured; signed webhooks when `GITHUB_WEBHOOK_SECRET` set; feed poll live for approved RSS/Atom URLs; ChatDev opt-in when `CHATDEV_HOME` set (`GET /api/v1/chatdev/status`; worker live when `chatdev: true`; control-plane needs `CHATDEV_ALLOW_CONTROL_PLANE=1`); doc fetch still disabled |
 | 14 departments and role prompts | Configuration plus optional catalog seed |
 | CEO desk and headquarters projection | Cosmic-glass HTML/SVG desk; 2D + isometric tiles; room selection opens persisted work; companion shares the same tokens |
 | Isolated subprocess workers with gateway allowlist | Implemented; fs-dev defaults to container when ready; workers remain `--network none` |
 | fs-dev production hosting | systemd + Caddy + Docker workers; `.101` NIC presence + optional API egress via policy routing |
-| Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented; Web Push live when VAPID keys configured |
-| Live providers inside worker boundary | Model invoke when key set; GitHub when App installed; feed fetch for approved URLs; ChatDev/doc fetch not connected |
+| Mobile CEO companion PWA + dashboard APIs | Implemented; LAN HTTPS and Tailscale access documented; Web Push live when VAPID keys configured; native Expo shell for iOS/Android Tailscale handoff |
+| Live providers inside worker boundary | Model invoke when key set; GitHub when App installed; feed fetch for approved URLs; ChatDev live in worker when `chatdev: true` + pin-verified home (default mock otherwise); doc fetch not connected |
 
 ## Documentation map
 

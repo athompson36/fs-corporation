@@ -32,6 +32,10 @@ class CatalogAndRoutingTests(unittest.TestCase):
         self.assertEqual(validate_chatdev_lock(lock, "def run_workflow(yaml_file, *, task_prompt):")["commit"], PINNED_COMMIT)
         with self.assertRaises(ValueError):
             validate_chatdev_lock({**lock, "commit": "deadbeef"})
+        fixture = Path(__file__).resolve().parents[1] / "fixtures" / "chatdev" / "minimal_workflow.yaml"
+        wf_digest = __import__("company.core", fromlist=["digest"]).digest(
+            {"workflow": fixture.read_bytes().decode()}
+        )
         order = WorkOrder("t1", "p1", 1, "digest-abc", 10, {"tools": ["none"]})
         result = MockChatDevAdapter().run(order)
         self.assertFalse(result["accepted"])
@@ -39,8 +43,9 @@ class CatalogAndRoutingTests(unittest.TestCase):
         self.assertEqual(result["meta_info"]["usage"]["cost_cents"], 0)
         with self.assertRaises(PermissionError):
             MockChatDevAdapter().run(WorkOrder("t1", "p1", 1, "digest-abc", 10, {"tools": ["shell"]}))
+        live_order = WorkOrder("t1", "p1", 1, wf_digest, 10, {"tools": ["none"]})
         with self.assertRaises(NotImplementedError):
-            ChatDevAdapter().run(order)
+            ChatDevAdapter().run(live_order)
         c = Company()
         self.addCleanup(c.close)
         c.db.execute("INSERT INTO work_orders VALUES(?,?,?,?,?,?,?)",

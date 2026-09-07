@@ -21,6 +21,7 @@
 | ADR-019 | 2026-09-02 | Gateway egress via worker NIC for API UID | Keep containers network-none; route `fs-corp` outbound through `.101` with ip rule table 101 when `FS_CORP_GATEWAY_EGRESS=worker_nic`. |
 | ADR-017 | 2026-09-01 | Cosmic-restraint visual system | Owner-selected palette and glass chrome for desk + companion. Metrics and HQ tiles bind only to persisted API state. Furnished room art stays deferred. |
 | ADR-018 | 2026-09-01 | QR pairing with scoped access levels | CEO desk issues one-time tickets with `read_only`, `user`, or `admin` levels. Redeem creates service principals with explicit scopes — never root owner token or `*`. `FS_CORP_PUBLIC_URL` shapes pair URLs; optional `FS_CORP_TAILSCALE_AUTHKEY` returns only on redeem. PWA cannot join kernel VPN; native shell may consume auth key later. |
+| ADR-020 | 2026-09-07 | Impact briefs via HTTP, no auto-publish | List/create/correct exposed at `/api/v1/impact-briefs` and signal correct; briefs remain proposals; signal text never amends policy. |
 
 ### ADR-010 detail
 

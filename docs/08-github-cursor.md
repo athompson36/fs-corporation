@@ -32,7 +32,9 @@ Do not assume a `live_unavailable` row means a remote write happened. Do not inv
 
 ## Webhooks
 
-Verify GitHub webhook signatures over raw request bytes using the configured secret. Enforce replay protection, bounded body sizes and event allowlists. Persist delivery IDs and normalize events before queueing. Issue bodies, comments and repository content remain untrusted task data. They cannot grant privileges or supply new credentials.
+`POST /api/v1/github/webhooks` verifies `X-Hub-Signature-256` over raw request bytes using `GITHUB_WEBHOOK_SECRET`. Fail closed (503) when the secret is unset. Enforce replay protection via persisted `delivery_id`, 1 MiB body limit, and an allowlist (`ping`, `push`, `pull_request`). Unknown events return `status=ignored` without persistence. Normalized summaries are stored as task data only — issue bodies, comments and repository content cannot grant privileges or supply credentials.
+
+Live delivery from github.com requires a URL GitHub can reach. On fs-dev, prefer **path-scoped Tailscale Funnel** (`FS_CORP_TAILSCALE_FUNNEL_WEBHOOKS=1`, `deploy/fs-dev/tailscale-funnel-webhooks.sh`) which exposes only `/api/v1/github/webhooks` — not the companion. Pilot public URL: `https://fs-dev.tail824ab1.ts.net/api/v1/github/webhooks`. Set that as the GitHub App webhook URL (secret = `GITHUB_WEBHOOK_SECRET`). Also subscribe the App to the same events the receiver allowlists (`push`, `pull_request`; `ping` is always validated). LAN/Tailscale-private addresses alone are not enough for inbound GitHub traffic.
 
 ## Cursor's role
 
@@ -42,4 +44,4 @@ Cursor opens the same repositories and branches for human review and editing. An
 
 Use a disposable repository with no production secrets. Have the company create a small file change, run checks and open a PR. Demonstrate denial of a protected-branch push, unauthorized repository access, stale-head approval, workflow-file change without scope and cross-project secret access. Test retry after a simulated ambiguous network response.
 
-Live GitHub connects when `GITHUB_APP_ID`, `GITHUB_INSTALLATION_ID`, and `GITHUB_PRIVATE_KEY_FILE` are set. `apply_github_effect` persists `applied` with a PR number when the App is configured; otherwise `live_unavailable`. Verify with `scripts/verify_github_app.py` and `GET /api/v1/github/status`.
+Live GitHub connects when `GITHUB_APP_ID`, `GITHUB_INSTALLATION_ID`, and `GITHUB_PRIVATE_KEY_FILE` are set. `apply_github_effect` persists `applied` with a PR number when the App is configured; otherwise `live_unavailable`. Verify with `scripts/verify_github_app.py` and `GET /api/v1/github/status`. Merge is separately enrolled (`permitted_actions` includes `merge`) and resolves the PR number from a prior applied `open_pr` for the same task (or an explicit `pr_number`).

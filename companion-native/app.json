@@ -2,7 +2,7 @@
   "expo": {
     "name": "FS-Corporation",
     "slug": "fs-corporation-companion",
-    "version": "0.3.8",
+    "version": "0.3.9",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0b1020",
@@ -13,6 +13,8 @@
         "LSApplicationQueriesSchemes": ["tailscale"]
       }
     },
-    "android": { "package": "com.fscorporation.companion" }
+    "android": {
+      "package": "com.fscorporation.companion"
+    }
   }
 }

@@ -159,20 +159,20 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 
 ## M4 — GitHub pilot
 
-**Depends on M3. Maps to:** R06, R07, R08, R16. **Blocked on owner-supplied App install + disposable repo IDs for live writes.** Local denial, enrollment, and idempotency checks are unblocked.
+**Depends on M3. Maps to:** R06, R07, R08, R16. Live pilot write accepted on `athompson36/fs-corp-comp` (PR [#1](https://github.com/athompson36/fs-corp-comp/pull/1)).
 
-- [x] GitHub App enrollment records; store immutable repo IDs (webhooks not wired)
+- [x] GitHub App enrollment records; store immutable repo IDs; signed webhook ingress (`POST /api/v1/github/webhooks`) with delivery idempotency (live GitHub→host delivery still needs reachable HTTPS)
 - [x] Allowed branch prefixes; per-task worktree paths; never overwrite the human workspace
 - [x] Effect lifecycle live push/PR — `apply_github_effect` authorizes, records (repo+task+operation), then fail-closed live write until App credentials exist
 - [x] Merge/deploy remain separate capabilities
 - [x] Idempotency: repo + task + operation
 - [x] Live adapter remains `NotImplementedError` until App credentials exist
 
-**Acceptance:** local denial tests prove protected-branch, unrelated-repo, stale-head, and workflow-file writes fail before dispatch; duplicate dispatch does not create a duplicate effect record. A live PR on a disposable enrolled repo requires owner configuration.
+**Acceptance:** local denial tests prove protected-branch, unrelated-repo, stale-head, and workflow-file writes fail before dispatch; duplicate dispatch does not create a duplicate effect record. Live PR on disposable enrolled repo `athompson36/fs-corp-comp` (id `1355366113`) applied via `apply_github_effect` / `scripts/exercise_github_effect.py`.
 
 ## M5 — Market intelligence
 
-**Depends on M1/M3. Maps to:** R09. **Blocked on owner-approved source list for live polling.**
+**Depends on M1/M3. Maps to:** R09. Live pilot feed approved on fs-dev: `github-blog` (`https://github.blog/feed/`), first poll applied with ingested signals.
 
 - [x] One selected live feed adapter — `approve_feed_source` + `poll_market_feed` (fail-closed until an owner-approved live adapter exists)
 - [x] Corrections linked to affected briefs
@@ -181,7 +181,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Live poll remains `NotImplementedError` until a source is approved
 - [x] Skill-learning study uses the same supplied-metadata ingest as signals; `LearningAdapter.fetch` remains disabled until an approved source list exists
 
-**Acceptance:** a sourced event (supplied metadata or configured feed) yields one actionable brief with timestamps and affected project; duplicate feed entries create no duplicate work; page instructions cannot amend rules or trigger unauthorized publishing.
+**Acceptance:** a sourced event (supplied metadata or configured feed) yields one actionable brief with timestamps and affected project; duplicate feed entries create no duplicate work; page instructions cannot amend rules or trigger unauthorized publishing. Live poll on fs-dev: `scripts/exercise_feed_poll.py` / `verify_fs_dev_pilot.sh` against `github-blog`.
 
 ## M6 — CEO desk and growing headquarters
 
@@ -258,8 +258,8 @@ Do not activate every department. Per [05-organization.md](05-organization.md):
 3. Quality Control inspector (required before acceptance)
 4. Human Resources for training certification when skills are missing
 5. One enrolled disposable fork
-6. One modest file change, QC-inspected and independently accepted
-7. Then Art/Marketing on the same project
+6. One modest file change, QC-inspected and independently accepted — exercised via `scripts/exercise_production_slice.py` on fs-dev (`app` completion + live PR)
+7. Then Art/Marketing on the same project — dispatch briefs + mock drafts in the same exercise
 8. Keep Product, Sales, Legal, and others as templates until a capacity case exists
 
 Initial active catalog already marked: Executive, Engineering, Quality Control, Art, Marketing, Finance, Facilities, Human Resources.
@@ -278,4 +278,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M9 + Tailscale iOS handoff:** fs-dev can join Tailscale from `FS_CORP_TAILSCALE_AUTHKEY`; native iOS companion copies the redeem auth key and opens Tailscale for one-paste join. Workers stay `network_mode=none` with optional `.101` API egress. Next: Android handoff or TailscaleKit; dedicated worker host optional. Furnished HQ room art remains deferred.
+**Live github.com webhooks via Funnel** (ping + push + pull_request on `fs-corp-comp`). ChatDev adapter slice 2 delivered (worker live path when opted in; control-plane deny; status fields). Next optional: TailscaleKit; dedicated worker host; ChatDev in Docker worker image; furnished HQ room art deferred.

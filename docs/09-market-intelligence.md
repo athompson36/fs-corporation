@@ -38,4 +38,6 @@ Deduplicate before inference; cap findings and research rounds; use source/topic
 
 `approve_feed_source` is CEO-only and records an HTTPS URL. `poll_market_feed` requires that enrollment, writes an idempotent `feed_polls` row, fetches RSS/Atom via `MarketFeedAdapter`, ingests up to 50 items as signals, and sets status `applied` with an `ingested` count. Fetch failures set `failed` and raise; retries return the existing row when status is `applied` or `live_unavailable`. Optional `FEED_API_KEY` adds a Bearer header for authenticated feeds.
 
+`create_impact_brief` deduplicates by `signal_id`, never auto-publishes, and never treats signal text as trusted instruction. HTTP: `GET/POST /api/v1/impact-briefs` and `POST /api/v1/signals/{id}/correct`. The CEO desk Intelligence section lists briefs from the API.
+
 The production normalizer must replace simple exact-string fingerprinting with canonical event identity, corrections, configurable freshness and source verification.
