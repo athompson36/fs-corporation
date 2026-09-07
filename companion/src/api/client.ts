@@ -121,6 +121,66 @@ export class ApiClient {
     return this.get<Record<string, unknown>>(`/api/v1/projects/${id}`);
   }
 
+  org() {
+    return this.get<{ departments: OrgDepartment[] }>("/api/v1/org");
+  }
+
+  appointHead(departmentId: string, principalId: string) {
+    return this.post(
+      "/api/v1/org/heads",
+      { department_id: departmentId, principal_id: principalId },
+      `appoint-head-${Date.now()}`,
+    );
+  }
+
+  vacateHead(departmentId: string) {
+    return this.post(
+      "/api/v1/org/heads",
+      { department_id: departmentId, vacate: true },
+      `vacate-head-${Date.now()}`,
+    );
+  }
+
+  assignPosition(positionId: string, principalId: string, reportsToSeatId?: string) {
+    return this.post(
+      "/api/v1/org/assignments",
+      {
+        position_id: positionId,
+        principal_id: principalId,
+        reports_to_seat_id: reportsToSeatId || undefined,
+      },
+      `assign-position-${Date.now()}`,
+    );
+  }
+
+  releaseAssignment(assignmentId: string) {
+    return this.post(
+      "/api/v1/org/assignments",
+      { assignment_id: assignmentId, release: true },
+      `release-assignment-${Date.now()}`,
+    );
+  }
+
+  headInbox() {
+    return this.get<{ items: HeadDispatch[] }>("/api/v1/inbox/head");
+  }
+
+  assignDispatch(dispatchId: string, assignee: string, action: string, costCents: number) {
+    return this.post(
+      `/api/v1/dispatches/${dispatchId}/assign`,
+      { assignee, action, cost_cents: costCents },
+      `assign-${dispatchId}-${assignee}`,
+    );
+  }
+
+  activateDepartment(projectId: string, departmentId: string) {
+    return this.post(
+      `/api/v1/projects/${projectId}/departments/${departmentId}/activate`,
+      {},
+      `activate-${projectId}-${departmentId}`,
+    );
+  }
+
   decisions() {
     return this.get<{ items: DecisionItem[] }>("/api/v1/decisions/inbox");
   }
@@ -164,9 +224,14 @@ export class ApiClient {
     return this.post(`/api/v1/projects/${projectId}/github-assign`, { upstream }, `gh-assign-${projectId}`);
   }
 
-  dispatchBrief(projectId: string, brief: string, departments: string[], acceptance_criteria: string, budget_cents: number) {
+  dispatchBrief(
+    projectId: string,
+    brief: string,
+    departmentBudgets: Record<string, number>,
+    acceptance_criteria: string,
+  ) {
     return this.post(`/api/v1/projects/${projectId}/dispatch-brief`, {
-      brief, departments, acceptance_criteria, budget_cents,
+      brief, department_budgets: departmentBudgets, acceptance_criteria,
     }, `dispatch-${projectId}`);
   }
 
@@ -232,5 +297,37 @@ export type OwnerRequest = {
   body: string;
   kind: string;
   department_id: string;
+  status: string;
+};
+
+export type OrgAssignment = {
+  id: string;
+  position_id: string;
+  department_id: string;
+  principal_id: string;
+  status: string;
+};
+
+export type OrgDepartment = {
+  id: string;
+  name: string;
+  initially_active: number | boolean;
+  seat: {
+    id?: string;
+    status: string;
+    principal_id: string | null;
+    title: string;
+  };
+  assignments: OrgAssignment[];
+};
+
+export type HeadDispatch = {
+  id: string;
+  project_id: string;
+  department_id: string;
+  head_principal_id: string | null;
+  brief: string;
+  acceptance_criteria: string;
+  budget_cents: number;
   status: string;
 };

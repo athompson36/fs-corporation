@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from company import __version__
 from company.core import Company, now
@@ -37,16 +38,23 @@ class CompanionApiTests(unittest.TestCase):
         self.c.approve_policy("human-ceo", pid)
 
     def test_dispatch_brief_creates_work_orders(self):
-        from pathlib import Path
         self.c.seed_catalog(Path(__file__).resolve().parents[1] / "config" / "departments.json")
         self.c.enroll_project("human-ceo", "dash", "Dashboard rollout")
+        activated = self.client.post(
+            "/api/v1/projects/dash/departments/product/activate",
+            json={"payload": {}},
+            headers={
+                "Authorization": "Bearer owner-token",
+                "Idempotency-Key": "activate-product",
+            },
+        )
+        self.assertEqual(activated.status_code, 200, activated.text)
         headers = {"Authorization": "Bearer owner-token", "Idempotency-Key": "dispatch-1"}
         r = self.client.post("/api/v1/projects/dash/dispatch-brief", json={
             "payload": {
                 "brief": "Ship CEO mobile stats",
-                "departments": ["engineering", "product"],
+                "department_budgets": {"engineering": 300, "product": 200},
                 "acceptance_criteria": "Dashboard API documented",
-                "budget_cents": 500,
             }
         }, headers=headers)
         self.assertEqual(r.status_code, 200)
@@ -56,6 +64,58 @@ class CompanionApiTests(unittest.TestCase):
         self.assertEqual(set(detail.json()["departments"]), {"engineering", "product"})
         events = self.c.db.execute("SELECT kind FROM events WHERE kind='project.dispatched'").fetchall()
         self.assertEqual(len(events), 2)
+
+    def test_companion_dispatch_client_sends_department_budgets(self):
+        client_source = (
+            Path(__file__).resolve().parents[1] / "companion" / "src" / "api" / "client.ts"
+        ).read_text()
+        self.assertIn("department_budgets: departmentBudgets", client_source)
+        self.assertNotIn("brief, departments, acceptance_criteria, budget_cents", client_source)
+
+    def test_desk_surfaces_org_head_inbox_assignment_and_budget_map(self):
+        desk_source = (
+            Path(__file__).resolve().parents[1] / "company" / "service.py"
+        ).read_text()
+        self.assertIn('id="org-list"', desk_source)
+        self.assertIn("'/api/v1/org'", desk_source)
+        self.assertIn("seat.principal_id || 'vacant'", desk_source)
+        self.assertIn('id="head-inbox-list"', desk_source)
+        self.assertIn("'/api/v1/inbox/head'", desk_source)
+        self.assertIn("department_budgets: departmentBudgets", desk_source)
+        self.assertIn("'/api/v1/dispatches/' + encodeURIComponent(dispatch.id) + '/assign'", desk_source)
+
+    def test_companion_wires_org_handoff_and_activation_clients(self):
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        client_source = (root / "api" / "client.ts").read_text()
+        app_source = (root / "App.tsx").read_text()
+        self.assertIn('"/api/v1/org"', client_source)
+        self.assertIn("appointHead(", client_source)
+        self.assertIn('"/api/v1/org/heads"', client_source)
+        self.assertIn("vacateHead(", client_source)
+        self.assertIn("assignPosition(", client_source)
+        self.assertIn('"/api/v1/org/assignments"', client_source)
+        self.assertIn("releaseAssignment(", client_source)
+        self.assertIn('"/api/v1/inbox/head"', client_source)
+        self.assertIn("/dispatches/${dispatchId}/assign", client_source)
+        self.assertIn("/departments/${departmentId}/activate", client_source)
+        self.assertIn('"organization"', app_source)
+        self.assertIn('htmlFor="appoint-head-department"', app_source)
+        self.assertIn('htmlFor="vacate-head-department"', app_source)
+        self.assertIn('htmlFor="assign-position-id"', app_source)
+        self.assertIn('htmlFor="release-assignment-id"', app_source)
+        self.assertIn("Department budget (¢)", app_source)
+        self.assertNotIn("[s.trim(), 500]", app_source)
+
+    def test_desk_surfaces_org_appointment_and_assignment_forms(self):
+        desk_source = (
+            Path(__file__).resolve().parents[1] / "company" / "service.py"
+        ).read_text()
+        self.assertIn('id="appoint-head-form"', desk_source)
+        self.assertIn('id="vacate-head-form"', desk_source)
+        self.assertIn('id="assign-position-form"', desk_source)
+        self.assertIn('id="release-assignment-form"', desk_source)
+        self.assertIn("'/api/v1/org/heads'", desk_source)
+        self.assertIn("'/api/v1/org/assignments'", desk_source)
 
     def test_dashboard_unauthenticated(self):
         self.assertEqual(self.client.get("/api/v1/dashboard").status_code, 401)

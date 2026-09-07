@@ -59,12 +59,13 @@ class ProductionSliceTests(unittest.TestCase):
         self.assertTrue(self.c.db.execute("SELECT 1 FROM completions WHERE project=?", ("app",)).fetchone())
 
         self._extend_grants_for_art_marketing()
+        self.c.activate_department_for_project("human-ceo", "app", "art")
+        self.c.activate_department_for_project("human-ceo", "app", "marketing")
         dispatches = self.c.dispatch_project_brief(
             "human-ceo", "app",
             brief="Add launch visuals and positioning for the accepted pilot deliverable",
-            departments=["art", "marketing"],
+            department_budgets={"art": 2_500, "marketing": 2_500},
             acceptance_criteria="Art asset + marketing brief recorded as mock drafts",
-            budget_cents=5_000,
         )
         self.assertEqual({d["department_id"] for d in dispatches}, {"art", "marketing"})
 

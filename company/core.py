@@ -209,6 +209,11 @@ class Company:
             for key in ("actions","projects","requires_approval"):
                 if not isinstance(g[key],list) or any(not isinstance(x,str) or not x or x=="*" for x in g[key]):
                     raise ValueError("Use explicit nonempty string scopes; wildcards are disallowed")
+            if "departments" in g and (
+                    not isinstance(g["departments"], list)
+                    or any(not isinstance(x, str) or not x or x == "*"
+                           for x in g["departments"])):
+                raise ValueError("Use explicit nonempty string scopes; wildcards are disallowed")
             if not set(g["requires_approval"]).issubset(g["actions"]):
                 raise ValueError("Approval actions must belong to the grant")
             if "approval_rights" in g:
@@ -256,13 +261,15 @@ class Company:
             self.db.execute("UPDATE settings SET value=? WHERE key='paused'",("true" if paused else "false",))
             self._event("company.paused" if paused else "company.resumed",{"actor":actor})
 
-    def _scope(self,actor,project,action,cost):
+    def _scope(self,actor,project,action,cost,department_id=None):
         money(cost)
         if self.db.execute("SELECT value FROM settings WHERE key='paused'").fetchone()[0]=="true":
             raise PermissionError("Company paused")
         p=self.policy();g=self._effective_grant(actor)
         if not g or action not in g["actions"] or project not in g["projects"]:
             raise PermissionError("No matching delegation")
+        if "departments" in g and department_id not in g["departments"]:
+            raise PermissionError("No matching department delegation")
         if datetime.fromisoformat(g["expires_at"]) <= now():
             raise PermissionError("Delegation expired")
         spent=self.db.execute("SELECT COALESCE(SUM(cost),0) FROM ledger WHERE actor=?",(actor,)).fetchone()[0]
@@ -300,6 +307,8 @@ class Company:
         if parent:
             child["actions"]=[a for a in child["actions"] if a in parent["actions"]]
             child["projects"]=[x for x in child["projects"] if x in parent["projects"]]
+            if "departments" in parent:
+                child["departments"]=list(parent["departments"])
             child["budget_cents"]=min(child["budget_cents"],parent["budget_cents"])
             child["per_action_cents"]=min(child["per_action_cents"],parent["per_action_cents"])
             if datetime.fromisoformat(parent["expires_at"]) < datetime.fromisoformat(child["expires_at"]):
@@ -864,10 +873,262 @@ class Company:
                 self.db.execute("INSERT OR REPLACE INTO departments VALUES(?,?,?,?,?,?,?,?,?)",
                     (d["id"],d["name"],d["head"],d["mission"],canonical(d["measures"]),d["room_type"],
                      1 if d["initially_active"] else 0,d["default_model_profile"],canonical(d)))
+                seat_status = "vacant" if d["initially_active"] else "dormant"
+                seat_id = f"seat:{d['id']}"
+                existing = self.db.execute(
+                    "SELECT id, principal_id, status FROM department_seats WHERE department_id=?",
+                    (d["id"],)).fetchone()
+                if not existing:
+                    self.db.execute(
+                        "INSERT INTO department_seats VALUES(?,?,?,?,?,?,?,?)",
+                        (seat_id, d["id"], None, d["head"], seat_status, None, None, None))
+                elif existing["principal_id"] is None and existing["status"] in {"vacant", "dormant"}:
+                    self.db.execute(
+                        "UPDATE department_seats SET title=?, status=? WHERE department_id=?",
+                        (d["head"], seat_status, d["id"]))
                 for title in d["positions"]:
                     pid=f"{d['id']}:{title}"
                     self.db.execute("INSERT OR REPLACE INTO positions VALUES(?,?,?)",(pid,d["id"],title))
             self._event("catalog.seeded",{"departments":len(data["departments"])})
+
+    def appoint_head(self, actor, department_id, principal_id):
+        self._ceo_or_admin_companion(actor)
+        if not principal_id or not str(principal_id).strip():
+            raise ValueError("principal_id required")
+        dept = self.db.execute(
+            "SELECT id, head_title FROM departments WHERE id=?",
+            (department_id,),
+        ).fetchone()
+        if not dept:
+            raise ValueError("Unknown department")
+        principal_id = str(principal_id).strip()
+        with self.tx():
+            seat = self.db.execute(
+                "SELECT id FROM department_seats WHERE department_id=?",
+                (department_id,),
+            ).fetchone()
+            if not seat:
+                raise ValueError("Seat missing; seed catalog first")
+            self.db.execute(
+                """UPDATE department_seats
+                   SET principal_id=?, title=?, status='active', appointed_by=?,
+                       appointed_at=?, vacated_at=NULL
+                   WHERE department_id=?""",
+                (principal_id, dept["head_title"], actor, now().isoformat(), department_id),
+            )
+            self._event(
+                "org.head_appointed",
+                {"department_id": department_id, "principal_id": principal_id},
+                actor_id=actor,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM department_seats WHERE department_id=?",
+            (department_id,),
+        ).fetchone())
+
+    def vacate_head(self, actor, department_id):
+        self._ceo_or_admin_companion(actor)
+        dept = self.db.execute(
+            "SELECT id, initially_active FROM departments WHERE id=?",
+            (department_id,),
+        ).fetchone()
+        if not dept:
+            raise ValueError("Unknown department")
+        with self.tx():
+            seat = self.db.execute(
+                "SELECT principal_id FROM department_seats WHERE department_id=?",
+                (department_id,),
+            ).fetchone()
+            if not seat:
+                raise ValueError("Seat missing; seed catalog first")
+            if seat["principal_id"]:
+                self.db.execute(
+                    "UPDATE queue SET status='cancelled' WHERE actor=? AND status='queued'",
+                    (seat["principal_id"],),
+                )
+            self.db.execute(
+                """UPDATE queue SET status='cancelled'
+                   WHERE status IN ('queued', 'leased') AND task_id IN (
+                       SELECT da.queue_task_id
+                       FROM dispatch_assignments da
+                       JOIN project_dispatches pd ON pd.id=da.dispatch_id
+                       WHERE pd.department_id=? AND da.queue_task_id IS NOT NULL
+                   )""",
+                (department_id,),
+            )
+            self.db.execute(
+                """UPDATE dispatch_assignments SET status='cancelled'
+                   WHERE dispatch_id IN (
+                       SELECT id FROM project_dispatches WHERE department_id=?
+                   ) AND status='assigned'""",
+                (department_id,),
+            )
+            self.db.execute(
+                """UPDATE project_dispatches
+                   SET status='blocked_vacant_head', head_principal_id=NULL,
+                       head_inbox_at=NULL
+                   WHERE department_id=? AND head_principal_id=?
+                     AND status='queued_for_head'""",
+                (department_id, seat["principal_id"]),
+            )
+            status = "vacant" if dept["initially_active"] else "dormant"
+            self.db.execute(
+                """UPDATE department_seats
+                   SET principal_id=NULL, status=?, vacated_at=?
+                   WHERE department_id=?""",
+                (status, now().isoformat(), department_id),
+            )
+            self._event(
+                "org.head_vacated",
+                {"department_id": department_id},
+                actor_id=actor,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM department_seats WHERE department_id=?",
+            (department_id,),
+        ).fetchone())
+
+    def assign_position(self, actor, position_id, principal_id, reports_to_seat_id=None):
+        self._ceo_or_admin_companion(actor)
+        position = self.db.execute(
+            "SELECT id, department_id FROM positions WHERE id=?",
+            (position_id,),
+        ).fetchone()
+        if not position:
+            raise ValueError("Unknown position")
+        if not principal_id or not str(principal_id).strip():
+            raise ValueError("principal_id required")
+        if reports_to_seat_id and not self.db.execute(
+                "SELECT id FROM department_seats WHERE id=?",
+                (reports_to_seat_id,),
+        ).fetchone():
+            raise ValueError("Unknown reports_to_seat_id")
+        assignment_id = str(uuid.uuid4())
+        principal_id = str(principal_id).strip()
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO position_assignments(
+                       id, position_id, department_id, principal_id, status,
+                       reports_to_seat_id, assigned_by, assigned_at, released_at)
+                   VALUES(?,?,?,?,?,?,?,?,?)""",
+                (
+                    assignment_id,
+                    position_id,
+                    position["department_id"],
+                    principal_id,
+                    "active",
+                    reports_to_seat_id,
+                    actor,
+                    now().isoformat(),
+                    None,
+                ),
+            )
+            self._event(
+                "org.position_assigned",
+                {
+                    "id": assignment_id,
+                    "position_id": position_id,
+                    "principal_id": principal_id,
+                },
+                actor_id=actor,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM position_assignments WHERE id=?",
+            (assignment_id,),
+        ).fetchone())
+
+    def release_position(self, actor, assignment_id):
+        self._ceo_or_admin_companion(actor)
+        with self.tx():
+            assignment = self.db.execute(
+                "SELECT id FROM position_assignments WHERE id=? AND status='active'",
+                (assignment_id,),
+            ).fetchone()
+            if not assignment:
+                raise ValueError("Active assignment not found")
+            self.db.execute(
+                """UPDATE position_assignments
+                   SET status='released', released_at=?
+                   WHERE id=?""",
+                (now().isoformat(), assignment_id),
+            )
+            self._event(
+                "org.position_released",
+                {"id": assignment_id},
+                actor_id=actor,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM position_assignments WHERE id=?",
+            (assignment_id,),
+        ).fetchone())
+
+    def list_org(self):
+        departments = []
+        for department in self.db.execute(
+                """SELECT id, name, head_title, mission, room_type, initially_active
+                   FROM departments ORDER BY id"""):
+            seat = self.db.execute(
+                "SELECT * FROM department_seats WHERE department_id=?",
+                (department["id"],),
+            ).fetchone()
+            assignments = [
+                dict(row)
+                for row in self.db.execute(
+                    """SELECT * FROM position_assignments
+                       WHERE department_id=? AND status='active'
+                       ORDER BY assigned_at""",
+                    (department["id"],),
+                )
+            ]
+            departments.append({
+                **dict(department),
+                "seat": dict(seat) if seat else {
+                    "department_id": department["id"],
+                    "principal_id": None,
+                    "status": "vacant",
+                    "title": department["head_title"],
+                },
+                "assignments": assignments,
+            })
+        return {"departments": departments}
+
+    def activate_department_for_project(self, actor, project_id, department_id):
+        self._ceo_or_admin_companion(actor)
+        if not self.db.execute(
+                "SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
+            raise ValueError("Project not found")
+        if not self.db.execute(
+                "SELECT 1 FROM departments WHERE id=?", (department_id,)).fetchone():
+            raise ValueError("Unknown department")
+        with self.tx():
+            self.db.execute(
+                """INSERT OR REPLACE INTO project_department_activations
+                   (project_id, department_id, activated_by, activated_at)
+                   VALUES(?,?,?,?)""",
+                (project_id, department_id, actor, now().isoformat()),
+            )
+            self._event(
+                "org.department_activated",
+                {"project_id": project_id, "department_id": department_id},
+                actor_id=actor,
+                project_id=project_id,
+            )
+        return {"project_id": project_id, "department_id": department_id}
+
+    def department_dispatchable(self, project_id, department_id):
+        department = self.db.execute(
+            "SELECT initially_active FROM departments WHERE id=?",
+            (department_id,),
+        ).fetchone()
+        if not department:
+            return False
+        if department["initially_active"]:
+            return True
+        return bool(self.db.execute(
+            """SELECT 1 FROM project_department_activations
+               WHERE project_id=? AND department_id=?""",
+            (project_id, department_id),
+        ).fetchone())
 
     def seed_models(self,models_path):
         data=json.loads(Path(models_path).read_text())
@@ -1925,25 +2186,177 @@ class Company:
                         actor_id=actor, project_id=row["project_id"])
         return dict(self.db.execute("SELECT * FROM owner_requests WHERE id=?", (request_id,)).fetchone())
 
-    def dispatch_project_brief(self, actor, project_id, brief, departments, acceptance_criteria,
-                               budget_cents, due_at=None):
-        self._ceo_or_admin_companion(actor)
+    def create_cross_dept_request(
+            self, actor, *, project_id, requesting_department_id,
+            delivering_department_id, budget_owner, due_at,
+            acceptance_criteria, escalation_path, budget_cents, subject, brief):
+        if not self.db.execute(
+                "SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
+            raise ValueError("Project not found")
+        known = {
+            row[0] for row in self.db.execute(
+                "SELECT id FROM departments WHERE id IN (?,?)",
+                (requesting_department_id, delivering_department_id),
+            )
+        }
+        if requesting_department_id not in known:
+            raise ValueError(f"Unknown department {requesting_department_id}")
+        if delivering_department_id not in known:
+            raise ValueError(f"Unknown department {delivering_department_id}")
+        if requesting_department_id == delivering_department_id:
+            raise ValueError("Cross-department request requires different departments")
+        if not self.department_dispatchable(project_id, delivering_department_id):
+            raise ValueError(
+                f"Department {delivering_department_id} is dormant for this project; activate first")
+
+        is_ceo = actor == self.ceo or str(actor).startswith("companion-admin-")
+        if not is_ceo:
+            requesting_seat = self.db.execute(
+                """SELECT principal_id FROM department_seats
+                   WHERE department_id=? AND status='active'""",
+                (requesting_department_id,),
+            ).fetchone()
+            if not requesting_seat or requesting_seat["principal_id"] != actor:
+                raise PermissionError("Seated requesting department head required")
+
+        required = {
+            "budget_owner": budget_owner,
+            "due_at": due_at,
+            "acceptance_criteria": acceptance_criteria,
+            "escalation_path": escalation_path,
+            "subject": subject,
+            "brief": brief,
+        }
+        normalized = {}
+        for field, value in required.items():
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{field} required")
+            normalized[field] = value.strip()
+        try:
+            datetime.fromisoformat(normalized["due_at"].replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("due_at must be an ISO-8601 timestamp") from exc
         money(budget_cents)
+
+        request_id = str(uuid.uuid4())
+        created_at = now().isoformat()
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO cross_department_requests(
+                       id, project_id, requesting_department_id,
+                       delivering_department_id, budget_owner, due_at,
+                       acceptance_criteria, escalation_path, budget_cents, status,
+                       created_by, created_at, accepted_by, accepted_at, subject, brief)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    request_id, project_id, requesting_department_id,
+                    delivering_department_id, normalized["budget_owner"],
+                    normalized["due_at"], normalized["acceptance_criteria"],
+                    normalized["escalation_path"], budget_cents,
+                    "pending_acceptance", actor, created_at, None, None,
+                    normalized["subject"], normalized["brief"],
+                ),
+            )
+            self._event(
+                "cross_department.request_created",
+                {
+                    "id": request_id,
+                    "requesting_department_id": requesting_department_id,
+                    "delivering_department_id": delivering_department_id,
+                    "budget_cents": budget_cents,
+                    "status": "pending_acceptance",
+                },
+                actor_id=actor,
+                project_id=project_id,
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM cross_department_requests WHERE id=?",
+            (request_id,),
+        ).fetchone())
+
+    def list_cross_dept_requests(self, actor):
+        if actor == self.ceo or str(actor).startswith("companion-admin-"):
+            rows = self.db.execute(
+                "SELECT * FROM cross_department_requests ORDER BY created_at, id")
+        else:
+            rows = self.db.execute(
+                """SELECT request.*
+                   FROM cross_department_requests AS request
+                   JOIN department_seats AS seat
+                     ON seat.department_id=request.delivering_department_id
+                   WHERE seat.status='active' AND seat.principal_id=?
+                   ORDER BY request.created_at, request.id""",
+                (actor,),
+            )
+        return {"items": [dict(row) for row in rows]}
+
+    def accept_cross_dept_request(self, actor, request_id):
+        request = self.db.execute(
+            "SELECT * FROM cross_department_requests WHERE id=?",
+            (request_id,),
+        ).fetchone()
+        if not request:
+            raise ValueError("Cross-department request not found")
+        if request["status"] != "pending_acceptance":
+            raise ValueError("Cross-department request is not pending acceptance")
+
+        is_ceo = actor == self.ceo or str(actor).startswith("companion-admin-")
+        if not is_ceo:
+            seat = self.db.execute(
+                """SELECT principal_id FROM department_seats
+                   WHERE department_id=? AND status='active'""",
+                (request["delivering_department_id"],),
+            ).fetchone()
+            if not seat or seat["principal_id"] != actor:
+                raise PermissionError("Seated delivering department head required")
+
+        accepted_at = now().isoformat()
+        with self.tx():
+            current = self.db.execute(
+                "SELECT status FROM cross_department_requests WHERE id=?",
+                (request_id,),
+            ).fetchone()
+            if not current or current["status"] != "pending_acceptance":
+                raise ValueError("Cross-department request is not pending acceptance")
+            self.db.execute(
+                """UPDATE cross_department_requests
+                   SET status='accepted', accepted_by=?, accepted_at=?
+                   WHERE id=?""",
+                (actor, accepted_at, request_id),
+            )
+            self._event(
+                "cross_department.request_accepted",
+                {"id": request_id, "status": "accepted"},
+                actor_id=actor,
+                project_id=request["project_id"],
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM cross_department_requests WHERE id=?",
+            (request_id,),
+        ).fetchone())
+
+    def dispatch_project_brief(self, actor, project_id, brief, department_budgets,
+                               acceptance_criteria, due_at=None):
+        self._ceo_or_admin_companion(actor)
         if not brief or not str(brief).strip():
             raise ValueError("Brief required")
         if not acceptance_criteria or not str(acceptance_criteria).strip():
             raise ValueError("Acceptance criteria required")
-        if not isinstance(departments, list) or not departments:
-            raise ValueError("At least one department required")
+        if not isinstance(department_budgets, dict) or not department_budgets:
+            raise ValueError("department_budgets mapping required")
         if not self.db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
             raise ValueError("Project not found")
         known = {r[0] for r in self.db.execute("SELECT id FROM departments")}
-        for dept_id in departments:
+        for dept_id, budget_cents in department_budgets.items():
             if dept_id not in known:
                 raise ValueError(f"Unknown department {dept_id}")
+            money(budget_cents)
+            if not self.department_dispatchable(project_id, dept_id):
+                raise ValueError(
+                    f"Department {dept_id} is dormant for this project; activate first")
         dispatches = []
         with self.tx():
-            for dept_id in departments:
+            for dept_id, budget_cents in department_budgets.items():
                 dispatch_id = str(uuid.uuid4())
                 woid = digest({"dispatch": project_id, "department": dept_id, "at": now().isoformat()})
                 task_id = f"dispatch-{project_id}-{dept_id}-{dispatch_id[:8]}"
@@ -1956,15 +2369,143 @@ class Company:
                     "INSERT INTO work_orders VALUES(?,?,?,?,?,?,?)",
                     (woid, task_id, self.policy()["version"], digest(payload), budget_cents,
                      canonical(payload), "authorized"))
+                seat = self.db.execute(
+                    "SELECT * FROM department_seats WHERE department_id=?",
+                    (dept_id,),
+                ).fetchone()
+                if seat and seat["status"] == "active" and seat["principal_id"]:
+                    status = "queued_for_head"
+                    head_principal_id = seat["principal_id"]
+                    head_inbox_at = now().isoformat()
+                else:
+                    status = "blocked_vacant_head"
+                    head_principal_id = None
+                    head_inbox_at = None
                 self.db.execute(
-                    "INSERT INTO project_dispatches VALUES(?,?,?,?,?,?,?,?,?)",
+                    """INSERT INTO project_dispatches
+                       (id, project_id, department_id, work_order_id, brief,
+                        acceptance_criteria, budget_cents, due_at, created_at,
+                        status, head_principal_id, head_inbox_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (dispatch_id, project_id, dept_id, woid, brief.strip(),
-                     acceptance_criteria.strip(), budget_cents, due_at, now().isoformat()))
+                     acceptance_criteria.strip(), budget_cents, due_at, now().isoformat(),
+                     status, head_principal_id, head_inbox_at))
                 self._event("project.dispatched",
-                              {"dispatch_id": dispatch_id, "department_id": dept_id, "work_order_id": woid},
+                              {"dispatch_id": dispatch_id, "department_id": dept_id,
+                               "work_order_id": woid, "status": status},
                               actor_id=actor, project_id=project_id)
-                dispatches.append({"id": dispatch_id, "department_id": dept_id, "work_order_id": woid})
+                dispatches.append({
+                    "id": dispatch_id,
+                    "department_id": dept_id,
+                    "work_order_id": woid,
+                    "status": status,
+                    "head_principal_id": head_principal_id,
+                    "budget_cents": budget_cents,
+                })
         return dispatches
+
+    def list_head_inbox(self, actor):
+        open_statuses = ("queued_for_head", "blocked_vacant_head", "blocked")
+        if actor == self.ceo or str(actor).startswith("companion-admin-"):
+            rows = self.db.execute(
+                """SELECT * FROM project_dispatches
+                   WHERE status IN (?,?,?)
+                   ORDER BY created_at, id""",
+                open_statuses,
+            )
+        else:
+            rows = self.db.execute(
+                """SELECT * FROM project_dispatches
+                   WHERE head_principal_id=? AND status IN (?,?,?)
+                   ORDER BY created_at, id""",
+                (actor, *open_statuses),
+            )
+        return {"items": [dict(row) for row in rows]}
+
+    def assign_dispatch(self, actor, dispatch_id, assignee, *, action, cost_cents):
+        money(cost_cents)
+        row = self.db.execute(
+            "SELECT * FROM project_dispatches WHERE id=?", (dispatch_id,)).fetchone()
+        if not row:
+            raise ValueError("Dispatch not found")
+        if row["status"] != "queued_for_head":
+            raise ValueError("Dispatch is not assignable")
+        seat = self.db.execute(
+            "SELECT * FROM department_seats WHERE department_id=?",
+            (row["department_id"],),
+        ).fetchone()
+        is_ceo = actor == self.ceo or str(actor).startswith("companion-admin-")
+        if not is_ceo:
+            if not seat or seat["status"] != "active" or seat["principal_id"] != actor:
+                raise PermissionError("Seated head required")
+            grant = self._effective_grant(actor)
+            departments = grant.get("departments") if grant else None
+            if (
+                    not isinstance(departments, list)
+                    or not departments
+                    or row["department_id"] not in departments):
+                raise PermissionError("No matching department delegation")
+            self._scope(
+                actor,
+                row["project_id"],
+                "work.assign",
+                0,
+                department_id=row["department_id"],
+            )
+        rostered = self.db.execute(
+            """SELECT 1 FROM position_assignments
+               WHERE department_id=? AND principal_id=? AND status='active'""",
+            (row["department_id"], assignee),
+        ).fetchone()
+        assignee_grant = self._effective_grant(assignee)
+        contractor = bool(
+            assignee_grant and row["project_id"] in assignee_grant["projects"])
+        if not rostered and not contractor:
+            raise PermissionError(
+                "Assignee not on department roster and has no project grant")
+
+        queue_task_id = f"dispatch-assign-{dispatch_id[:8]}-{assignee}"
+        queued = self.queue_task(
+            assignee, row["project_id"], action, cost_cents, queue_task_id)
+        assignment_id = str(uuid.uuid4())
+        with self.tx():
+            current = self.db.execute(
+                "SELECT status FROM project_dispatches WHERE id=?",
+                (dispatch_id,),
+            ).fetchone()
+            if not current or current["status"] != "queued_for_head":
+                raise ValueError("Dispatch is not assignable")
+            self.db.execute(
+                """INSERT INTO dispatch_assignments
+                   (id, dispatch_id, assignee, assigned_by, assigned_at,
+                    queue_task_id, status)
+                   VALUES(?,?,?,?,?,?,?)""",
+                (
+                    assignment_id, dispatch_id, assignee, actor, now().isoformat(),
+                    queued["task_id"], "assigned",
+                ),
+            )
+            self.db.execute(
+                "UPDATE project_dispatches SET status='assigned' WHERE id=?",
+                (dispatch_id,),
+            )
+            self._event(
+                "project.dispatch_assigned",
+                {
+                    "dispatch_id": dispatch_id,
+                    "assignment_id": assignment_id,
+                    "assignee": assignee,
+                    "queue_task_id": queued["task_id"],
+                },
+                actor_id=actor,
+                project_id=row["project_id"],
+            )
+        return dict(self.db.execute(
+            "SELECT * FROM project_dispatches WHERE id=?", (dispatch_id,)).fetchone()) | {
+                "assignment_id": assignment_id,
+                "assignee": assignee,
+                "queue_task_id": queued["task_id"],
+            }
 
     def backup(self,dest):
         dest=Path(dest);dest.parent.mkdir(parents=True,exist_ok=True)

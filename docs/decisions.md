@@ -29,6 +29,7 @@
 | ADR-025 | 2026-09-07 | Companion PWA uses generateSW + importScripts for push | Vite 6 + injectManifest hung building `src/sw.ts`; generateSW emits `dist/sw.js`; push lives in `public/sw-push.js`; Node 18 needs a crypto polyfill and Workbox development mode to avoid terser. |
 | ADR-026 | 2026-09-07 | Billed cost and revenue tables separate from simulated ledger | Live invoke writes `billed_costs` with honest cents + usage_tokens; revenue via CEO `record_revenue`; status exposes separate sums (ADR-007). |
 | ADR-027 | 2026-09-07 | Phone GitHub assign by address with same-owner -corp write repo | Companion pastes upstream URL; API creates/reuses `{repo}-corp`; enrolls both ids; companion-admin may act as CEO mobile for enroll/dispatch. |
+| ADR-028 | 2026-09-07 | Department heads assign only through seat, grant, roster, and queue gates | Inbox reads persisted dispatches; assignment requires `work.assign` scope and queues work under the specialist's own grant; head vacancy blocks open work and cancels linked queues. |
 
 ### ADR-010 detail
 
@@ -221,5 +222,63 @@
 - Full invoice/refund engine: deferred.
 
 **Consequences.** Spec: `docs/superpowers/specs/2026-09-07-billed-cost-revenue-design.md`. HTTP command for revenue can follow; core writer is the authority. Benchmark dead-table cleanup remains a separate M10-03 item.
+
+### ADR-027 detail
+
+**Context.** A project brief previously accepted one shared budget for multiple departments and could dispatch dormant departments. That obscured budget ownership and represented unavailable departments as ready.
+
+**Decision.** Require a `department_budgets` mapping, reject dormant departments until the CEO or authenticated admin companion activates them for the project, and record each dispatch as `queued_for_head` only for an active occupied head seat or `blocked_vacant_head` otherwise. Optional grant `departments` scopes fail closed when a department-aware action does not match. Roster and activation controller commands accept the same admin-companion principal class as enroll and dispatch.
+
+**Alternatives considered.** Silently split one budget was rejected because allocation would be invented. Auto-activating departments on dispatch was rejected because activation is an explicit owner decision. Treating vacant seats as queued was rejected because no head can receive the work.
+
+**Consequences.** The dispatch API is intentionally breaking for callers using `departments` plus one `budget_cents`; all in-repository callers now send explicit per-department amounts. Task 4 stores routing status and head identity but does not assign specialists or create the Task 5 head inbox.
+
+### ADR-028 detail
+
+**Context.** Task 4 persisted which occupied head should receive a project dispatch, but
+it did not provide an inbox, authorize specialist selection, or create executable queue
+work. Treating `queued_for_head` as specialist assignment would bypass both roster and
+worker-grant controls.
+
+**Decision.** Read head inboxes from persisted open dispatches. A non-CEO assigner must
+occupy the department's active head seat and hold a current `work.assign` grant for the
+project and, when present, department. The assignee must be active on that department's
+roster or hold a project grant; `queue_task` independently enforces the assignee's action,
+budget, skills, and training gates. Vacating a head blocks that head's unassigned
+dispatches and cancels queue rows linked through `dispatch_assignments`.
+
+**Alternatives considered.** Prompt-only head authority was rejected because prompts are
+not access controls. Queueing under the head identity was rejected because it would charge
+and authorize the wrong principal. Automatically re-opening vacancy-blocked dispatches on
+appointment was deferred because reassignment should be an explicit state transition.
+
+**Consequences.** The API exposes scoped inbox read and assignment commands, while core
+authorization remains authoritative. The queue write precedes the assignment transaction
+so queue validation failure cannot mark a dispatch assigned; callers should use the API's
+idempotency key for retry-safe command execution. In v0.3.51 the desk and companion expose
+this persisted inbox and assignment path alongside honest seat/roster state; the UI does not
+derive authority from titles or reporting lines.
+
+### ADR-029 detail
+
+**Context.** Cross-department commitments need ownership, schedule, acceptance, and
+escalation metadata before they become executable worker tasks. Adding these mutable
+coordination fields to immutable execution `work_orders` would mix organizational acceptance
+with the policy-bound runtime envelope.
+
+**Decision.** Persist `cross_department_requests` separately. A non-CEO creator must occupy
+the active requesting-department head seat; a non-CEO accepter must occupy the active
+delivering-department head seat. CEO and authenticated admin companions are explicit
+overrides. Delivering departments must be active for the project. Org-chart edges, titles,
+and chat content grant no authority.
+
+**Alternatives considered.** Extending `work_orders` was rejected because accepting a
+departmental request is not worker execution authorization. Copying the delivering principal
+at creation was rejected because a later vacancy or replacement must take effect immediately.
+Auto-activating dormant departments was rejected because activation remains an owner action.
+
+**Consequences.** Alembic `0015_cross_dept_work_orders` adds the table. Create and accept
+emit transactional audit events. The authenticated API supports create, actor-scoped delivery
+list, and accept; no user-visible UI ships, so the package remains 0.3.51.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

@@ -13,6 +13,7 @@
 | Project | Upstream/fork IDs, branch policy, brief, classification | Enrollment requires explicit scope |
 | Task | Owner, dependencies, state, inputs, output hashes | State transition validated and idempotent |
 | WorkOrder | Task, policy/model versions, max cost, workflow digest | Immutable execution envelope |
+| CrossDepartmentRequest | Project, requesting/delivering departments, budget owner, due date, acceptance and escalation | Requesting and accepting actors must occupy the corresponding active head seat, except CEO/admin overrides |
 | Approval | Decision type, exact payload hash, approver, expiry | Single use; valid current authority |
 | BudgetAccount | Scope, period, limit, reserved and actual amounts | Atomic check and reservation |
 | Artifact | Hash, storage URI, producer, version, license/data class | Acceptance binds exact bytes or commit |
@@ -23,7 +24,19 @@
 
 ## Reference tables
 
-`company/schema.py` and Alembic revisions `0001_initial` through `0013_billed_cost_revenue` create settings, policies, proposals, approvals, tasks, ledger, completions, signals, expansions, events (with envelope columns that do not change the audit hash), consultant_proposals, identities, departments, positions, projects, delegations, model profiles/assignments, work orders, queue, outbox, reservations, artifacts, GitHub enrollment/effects/webhook deliveries, impact briefs, budget periods, memories, command idempotency, benchmark results, consultant review cooldowns, skills, acquired_skills, project_capabilities, learning_assignments, qc_inspections, employees, training_records, performance_goals and performance_reviews, **billed_costs**, and **revenue**. JSON configurations remain seed templates via `seed_catalog` / `seed_models` / `seed_hardware_skills` / `seed_development_skills`.
+`company/schema.py` and Alembic revisions `0001_initial` through `0015_cross_dept_work_orders`
+create settings, policies, proposals, approvals, tasks, ledger, completions, signals,
+expansions, events (with envelope columns that do not change the audit hash),
+consultant_proposals, identities, departments, positions, **department_seats**,
+**position_assignments**, **project_department_activations**, projects, delegations, model
+profiles/assignments, work orders, **project_dispatches**, **dispatch_assignments**,
+**cross_department_requests**, queue, outbox, reservations, artifacts, GitHub
+enrollment/effects/webhook deliveries, impact
+briefs, budget periods, memories, command idempotency, benchmark results, consultant
+review cooldowns, skills, acquired_skills, project_capabilities, learning_assignments,
+qc_inspections, employees, training_records, performance_goals and performance_reviews,
+**billed_costs**, and **revenue**. JSON configurations remain seed templates via
+`seed_catalog` / `seed_models` / `seed_hardware_skills` / `seed_development_skills`.
 
 The ledger records synthetic integer costs for mock actions. `billed_costs` records live provider usage in integer USD cents (`amount_cents`, often 0 until a pricing rate is set) plus `usage_tokens`. `revenue` records real income separately. Policy changes never reset simulated ledger totals. Refunds and period rollover of billed amounts remain future work.
 
@@ -54,7 +67,15 @@ Reference implementation uses a subset: produced/accepted tasks and proposed/app
 }
 ```
 
-Events include policy.proposed, policy.approved, delegation.revoked, task.queued, task.started, artifact.created, review.completed, project.accepted, budget.reserved, cost.reconciled, signal.ingested, expansion.proposed, room.built, project.hardware_enrolled, skill.learning_assigned, skill.studied, skill.acquired, quality.inspected, employee.hired, performance.goal_set and performance.reviewed. Consumers deduplicate by event ID and resume from persisted cursors.
+Events include policy.proposed, policy.approved, delegation.revoked, task.queued,
+task.started, artifact.created, review.completed, project.accepted, project.dispatched,
+dispatch.assigned, org.head_appointed, org.head_vacated, org.position_assigned,
+org.position_released, org.department_activated, budget.reserved, cost.reconciled,
+cross_department.request_created, cross_department.request_accepted,
+signal.ingested, expansion.proposed, room.built, project.hardware_enrolled,
+skill.learning_assigned, skill.studied, skill.acquired, quality.inspected, employee.hired,
+performance.goal_set and performance.reviewed. Consumers deduplicate by event ID and
+resume from persisted cursors.
 
 The reference audit chain detects in-place edits without recomputing hashes. It does not prevent privileged rewriting or detect truncation without a separately stored checkpoint. Production needs externally anchored checkpoints or protected append-only storage.
 

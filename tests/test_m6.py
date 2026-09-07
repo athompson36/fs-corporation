@@ -69,7 +69,12 @@ class HeadquartersTests(unittest.TestCase):
         c.hire_employee("human-ceo", "dev-ada", "engineering:Developer", "Ada",
                         {"seniority": "mid"}, "Firmware background.")
         c.dispatch_project_brief(
-            "human-ceo", "app", "Follow-up brief", ["engineering"], "Ship the accepted draft", 0)
+            "human-ceo",
+            "app",
+            "Follow-up brief",
+            {"engineering": 0},
+            "Ship the accepted draft",
+        )
         with tempfile.TemporaryDirectory() as d:
             digest_hex = c.store_artifact("head", "hq-art", "app", b"artifact-bytes", d)
         t = c.execute_mock(actor="head", project="app", action="draft", cost=25, task_id="hq-art")
