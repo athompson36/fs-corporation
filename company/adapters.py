@@ -15,9 +15,11 @@ class WorkflowAdapter(Protocol):
     def run(self, order: WorkOrder) -> dict: ...
 
 class ChatDevAdapter:
-    def run(self, order: WorkOrder, *, allow_control_plane: bool = False) -> dict:
+    def run(self, order: WorkOrder, *, allow_control_plane: bool = False, company=None) -> dict:
         from company import chatdev_runtime
-        return chatdev_runtime.run_work_order(order, allow_control_plane=allow_control_plane)
+        return chatdev_runtime.run_work_order(
+            order, allow_control_plane=allow_control_plane, company=company
+        )
 
 class MockChatDevAdapter:
     """Contract double. Does not invoke upstream ChatDev or a live provider."""

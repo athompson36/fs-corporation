@@ -2,9 +2,10 @@ import json
 import math
 import os
 import unittest
+from datetime import timedelta
 from unittest.mock import patch
 
-from company.core import Company, canonical
+from company.core import Company, canonical, now
 from company.settings_catalog import EDITABLE_KEYS, READONLY_KEYS, validate_value
 from company.settings_runtime import effective, list_settings, secrets_status
 from tests.test_api import owner_client
@@ -112,6 +113,36 @@ class CatalogTests(unittest.TestCase):
         hit = next(r for r in rows if r["name"] == "MODEL_PROVIDER_API_KEY")
         self.assertTrue(hit["configured"])
         self.assertEqual(set(hit.keys()), {"name", "configured"})
+
+    def test_prune_uses_effective_retention_overlay(self):
+        c = Company()
+        install(c, policy(c))
+        self.addCleanup(c.close)
+        with c.tx():
+            c.db.execute(
+                "INSERT OR REPLACE INTO company_settings VALUES(?,?,?,?)",
+                (
+                    "FS_CORP_IDEMPOTENCY_RETENTION_DAYS",
+                    canonical(1),
+                    now().isoformat(),
+                    "human-ceo",
+                ),
+            )
+            c.db.execute(
+                "INSERT INTO command_idempotency VALUES(?,?,?,?,?,?)",
+                (
+                    "two-days-old",
+                    "human-ceo",
+                    "request-hash",
+                    200,
+                    "{}",
+                    (now() - timedelta(days=2)).isoformat(),
+                ),
+            )
+
+        result = c.prune_idempotency_keys("human-ceo", older_than_days=None)
+
+        self.assertEqual(result, {"deleted": 1, "older_than_days": 1})
 
 
 class SettingsApiTests(unittest.TestCase):

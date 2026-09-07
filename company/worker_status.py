@@ -30,9 +30,12 @@ def host_has_ipv4(address: str) -> bool:
     return any(needle in line for line in proc.stdout.splitlines())
 
 
-def default_worker_runtime() -> str:
+def default_worker_runtime(company=None) -> str:
     """Configured default for dispatch-worker when the client omits runtime."""
-    value = (os.environ.get("FS_CORP_DEFAULT_WORKER_RUNTIME") or "subprocess").strip().lower()
+    if company is not None:
+        value = str(company.effective_setting("FS_CORP_DEFAULT_WORKER_RUNTIME")).strip().lower()
+    else:
+        value = (os.environ.get("FS_CORP_DEFAULT_WORKER_RUNTIME") or "subprocess").strip().lower()
     if value not in {"subprocess", "container"}:
         return "subprocess"
     return value
@@ -168,17 +171,17 @@ def gateway_egress_summary() -> dict:
     return out
 
 
-def resolve_worker_runtime(requested: str | None = None) -> str:
+def resolve_worker_runtime(requested: str | None = None, *, company=None) -> str:
     """Resolve the worker runtime. Container default fails closed when not ready."""
     explicit = (requested or "").strip().lower()
     if explicit:
         if explicit not in {"subprocess", "container"}:
             raise ValueError("runtime must be subprocess or container")
         return explicit
-    chosen = default_worker_runtime()
+    chosen = default_worker_runtime(company)
     if chosen != "container":
         return "subprocess"
-    summary = status_summary()
+    summary = status_summary(company=company)
     if not summary.get("container_dispatch_ready"):
         raise NotImplementedError(
             "FS_CORP_DEFAULT_WORKER_RUNTIME=container but container dispatch is not ready "
@@ -189,7 +192,7 @@ def resolve_worker_runtime(requested: str | None = None) -> str:
     return "container"
 
 
-def status_summary() -> dict:
+def status_summary(*, company=None) -> dict:
     docker = shutil.which("docker")
     scratch = (os.environ.get("FS_CORP_WORKER_SCRATCH") or "").strip()
     image = (os.environ.get("FS_CORP_WORKER_IMAGE") or "fs-corporation-worker:local").strip()
@@ -201,7 +204,7 @@ def status_summary() -> dict:
         "image": image,
         "image_present": False,
         "container_dispatch_ready": False,
-        "default_runtime": default_worker_runtime(),
+        "default_runtime": default_worker_runtime(company),
         "gateway_egress": gateway_egress_summary(),
         "worker_plane": worker_plane_summary(),
     }

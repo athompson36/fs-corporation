@@ -1121,7 +1121,14 @@ class Company:
             if not (os.environ.get(env_name) or "").strip():
                 raise NotImplementedError(
                     f"Live model requires {env_name} inside the worker boundary; see docs/06-model-routing.md")
-            result = complete(profile_id, profile, prompt)
+            result = complete(
+                profile_id,
+                profile,
+                prompt,
+                default_rate=self.effective_setting(
+                    "FS_CORP_MODEL_CENTS_PER_1K_TOKENS"
+                ),
+            )
             usage_tokens = result.get("usage_tokens", 0)
             if type(usage_tokens) is not int or usage_tokens < 0:
                 raise ValueError("usage_tokens must be a nonnegative int")
@@ -3059,11 +3066,19 @@ class Company:
         from company.settings_runtime import secrets_status
         return {"secrets": secrets_status()}
 
+    def effective_setting(self, key):
+        from company.settings_runtime import effective
+        return effective(self, key)["value"]
+
     def prune_idempotency_keys(self, actor, older_than_days=None):
         """Delete idempotency rows older than the retention window (default 7 days)."""
         self._ceo_or_admin_companion(actor)
-        from company.idempotency_prune import prune_command_idempotency, retention_days_from_env
-        days = retention_days_from_env() if older_than_days is None else int(older_than_days)
+        from company.idempotency_prune import prune_command_idempotency
+        days = (
+            self.effective_setting("FS_CORP_IDEMPOTENCY_RETENTION_DAYS")
+            if older_than_days is None
+            else int(older_than_days)
+        )
         with self.tx():
             deleted = prune_command_idempotency(self.db, older_than_days=days, now_dt=now())
             self._event(
@@ -5003,11 +5018,11 @@ class Company:
         return None
 
     def remote_access_status(self, public_url=None):
-        env_url = (os.environ.get("FS_CORP_PUBLIC_URL") or "").strip().rstrip("/")
-        public = (public_url or env_url or "").strip().rstrip("/")
+        configured_url = str(self.effective_setting("FS_CORP_PUBLIC_URL") or "").strip().rstrip("/")
+        public = (public_url or configured_url or "").strip().rstrip("/")
         probe = self.probe_tailscale()
         key = os.environ.get("FS_CORP_TAILSCALE_AUTHKEY") or ""
-        recommended = env_url or public
+        recommended = configured_url or public
         if not recommended and probe["ipv4"]:
             recommended = f"https://{probe['ipv4']}"
         companion = self.companion_https_url()

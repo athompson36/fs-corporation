@@ -151,12 +151,18 @@ def normalize_result(raw: Any, *, session_name: str, max_cost_cents: int) -> dic
     }
 
 
-def _control_plane_allowed(*, allow_control_plane: bool | None = None) -> bool:
-    return bool(allow_control_plane) or (os.environ.get("CHATDEV_ALLOW_CONTROL_PLANE") or "").strip() == "1"
+def _control_plane_allowed(*, allow_control_plane: bool | None = None, company=None) -> bool:
+    if allow_control_plane:
+        return True
+    if company is not None:
+        return bool(company.effective_setting("CHATDEV_ALLOW_CONTROL_PLANE"))
+    return (os.environ.get("CHATDEV_ALLOW_CONTROL_PLANE") or "").strip() == "1"
 
 
-def run_work_order(order, *, allow_control_plane: bool | None = None) -> dict:
-    if not _control_plane_allowed(allow_control_plane=allow_control_plane):
+def run_work_order(order, *, allow_control_plane: bool | None = None, company=None) -> dict:
+    if not _control_plane_allowed(
+        allow_control_plane=allow_control_plane, company=company
+    ):
         raise NotImplementedError(
             "Live ChatDev is denied in the control plane; dispatch via isolated worker "
             "or set CHATDEV_ALLOW_CONTROL_PLANE=1 for local desk experiments; see docs/07"
@@ -233,7 +239,7 @@ def worker_image_chatdev_summary() -> dict | None:
     return out
 
 
-def status_summary() -> dict:
+def status_summary(*, company=None) -> dict:
     home = chatdev_home()
     ready = chatdev_home_ready()
     skipped = pin_check_skipped()
@@ -242,7 +248,7 @@ def status_summary() -> dict:
         "home_set": home is not None,
         "configured": ready,
         "pin_verified": pin_verified(home),
-        "control_plane_allowed": _control_plane_allowed(),
+        "control_plane_allowed": _control_plane_allowed(company=company),
         "worker_live_ready": ready,
         "workflow": str(workflow_path()),
         "worker_image_chatdev": worker_image_chatdev_summary(),

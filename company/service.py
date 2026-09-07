@@ -2198,7 +2198,7 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
     async def events_stream(cursor: int = 0, authorization: str | None = Header(default=None)):
         ident = principal(authorization)
         scoped(ident, "audit.read")
-        idle = float(os.environ.get("FS_CORP_SSE_IDLE_SEC", "1"))
+        idle = float(company.effective_setting("FS_CORP_SSE_IDLE_SEC"))
 
         async def generate():
             pos = cursor
@@ -2257,7 +2257,7 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scratch = payload.get("scratch_root") or os.environ.get("FS_CORP_WORKER_SCRATCH") or tempfile.mkdtemp(prefix="company-worker-")
         from company.worker_status import resolve_worker_runtime
         try:
-            runtime = resolve_worker_runtime(payload.get("runtime"))
+            runtime = resolve_worker_runtime(payload.get("runtime"), company=company)
         except (ValueError, NotImplementedError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return run(ident, idempotency_key, payload | {"task_id": task_id, "runtime": runtime}, lambda: (
@@ -2670,21 +2670,20 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "company.read")
         from company.worker_status import status_summary
-        return status_summary()
+        return status_summary(company=company)
 
     @app.get("/api/v1/chatdev/status")
     def chatdev_status(authorization: str | None = Header(default=None)):
         ident = principal(authorization)
         scoped(ident, "company.read")
         from company.chatdev_runtime import status_summary
-        return status_summary()
+        return status_summary(company=company)
 
     @app.get("/api/v1/remote-access")
     def remote_access(authorization: str | None = Header(default=None)):
         ident = principal(authorization)
         scoped(ident, "company.read")
-        public = os.environ.get("FS_CORP_PUBLIC_URL")
-        status = company.remote_access_status(public)
+        status = company.remote_access_status()
         try:
             company._ceo(ident["principal_id"])
             status["paired_devices"] = company.list_paired_devices(ident["principal_id"])
@@ -2707,7 +2706,9 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "company.pause")
         payload = envelope(ident, body)
-        public = (os.environ.get("FS_CORP_PUBLIC_URL") or str(request.base_url)).rstrip("/")
+        public = (
+            company.effective_setting("FS_CORP_PUBLIC_URL") or str(request.base_url)
+        ).rstrip("/")
         access_level = (payload.get("access_level") or "admin").strip()
         return run(ident, idempotency_key, payload, lambda: (
             company.create_pairing_ticket(ident["principal_id"], public, access_level=access_level), 200))

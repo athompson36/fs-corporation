@@ -24,13 +24,20 @@ def _max_tokens() -> int:
     return int(os.environ.get("MODEL_PROVIDER_MAX_TOKENS") or "512")
 
 
-def price_tokens(usage_tokens: int, profile: dict | None = None) -> int:
+def price_tokens(
+    usage_tokens: int,
+    profile: dict | None = None,
+    *,
+    default_rate: int | None = None,
+) -> int:
     """Convert usage tokens to integer USD cents when a rate is configured; else 0."""
     if type(usage_tokens) is not int or usage_tokens < 0:
         raise ValueError("usage_tokens must be a nonnegative int")
     rate = None
     if profile is not None and profile.get("cents_per_1k_tokens") is not None:
         rate = profile.get("cents_per_1k_tokens")
+    elif default_rate is not None:
+        rate = default_rate
     else:
         raw = (os.environ.get("FS_CORP_MODEL_CENTS_PER_1K_TOKENS") or "").strip()
         rate = int(raw) if raw else 0
@@ -147,7 +154,9 @@ def status_summary(*, probe: bool = False) -> dict:
     return summary
 
 
-def _complete_openai(profile_id: str, profile: dict, prompt: str) -> dict:
+def _complete_openai(
+    profile_id: str, profile: dict, prompt: str, *, default_rate: int | None = None
+) -> dict:
     _require_credential(profile)
     model = (profile.get("model") or "").strip()
     if not model or model.startswith("configure-"):
@@ -173,13 +182,15 @@ def _complete_openai(profile_id: str, profile: dict, prompt: str) -> dict:
         "text": text,
         "profile_id": profile_id,
         "usage_tokens": usage_tokens,
-        "cost_cents": price_tokens(usage_tokens, profile),
+        "cost_cents": price_tokens(usage_tokens, profile, default_rate=default_rate),
         "provider": profile.get("provider"),
         "model": model,
     }
 
 
-def _complete_anthropic(profile_id: str, profile: dict, prompt: str) -> dict:
+def _complete_anthropic(
+    profile_id: str, profile: dict, prompt: str, *, default_rate: int | None = None
+) -> dict:
     _require_credential(profile)
     model = (profile.get("model") or "").strip()
     if not model or model.startswith("configure-"):
@@ -211,20 +222,30 @@ def _complete_anthropic(profile_id: str, profile: dict, prompt: str) -> dict:
         "text": text,
         "profile_id": profile_id,
         "usage_tokens": usage_tokens,
-        "cost_cents": price_tokens(usage_tokens, profile),
+        "cost_cents": price_tokens(usage_tokens, profile, default_rate=default_rate),
         "provider": profile.get("provider"),
         "model": model,
     }
 
 
-def complete(profile_id: str, profile: dict, prompt: str) -> dict:
+def complete(
+    profile_id: str,
+    profile: dict,
+    prompt: str,
+    *,
+    default_rate: int | None = None,
+) -> dict:
     if profile.get("provider") == "mock":
         raise ValueError("Use invoke_model mock path for mock provider")
     if not isinstance(prompt, str) or not prompt.strip():
         raise ValueError("Prompt required")
     provider = profile.get("provider")
     if provider in OPENAI_PROVIDERS:
-        return _complete_openai(profile_id, profile, prompt)
+        return _complete_openai(
+            profile_id, profile, prompt, default_rate=default_rate
+        )
     if provider in ANTHROPIC_PROVIDERS:
-        return _complete_anthropic(profile_id, profile, prompt)
+        return _complete_anthropic(
+            profile_id, profile, prompt, default_rate=default_rate
+        )
     raise NotImplementedError(f"Unsupported model provider: {provider}")
