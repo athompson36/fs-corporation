@@ -252,6 +252,21 @@ CREATE TABLE IF NOT EXISTS promotion_records(
   evidence TEXT NOT NULL, proposed_by TEXT NOT NULL, approved_by TEXT,
   status TEXT NOT NULL CHECK(status IN ('pending','approved','rejected')),
   created_at TEXT NOT NULL, decided_at TEXT);
+CREATE TABLE IF NOT EXISTS staffing_proposals(
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK(kind IN ('hire','reassign','promote','retire_role')),
+  department_id TEXT NOT NULL REFERENCES departments(id),
+  position_id TEXT NOT NULL, level_id TEXT REFERENCES career_levels(id),
+  rationale TEXT NOT NULL, evidence TEXT NOT NULL,
+  cost_estimate_cents INTEGER NOT NULL, proposed_by TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('pending','approved','rejected')),
+  approver TEXT, decided_at TEXT, created_at TEXT NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_pending_staffing_proposal
+  ON staffing_proposals(kind, department_id, position_id)
+  WHERE status='pending';
+CREATE TABLE IF NOT EXISTS staffing_scan_cooldown(
+  id TEXT PRIMARY KEY CHECK(id='default'),
+  last_run TEXT NOT NULL, cooldown_until TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (

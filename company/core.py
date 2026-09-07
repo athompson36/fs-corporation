@@ -3009,6 +3009,263 @@ class Company:
         return {"items":[self._promotion_record(row)
                          for row in self.db.execute(sql,args)]}
 
+    @staticmethod
+    def _staffing_proposal(row):
+        result=dict(row)
+        result["evidence"]=json.loads(result["evidence"])
+        return result
+
+    def list_staffing_proposals(self, status=None):
+        if status is not None and status not in {"pending","approved","rejected"}:
+            raise ValueError("Unknown staffing proposal status")
+        sql="SELECT * FROM staffing_proposals"
+        args=()
+        if status:
+            sql+=" WHERE status=?"
+            args=(status,)
+        sql+=" ORDER BY created_at,id"
+        return {"items":[self._staffing_proposal(row)
+                         for row in self.db.execute(sql,args)]}
+
+    def create_staffing_proposal(
+            self, actor, *, kind, department_id, position_id, rationale,
+            evidence, cost_estimate_cents, level_id=None):
+        self._hr_or_ceo(actor)
+        if kind not in {"hire","reassign","promote","retire_role"}:
+            raise ValueError("Unknown staffing proposal kind")
+        department_id=str(department_id or "").strip()
+        position_id=str(position_id or "").strip()
+        rationale=str(rationale or "").strip()
+        if not department_id or not self.db.execute(
+                "SELECT 1 FROM departments WHERE id=? AND status!='retired'",
+                (department_id,)).fetchone():
+            raise ValueError("Active department required")
+        if not position_id or not position_id.startswith(department_id+":"):
+            raise ValueError("Position must belong to the proposal department")
+        if not rationale:
+            raise ValueError("Staffing rationale required")
+        if not isinstance(evidence,dict) or not evidence:
+            raise ValueError("Staffing evidence must be a nonempty object")
+        money(cost_estimate_cents)
+        if level_id is not None and not self.db.execute(
+                """SELECT 1 FROM career_levels
+                   WHERE id=? AND (department_id=? OR department_id IS NULL)""",
+                (level_id,department_id)).fetchone():
+            raise ValueError("Unknown career level for department")
+        existing=self.db.execute(
+            """SELECT * FROM staffing_proposals
+               WHERE kind=? AND department_id=? AND position_id=?
+                 AND status='pending'""",
+            (kind,department_id,position_id)).fetchone()
+        if existing:
+            return self._staffing_proposal(existing)
+        stamp=now().isoformat()
+        proposal_id=digest({
+            "kind":kind,"department_id":department_id,"position_id":position_id,
+            "proposed_by":actor,"created_at":stamp,"evidence":evidence})[:24]
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO staffing_proposals(
+                     id,kind,department_id,position_id,level_id,rationale,evidence,
+                     cost_estimate_cents,proposed_by,status,approver,decided_at,created_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,'pending',NULL,NULL,?)""",
+                (proposal_id,kind,department_id,position_id,level_id,rationale,
+                 canonical(evidence),cost_estimate_cents,actor,stamp),
+            )
+            self._event(
+                "staffing.proposed",
+                {"id":proposal_id,"kind":kind,"department_id":department_id,
+                 "position_id":position_id,"evidence_digest":digest(evidence)},
+                actor_id=actor,
+            )
+        return self._staffing_proposal(self.db.execute(
+            "SELECT * FROM staffing_proposals WHERE id=?",(proposal_id,)).fetchone())
+
+    def _staffing_position(self, department_id):
+        position=self.db.execute(
+            """SELECT p.id,COUNT(pa.id) AS active_count
+               FROM positions p
+               LEFT JOIN position_assignments pa
+                 ON pa.position_id=p.id AND pa.status='active'
+               WHERE p.department_id=? AND p.status='active'
+               GROUP BY p.id ORDER BY active_count,p.display_order,p.id LIMIT 1""",
+            (department_id,)).fetchone()
+        if position:
+            return position["id"]
+        department=self.db.execute(
+            "SELECT head_title FROM departments WHERE id=?",(department_id,)).fetchone()
+        return f"{department_id}:{department['head_title']}"
+
+    def scan_staffing_gaps(self, actor):
+        self._hr_or_ceo(actor)
+        stamp=now()
+        with self.tx():
+            cooldown=self.db.execute(
+                "SELECT * FROM staffing_scan_cooldown WHERE id='default'").fetchone()
+            if cooldown:
+                until=datetime.fromisoformat(cooldown["cooldown_until"])
+                if until.tzinfo is None:
+                    until=until.replace(tzinfo=timezone.utc)
+                if stamp<until:
+                    raise ValueError(
+                        f"Staffing scan cooldown active until {cooldown['cooldown_until']}")
+
+            candidates=[]
+            for row in self.db.execute(
+                    """SELECT pd.department_id,d.head_title,
+                              COUNT(*) AS dispatch_count,
+                              GROUP_CONCAT(pd.id) AS dispatch_ids
+                       FROM project_dispatches pd
+                       JOIN departments d ON d.id=pd.department_id
+                       WHERE pd.status='blocked_vacant_head'
+                       GROUP BY pd.department_id,d.head_title
+                       ORDER BY pd.department_id"""):
+                candidates.append({
+                    "kind":"hire","department_id":row["department_id"],
+                    "position_id":f"{row['department_id']}:{row['head_title']}",
+                    "rationale":
+                        "Open project dispatches are blocked because the department head is vacant.",
+                    "evidence":{
+                        "source":"blocked_vacant_head",
+                        "dispatch_count":row["dispatch_count"],
+                        "dispatch_ids":sorted(row["dispatch_ids"].split(",")),
+                    },
+                })
+
+            for row in self.db.execute(
+                    """SELECT pd.department_id,COUNT(*) AS dispatch_count,
+                              GROUP_CONCAT(pd.id) AS dispatch_ids
+                       FROM project_dispatches pd
+                       WHERE pd.status IN (
+                           'queued_for_head','assigned','in_progress','blocked')
+                         AND NOT EXISTS (
+                           SELECT 1 FROM dispatch_assignments da
+                           WHERE da.dispatch_id=pd.id AND da.status='assigned')
+                       GROUP BY pd.department_id HAVING COUNT(*)>=3
+                       ORDER BY pd.department_id"""):
+                candidates.append({
+                    "kind":"hire","department_id":row["department_id"],
+                    "position_id":self._staffing_position(row["department_id"]),
+                    "rationale":
+                        "The department has a high open-dispatch queue without active assignments.",
+                    "evidence":{
+                        "source":"unassigned_dispatch_queue",
+                        "queue_depth":row["dispatch_count"],
+                        "dispatch_ids":sorted(row["dispatch_ids"].split(",")),
+                        "threshold":3,
+                    },
+                })
+
+            floorplan=self.floorplan_status()
+            for gap in floorplan["unmet_requirements"]:
+                candidates.append({
+                    "kind":"hire","department_id":gap["department_id"],
+                    "position_id":self._staffing_position(gap["department_id"]),
+                    "rationale":
+                        "Persisted headquarters capacity does not meet this department's room requirement.",
+                    "evidence":{
+                        "source":"unmet_room_requirement",
+                        "floorplan_id":floorplan["floorplan_id"],
+                        **gap,
+                    },
+                })
+
+            for employee in self.db.execute(
+                    "SELECT id,position_id FROM employees WHERE status='active' ORDER BY id"):
+                due=self.training_due(employee["id"])
+                if due:
+                    candidates.append({
+                        "kind":"reassign",
+                        "department_id":employee["position_id"].split(":",1)[0],
+                        "position_id":employee["position_id"],
+                        "rationale":
+                            "Overdue pertinent training requires a reviewed reassignment or training plan.",
+                        "evidence":{
+                            "source":"overdue_training",
+                            "employee_id":employee["id"],
+                            "overdue_skills":due,
+                        },
+                    })
+
+            items=[]
+            created=0
+            seen=set()
+            for candidate in candidates:
+                key=(candidate["kind"],candidate["department_id"],
+                     candidate["position_id"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                existing=self.db.execute(
+                    """SELECT id FROM staffing_proposals
+                       WHERE kind=? AND department_id=? AND position_id=?
+                         AND status='pending'""",key).fetchone()
+                proposal=self.create_staffing_proposal(
+                    actor,**candidate,cost_estimate_cents=0)
+                if not existing:
+                    created+=1
+                items.append(proposal)
+            cooldown_until=(stamp+timedelta(minutes=15)).isoformat()
+            self.db.execute(
+                """INSERT INTO staffing_scan_cooldown(id,last_run,cooldown_until)
+                   VALUES('default',?,?)
+                   ON CONFLICT(id) DO UPDATE SET
+                     last_run=excluded.last_run,
+                     cooldown_until=excluded.cooldown_until""",
+                (stamp.isoformat(),cooldown_until),
+            )
+            self._event(
+                "staffing.scanned",
+                {"created":created,"candidates":len(candidates),
+                 "cooldown_until":cooldown_until},
+                actor_id=actor,
+            )
+        return {"items":items,"created":created,"cooldown_until":cooldown_until}
+
+    def decide_staffing_proposal(self, actor, proposal_id, decision):
+        self._ceo_or_admin_companion(actor)
+        if decision not in {"approved","rejected"}:
+            raise ValueError("Staffing decision must be approved or rejected")
+        with self.tx():
+            proposal=self.db.execute(
+                "SELECT * FROM staffing_proposals WHERE id=?",
+                (proposal_id,)).fetchone()
+            if not proposal:
+                raise ValueError("Staffing proposal not found")
+            if proposal["status"]!="pending":
+                raise ValueError("Staffing proposal is already decided")
+            evidence=json.loads(proposal["evidence"])
+            if decision=="approved" and proposal["kind"]=="hire":
+                required=("employee_id","display_name","background")
+                if any(not str(evidence.get(field) or "").strip()
+                       for field in required):
+                    raise ValueError(
+                        "Approved hire evidence requires employee_id, display_name, and background")
+            decided_at=now().isoformat()
+            self.db.execute(
+                """UPDATE staffing_proposals
+                   SET status=?,approver=?,decided_at=? WHERE id=?""",
+                (decision,actor,decided_at,proposal_id),
+            )
+            hire=None
+            if decision=="approved" and proposal["kind"]=="hire":
+                hire=self.hire_employee(
+                    actor,evidence["employee_id"],proposal["position_id"],
+                    evidence["display_name"],evidence.get("attributes") or {},
+                    evidence["background"],
+                )
+            self._event(
+                "staffing.decided",
+                {"id":proposal_id,"kind":proposal["kind"],"decision":decision,
+                 "employee_id":evidence.get("employee_id") if hire else None},
+                actor_id=actor,
+            )
+        result=self._staffing_proposal(self.db.execute(
+            "SELECT * FROM staffing_proposals WHERE id=?",(proposal_id,)).fetchone())
+        if hire:
+            result["hire"]=hire
+        return result
+
     def propose_promotion(self, actor, employee_id, to_level_id=None):
         self._hr_or_ceo(actor)
         if actor==employee_id:

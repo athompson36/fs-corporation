@@ -55,6 +55,10 @@ listed scope can still receive 403 from those routes.
 | GET /promotions | Promotion records, optionally filtered by `status` | organization.read |
 | POST /employees/{id}/promotions | Propose a promotion with a captured evidence evaluation | organization.write |
 | POST /promotions/{id}/decision | Approve/reject a pending promotion | organization.write |
+| GET /staffing-proposals | Staffing proposals, optionally filtered by `status` | organization.read |
+| POST /staffing-proposals | Create an evidence-backed staffing proposal | organization.write + HR/CEO |
+| POST /staffing-proposals/scan | Run the cooldown-limited staffing-gap scan | organization.write + HR/CEO |
+| POST /staffing-proposals/{id}/decision | Approve/reject; approved hires require evidence fields and execute atomically | organization.write + CEO/admin companion |
 | POST /model-assignments | Propose role/provider assignment | model.assign |
 | POST /signals | Record source evidence | intelligence.ingest |
 | GET /impact-briefs | List impact briefs (no auto-publish) | company.read |

@@ -210,6 +210,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass" id="people">
 <h2>People</h2><ul id="people-list"></ul>
 <h3>Pending promotions</h3><ul id="promotion-list"></ul>
+<h3>Pending staffing proposals</h3><ul id="staffing-proposal-list"></ul>
 </section>
 <section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="budget"><h2>Budget</h2>
@@ -616,6 +617,44 @@ function renderHeadInbox(items) {
     list.appendChild(li);
   });
 }
+function renderStaffingProposals(items) {
+  const list = document.getElementById('staffing-proposal-list');
+  list.innerHTML = '';
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No pending staffing proposals.';
+    list.appendChild(li);
+    return;
+  }
+  items.forEach(proposal => {
+    const li = document.createElement('li');
+    li.appendChild(document.createTextNode(
+      proposal.kind + ' · ' + proposal.position_id + ' · '
+      + proposal.cost_estimate_cents + '¢ · ' + proposal.rationale + ' '));
+    ['approved', 'rejected'].forEach(decision => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip';
+      button.textContent = decision === 'approved' ? 'Approve' : 'Reject';
+      button.addEventListener('click', async () => {
+        const res = await fetch(
+          '/api/v1/staffing-proposals/' + proposal.id + '/decision',
+          {
+            method: 'POST',
+            headers: {...headers, 'Content-Type': 'application/json',
+              'Idempotency-Key': 'desk-staffing-' + proposal.id + '-' + decision},
+            body: JSON.stringify({payload: {decision}})
+          }
+        );
+        if (!res.ok) { alert(await res.text()); return; }
+        load();
+      });
+      li.appendChild(button);
+    });
+    list.appendChild(li);
+  });
+}
 async function load() {
   const status = await fetch('/api/v1/company', {headers});
   document.getElementById('status-json').textContent = await status.text();
@@ -723,6 +762,10 @@ async function load() {
   fill('promotion-list', promotionsj.items || [], promotion =>
     promotion.employee_id + ' — ' + promotion.from_level + ' → ' +
       promotion.to_level + ' — ' + promotion.status);
+  const staffing = await fetch(
+    '/api/v1/staffing-proposals?status=pending', {headers});
+  const staffingj = await staffing.json();
+  renderStaffingProposals(staffingj.items || []);
   const briefs = await fetch('/api/v1/impact-briefs', {headers});
   const bj = await briefs.json();
   fill('intelligence-list', bj.briefs||[], b => {
@@ -1540,6 +1583,63 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
             return company.list_promotions(status)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/staffing-proposals")
+    def staffing_proposals(
+            status: str | None = None,
+            authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        try:
+            return company.list_staffing_proposals(status)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/staffing-proposals")
+    def create_staffing_proposal(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident,idempotency_key,payload,
+            lambda: (
+                company.create_staffing_proposal(
+                    ident["principal_id"],**payload),200))
+
+    @app.post("/api/v1/staffing-proposals/scan")
+    def scan_staffing_proposals(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        if payload:
+            raise HTTPException(
+                status_code=422,detail=f"Unknown fields: {sorted(payload)}")
+        return run(
+            ident,idempotency_key,payload,
+            lambda: (company.scan_staffing_gaps(ident["principal_id"]),200))
+
+    @app.post("/api/v1/staffing-proposals/{proposal_id}/decision")
+    def decide_staffing_proposal(
+            proposal_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident,idempotency_key,payload | {"proposal_id":proposal_id},
+            lambda: (
+                company.decide_staffing_proposal(
+                    ident["principal_id"],proposal_id,payload["decision"]),200))
 
     @app.post("/api/v1/employees/{employee_id}/promotions")
     def propose_promotion(
