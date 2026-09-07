@@ -36,6 +36,7 @@
 | ADR-032 | 2026-09-07 | Industry packs instantiate divisions through a separate CEO activation gate | Packs persist complete templates. Consultant/CEO/seated heads may propose minimal or full divisions, but only CEO/admin companions activate. Department, position, skill, learning, link, floorplan, status and event writes share one transaction; deactivation rejects open linked work. |
 | ADR-033 | 2026-09-07 | Event-projected HQ and governed industry packs remain persisted operational views | Headquarters activity and scorecards derive from persisted events/rows; industry packs are inert templates until CEO activation. UI projections never create operational or financial facts. |
 | ADR-034 | 2026-09-07 | A paired admin phone is a CEO actor for operations, never for root authority | `_is_ceo_actor` accepts the owner or a `companion-admin-*` principal, covering policy and consultant decisions, owner-inbox responses, HR actions and division proposals. Pairing, revenue, budget, rollback, model, feed and SLO operations stay strict `_ceo`. Scopes are served by `GET /api/v1/session` so a client never infers its own authority. |
+| ADR-035 | 2026-09-07 | Dispatch recommend/autofill is advisory; mock always, live when configured | `GET …/dispatch-options` is the server parameter key. `POST …/dispatch-recommend` returns editable suggestions (`source` mock|live) and never calls `dispatch_project_brief`. Live uses `invoke_model` + validation; unusable/unavailable falls back to mock with notes. |
 
 ### ADR-010 detail
 
@@ -382,5 +383,28 @@ which the pairing level already implied; the owner mitigates by revoking the dev
 Lower levels are unaffected because they redeem as `companion-read_only-*` / `companion-user-*`.
 `GET /api/v1/session` is authentication-only by design so a read-only device can discover its own
 limits.
+
+### ADR-035 detail
+
+**Context.** Owners needed a parameter key of valid dispatch-brief values and an AI-assisted
+autofill of brief, criteria, and department budgets on desk and companion, without inventing
+operational state or auto-dispatching.
+
+**Decision.** Add `GET /api/v1/projects/{id}/dispatch-options` (templates, presets, remaining
+max cents, full department catalog with `dispatchable`/`status`) and
+`POST /api/v1/projects/{id}/dispatch-recommend` (advisory payload). Mock heuristics always work
+offline; live uses existing `invoke_model` when model provider status is configured and live,
+then validates department ids and clamps integer budgets. Fail closed to mock with
+`live_unavailable` / `live_unusable` notes. Humans still submit via `dispatch-brief`. Auth matches
+dispatch-brief (`project.enroll` + CEO or admin companion).
+
+**Alternatives considered.** Auto-dispatch from the recommendation was rejected (authority and
+safety). Putting heuristics only in the UI was rejected (parameter key must be server-owned).
+Requiring Decisions-inbox approval for each recommendation was rejected as too heavy for editable
+autofill.
+
+**Consequences.** Live recommends may write `billed_costs` through `invoke_model`. Dormant
+departments remain non-dispatchable until activated; UI blocks submit when a checked dept is
+dormant. Recommendations never activate seats or invent HQ/revenue state.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

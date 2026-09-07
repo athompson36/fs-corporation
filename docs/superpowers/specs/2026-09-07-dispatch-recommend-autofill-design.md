@@ -1,6 +1,6 @@
 # Design: Project dispatch options + AI recommend/autofill
 
-Date: 2026-09-07. Status: **approved for planning** (not implemented).
+Date: 2026-09-07. Status: **implemented** on branch `feature/dispatch-recommend-autofill`.
 
 ## Goal
 

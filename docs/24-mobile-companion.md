@@ -91,7 +91,7 @@ outcome on an inline status line next to the control, not only at the top of the
 | Screen | Actions (scope-gated) |
 |---|---|
 | Home | Company stats; pause/resume when `company.pause` / `company.resume` |
-| Projects | List/detail; local candidates + enroll; assign GitHub by upstream address; dispatch when `project.enroll` |
+| Projects | List/detail; local candidates + enroll; assign GitHub by upstream address; dispatch with Recommend / templates / budget chips / Valid values when `project.enroll` |
 | Org | Catalog and roster; departments, heads, positions, assignments, reorder, activation and worker card when `organization.write` |
 | Corporate | Scorecard, objectives, industry packs, divisions, promotions, staffing proposals, cross-department requests, activity, default floorplan |
 | More → Decisions | Approve/reject when `policy.approve` or `consultant.decide` |

@@ -1,44 +1,38 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.53**. State: **Companion iPhone integration: server-derived scopes, paired-admin authority, mobile layout**.
+Date: 2026-09-07. Version: **0.3.53**. State: **Dispatch options + recommend autofill implemented on
+`feature/dispatch-recommend-autofill` (not yet merged to main / not yet deployed).**
 
-## Companion iPhone full integration
+## Dispatch recommend / autofill (this branch)
 
-The HQ surfaces were visible on the phone but not usable. Both causes are fixed:
+- `GET /api/v1/projects/{id}/dispatch-options` — parameter key (templates, presets, max_cents,
+  department status / dispatchable).
+- `POST /api/v1/projects/{id}/dispatch-recommend` — advisory mock→live autofill; never dispatches.
+  Live uses `invoke_model` when provider status is live; otherwise mock with notes
+  (`live_unavailable` / `live_unusable`). ADR-035.
+- CEO desk and companion: Recommend button, brief/criteria templates, dept checkboxes + budget
+  chips, Valid values panel; dormant checked depts block submit until Activate.
 
-- **Scopes are server-derived.** New `GET /api/v1/session` returns `principal_id`, `kind`,
-  `access_level` and `scopes` for the bearer token (authentication only, so a read-only device can
-  learn it is read-only). `companion/src/App.tsx` hydrates from it on load and on token change,
-  which self-heals the native shell and any stale `localStorage`. `companion-native/App.tsx` now
-  stores and injects `scopes` and merges instead of overwriting, so it no longer clobbers them.
-- **A paired admin phone may act.** `_is_ceo_actor` (owner or `companion-admin-*`) now backs
-  `_ceo_or_admin_companion`, `_hr_or_ceo` and `_division_proposer`, plus `approve_policy`,
-  `reject_policy`, `respond_owner_request` and `ConsultantDesk.decide`. Root authority stays
-  owner-only: pairing issue/list/revoke, revenue, budget periods, policy rollback, model
-  assignment, feed enrollment, SLO observations. Recorded as ADR-034.
-- **Layout is iPhone-sized.** Five tabs (Home, Projects, Org, Corporate, More) with a segmented
-  switcher in More for Decisions, Inbox, Diagnostics and Settings, plus a pending-work badge.
-  `input, select, textarea, button` are styled generically at 16px and 44px minimum so number,
-  datetime-local and select fields stop being unstyled and stop triggering iOS focus zoom. Safe
-  area insets apply on all edges; the switcher wraps to 2×2 at 320px and the tab bar shrinks in
-  landscape.
-- **Every write reports where it happened.** A shared `runAction` helper drives an inline status
-  line per form or list row instead of only the page-top error, which is off-screen when acting
-  from a lower section. Insufficient scope now shows the missing scope rather than hiding silently.
+## Prior: Companion iPhone full integration (main)
 
-## Verification
+Scopes are server-derived (`GET /api/v1/session`); paired admin may act as CEO for ops (not root);
+five-tab mobile layout. Re-pair phone once after deploy so native session carries scopes.
 
-- `.venv/bin/python -m unittest discover -s tests`: **334 passed**
-- `cd companion && npm run build`: passed; `npx tsc --noEmit`: clean
-- Browser check against a local paired admin session at 390×844, 320×568 and 844×390: no
-  horizontal overflow, no field below 44px/16px, nav labels unclipped, `Scan staffing gaps`
-  returned "Scan complete." from a `companion-admin-*` token
-- New tests: `/api/v1/session` for admin, read-only and owner; admin staffing scan, division
-  proposal, policy decision and owner-inbox response; `companion-user-*` refused; root authority
-  still owner-only; desk anchors resolve; five-tab nav, touch CSS and native scope injection
+## Verification (this branch)
+
+- `.venv/bin/python -m unittest discover -s tests` — run before merge
+- `cd companion && npm run build` — passed during Task 4
+- Focused: `tests.test_dispatch_recommend`, `tests.test_companion_api` — OK
+
+## Production feature roadmap (owner-approved 2026-09-07)
+
+Settings **C** (non-secret `FS_CORP_*` editable from Settings; secrets host-only status) + horizon
+**everything**. Plan: [docs/superpowers/plans/2026-09-07-production-feature-build-out.md](superpowers/plans/2026-09-07-production-feature-build-out.md).
 
 ## Next
 
-Deploy with `scripts/deploy_to_fs_dev.sh` plus the remote `run-install.sh`, then re-pair the phone
-once so the native session carries scopes. After that, resume M10-03 with a
-benchmark-results/model-profile read path or removal, preserving the persisted-evidence rule.
+1. Merge `feature/dispatch-recommend-autofill` (finishing options: PR vs local merge) and deploy
+   when ready.
+2. Start **P0.2 / P1**: M10-01 idempotency prune, M10-03 model/benchmark read path, replace remaining
+   companion `window.prompt` forms; then Settings platform spec/plan.
+3. Do not commit `local repos/service-department/`.

@@ -26,6 +26,8 @@ listed scope can still receive 403 from those routes.
 | POST /push/notify | Send a test/owner Web Push to active subscriptions | company.pause |
 | GET /workers/status | Container worker readiness: Docker/scratch/image, `default_runtime`, `gateway_egress`, `worker_plane` (`same_host_nic` healthy/degraded/unset), optional flat `worker_nic_*` | company.read |
 | POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
+| GET /projects/{id}/dispatch-options | Parameter key: templates, presets, max_cents, department statuses | project.enroll |
+| POST /projects/{id}/dispatch-recommend | Advisory mock→live recommend/autofill payload (never dispatches) | project.enroll |
 | GET /events/stream | SSE audit events (cursor query param). Each frame carries `{seq, kind, at}` only; fetch bodies from `GET /events` | audit.read |
 | POST /company/pause | Stop new dispatch | company.pause |
 | POST /company/resume | Resume dispatch | company.resume |
@@ -144,6 +146,8 @@ These routes pass the scope check above and then apply a further identity check 
 | `POST /projects/{id}/github-enrollment` | project.enroll | CEO or `companion-admin-*` (`_ceo_or_admin_companion`) |
 | `POST /projects/{id}/github-assign` | project.enroll | CEO or `companion-admin-*`; live GitHub App; same-owner `{repo}-corp` |
 | `POST /projects/{id}/dispatch-brief` | project.enroll | CEO or `companion-admin-*` |
+| `GET /projects/{id}/dispatch-options` | project.enroll | CEO or `companion-admin-*` (read-only catalog; no writes) |
+| `POST /projects/{id}/dispatch-recommend` | project.enroll | CEO or `companion-admin-*`; advisory only; live may bill via `invoke_model` |
 | `POST /remote-access/pairing`, `POST /remote-access/revoke/{principal_id}` | company.pause | CEO principal (`_ceo`). The route table says "owner only" because the owner *is* the CEO principal by default; the code compares against the CEO id, not an `owner` kind. `paired_devices` on `GET /remote-access` is likewise CEO-only and returns `[]` for others |
 | `GET /employees/{id}/training`, `GET /employees/{id}/performance`, `GET /hr/development`, `POST /employees`, `POST /training/schedule`, `POST /employees/{id}/goals`, `POST /employees/{id}/reviews` | organization.read | `_hr_or_ceo`: the CEO, or an actor `people:<title>` where title is `HR Director`, `People Director`, or `Training Specialist`. `GET /employees/{id}` additionally allows the employee reading their own record |
 | `POST /employees/{id}/promotions` | organization.write | `_hr_or_ceo`; an employee cannot propose their own promotion |
