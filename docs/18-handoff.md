@@ -1,9 +1,9 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.53**. State: **Dispatch options + recommend autofill implemented on
-`feature/dispatch-recommend-autofill` (not yet merged to main / not yet deployed).**
+Date: 2026-09-07. Version: **0.3.53**. State: **Dispatch options + recommend autofill merged to
+`main` (local; ahead of origin; not yet deployed).**
 
-## Dispatch recommend / autofill (this branch)
+## Dispatch recommend / autofill (merged)
 
 - `GET /api/v1/projects/{id}/dispatch-options` — parameter key (templates, presets, max_cents,
   department status / dispatchable).
@@ -13,16 +13,15 @@ Date: 2026-09-07. Version: **0.3.53**. State: **Dispatch options + recommend aut
 - CEO desk and companion: Recommend button, brief/criteria templates, dept checkboxes + budget
   chips, Valid values panel; dormant checked depts block submit until Activate.
 
-## Prior: Companion iPhone full integration (main)
+## Prior: Companion iPhone full integration
 
 Scopes are server-derived (`GET /api/v1/session`); paired admin may act as CEO for ops (not root);
 five-tab mobile layout. Re-pair phone once after deploy so native session carries scopes.
 
-## Verification (this branch)
+## Verification
 
-- `.venv/bin/python -m unittest discover -s tests` — run before merge
-- `cd companion && npm run build` — passed during Task 4
-- Focused: `tests.test_dispatch_recommend`, `tests.test_companion_api` — OK
+- `.venv/bin/python -m unittest discover -s tests`: **351 passed** (post-merge on `main`)
+- `cd companion && npm run build`: passed during feature work
 
 ## Production feature roadmap (owner-approved 2026-09-07)
 
@@ -31,8 +30,8 @@ Settings **C** (non-secret `FS_CORP_*` editable from Settings; secrets host-only
 
 ## Next
 
-1. Merge `feature/dispatch-recommend-autofill` (finishing options: PR vs local merge) and deploy
-   when ready.
-2. Start **P0.2 / P1**: M10-01 idempotency prune, M10-03 model/benchmark read path, replace remaining
-   companion `window.prompt` forms; then Settings platform spec/plan.
+1. Optional: `git push origin main` and deploy with `scripts/deploy_to_fs_dev.sh` + remote
+   `run-install.sh`.
+2. Start **P0.2**: M10-01 idempotency prune, M10-03 model/benchmark read path, replace remaining
+   companion `window.prompt` forms; LearningAdapter.fetch; then Settings platform (P1).
 3. Do not commit `local repos/service-department/`.
