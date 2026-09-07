@@ -40,7 +40,6 @@ CATALOG: dict[str, SettingDef] = {
         "key": "FS_CORP_RATE_LIMIT_WINDOW_SEC",
         "type": "float",
         "default": 60.0,
-        "min": 0,
         "editable": True,
         "restart_required": True,
         "description": "Rate-limit sliding window length in seconds",
