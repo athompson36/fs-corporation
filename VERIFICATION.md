@@ -1,8 +1,9 @@
 # Verification record
 
-Updated 2026-09-07 for **0.3.46** (M10-02 test gaps). Prior: 0.3.45–0.3.42 M10-01; 0.3.41
-same-host worker plane. Run on Python 3.14.3 in `.venv` on macOS. CI additionally runs
-Python 3.12 and 3.13 (`.github/workflows/ci.yml`).
+Updated 2026-09-07 for **0.3.47** (companion PWA build fix). Prior: 0.3.46 M10-02;
+0.3.45–0.3.42 M10-01; 0.3.41 same-host worker plane. Run on Python 3.14.3 in `.venv` on
+macOS / Node 18.20.8. CI additionally runs Python 3.12 and 3.13
+(`.github/workflows/ci.yml`).
 
 Earlier records: 0.2.0 ZIP (2026-09-01, Python 3.12.13) and 0.3.13 cosmic-glass desk (2026-09-01).
 
@@ -17,8 +18,10 @@ Earlier records: 0.2.0 ZIP (2026-09-01, Python 3.12.13) and 0.3.13 cosmic-glass 
   exit code reflects container dispatch readiness, not plane health.
 - Alembic revision chain is linear and single-headed: `0001_initial` through
   `0012_github_webhook_deliveries`.
-- Companion TypeScript type-checks (`tsc`) and the main bundle builds in under a second.
-  The build as a whole does **not** complete — see "Known drift" below.
+- **Companion build completes:** `cd companion && npm run build` exits non-interactively
+  and emits `dist/sw.js`, `dist/sw-push.js`, `dist/registerSW.js`, and
+  `dist/workbox-*.js` (generateSW + `public/sw-push.js`). Companion package **0.3.7**;
+  `npm audit` in `companion/` reports 0 vulnerabilities.
 
 ## Verified on the fs-dev host (owner-operated, not reproducible from CI)
 
@@ -40,24 +43,16 @@ not a check any clone can repeat.
 - Production SLO samples; the catalog and manual observations exist, measurement does not.
 - Remote GitHub CI against this repository, and any App Store release.
 - Live Web Push delivery, which needs owner VAPID keys and a real browser subscription.
-- M10-01 correctness items are implemented (0.3.42–0.3.45). Remaining M10 gaps: adapter
-  `cancel`/`fail` mapping tests, consultant stale-evidence rejection tests, non-loopback
-  bind refusal, SSE stream, and the hanging companion PWA build. See M10 in
-  [docs/14-roadmap.md](docs/14-roadmap.md).
+- Phone offline load / update-on-reload after the generateSW switch (owner smoke check on
+  next fs-dev companion rebuild).
 - Actual billed cost and real revenue are not modeled in the schema; only simulated
   credits, estimates, and reservations exist.
 
 ## Known drift
 
-- **`cd companion && npm run build` never terminates and emits no service worker.**
-  Reproduced twice on 2026-09-07 with `vite` 6.4.3 and `vite-plugin-pwa` 0.21.2. `tsc` passes
-  and the main bundle finishes in ~600 ms, then the plugin prints
-  `Building src/sw.ts service worker ("es" format)...` and hangs at 0% CPU indefinitely.
-  `dist/sw.js` is never written, even though `dist/registerSW.js` is emitted and `index.html`
-  references it — so a deployed companion would request a service worker that does not exist.
-  `deploy/fs-dev/install.sh` runs this build. Tracked as M10-04 in
-  [docs/14-roadmap.md](docs/14-roadmap.md).
-
+- Root / `companion-native` Expo tree may still report transitive `npm audit` findings
+  (metro, postcss, react-navigation). Those are separate from the Vite companion PWA;
+  many need upstream Expo upgrades and are not fixed by `npm audit fix` alone.
 - `Company()` now runs Alembic on file-backed databases (0.3.43). Ephemeral `:memory:`
   databases still rely on `apply_schema` alone; that is intentional.
 - A locally built `fs-corporation-worker:local` image can predate the current

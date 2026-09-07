@@ -311,15 +311,12 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
 
 ### M10-04: Operator visibility and UI
 
-- [ ] **Fix the hanging companion build.** `cd companion && npm run build` never terminates:
-      `tsc` passes and the main bundle finishes in ~600 ms, then `vite-plugin-pwa` 0.21.2
-      (`injectManifest`, `src/sw.ts`) prints `Building src/sw.ts service worker` and hangs at
-      0% CPU. `dist/sw.js` is never emitted although `dist/registerSW.js` is, so a deployed
-      companion requests a service worker that does not exist. `deploy/fs-dev/install.sh`
-      runs this build, so an install can appear to stall.
-      *Acceptance:* the build exits non-interactively and emits `dist/sw.js`; offline load and
-      update-on-reload work on a phone. Investigate the plugin version first — an upgrade or a
-      switch to `generateSW` may be enough.
+- [x] **Fix the hanging companion build** (0.3.47 / companion 0.3.7). Abandoned
+      `injectManifest`/`src/sw.ts` (Vite 6 hang). Switched to `generateSW` with push
+      handlers in `public/sw-push.js` via Workbox `importScripts`; `vite-plugin-pwa`
+      ^1.2.0; Node 18 crypto polyfill + Workbox `mode: "development"` so SW generation
+      exits. `npm run build` emits `dist/sw.js` and `dist/sw-push.js`. Phone offline /
+      update-on-reload still needs an owner smoke check after the next fs-dev install.
 - [ ] **Surface operational status in the UI.** `workers/status`, `chatdev/status`,
       `github/status`, `model/status`, `feeds`, and `slos` are API-only today.
       *Acceptance:* a desk section rendering these from live responses, showing nothing when
@@ -380,9 +377,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M10-02 is complete.** Next: **M10-03 financial model completeness** (billed cost / revenue
-tables), or **M10-04** starting with the hanging companion PWA build before the next fs-dev
-install that rebuilds companion.
+**Companion PWA build hang is fixed (0.3.47).** Next: **M10-03 financial model
+completeness** (billed cost / revenue tables), or remaining **M10-04** UI items
+(status surface, version display, desk keyboard access, `window.prompt` replacement).
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
 dependencies plus controlled egress in the worker image; furnished HQ room art.

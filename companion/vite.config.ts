@@ -6,10 +6,16 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      strategies: "injectManifest",
-      srcDir: "src",
-      filename: "sw.ts",
+      // generateSW avoids the Vite-6 injectManifest custom-SW build that hangs
+      // indefinitely on "Building src/sw.ts service worker".
+      strategies: "generateSW",
       registerType: "autoUpdate",
+      workbox: {
+        // development mode skips terser minify (needs global crypto; Node 18 lacks it).
+        mode: "development",
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest}"],
+        importScripts: ["sw-push.js"],
+      },
       manifest: {
         name: "FS-Corporation CEO Companion",
         short_name: "FS-Corp",

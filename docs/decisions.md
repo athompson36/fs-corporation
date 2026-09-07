@@ -26,6 +26,7 @@
 | ADR-022 | 2026-09-07 | Path-scoped Tailscale Funnel for webhooks only | Funnel exposes one path publicly so github.com can reach a LAN host; opt-in per host, no LAN port forwarding, no public exposure of the control API. |
 | ADR-023 | 2026-09-07 | Same-host worker plane on `.101` with a soft health signal | `.101` is a second address on the control-plane host, reported as `worker_plane`; degraded state warns but never blocks dispatch, because `--network none` workers never bind it. |
 | ADR-024 | 2026-09-07 | ChatDev adapter in three opt-in slices, denied in the control plane by default | Live SDK runs only inside a worker; the control plane refuses it unless `CHATDEV_ALLOW_CONTROL_PLANE` is set; the image pin is verified and surfaced through image labels. |
+| ADR-025 | 2026-09-07 | Companion PWA uses generateSW + importScripts for push | Vite 6 + injectManifest hung building `src/sw.ts`; generateSW emits `dist/sw.js`; push lives in `public/sw-push.js`; Node 18 needs a crypto polyfill and Workbox development mode to avoid terser. |
 
 ### ADR-010 detail
 
@@ -190,5 +191,19 @@
 - Bake ChatDev into the default worker image: rejected — every deployment would carry the dependency and its supply-chain surface whether or not it was used.
 
 **Consequences.** `GET /api/v1/chatdev/status` reports `pin`, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, and `worker_image_chatdev` read from `org.fs_corporation.chatdev_*` image labels. `CHATDEV_SKIP_PIN_CHECK` exists for offline builds and is surfaced as `pin_check_skipped` rather than hidden. Live ChatDev execution is still unverified: the image carries pinned source, not a full dependency install, and `--network none` workers have no egress. Specs: `docs/superpowers/specs/2026-09-07-chatdev-adapter-slice{1,2,3}-design.md`.
+
+### ADR-025 detail
+
+**Context.** `deploy/fs-dev/install.sh` runs `cd companion && npm run build`. With Vite 6 and `vite-plugin-pwa` 0.21.2 `injectManifest` pointing at `src/sw.ts`, the main bundle finished but the service-worker Vite build hung at 0% CPU and never wrote `dist/sw.js`. Upgrading the plugin alone still hung or crashed on Node 18 (`crypto is not defined` in serialize-javascript / terser).
+
+**Decision.** Use `strategies: "generateSW"` and keep push / notificationclick handlers in `public/sw-push.js`, loaded via Workbox `importScripts`. Pin `vite-plugin-pwa` ^1.2.0. On Node 18, preload `scripts/polyfill-crypto.cjs` and set Workbox `mode: "development"` so SW generation skips terser minify.
+
+**Alternatives considered.**
+
+- Stay on injectManifest and debug the hang: abandoned after repeated indefinite hangs on Node 18 and 20.
+- Require Node 20+ only: rejected for fs-dev, which is still on Node 18-compatible tooling.
+- Drop the PWA plugin: rejected — offline shell and autoUpdate registration are still wanted.
+
+**Consequences.** Builds exit and emit `dist/sw.js` plus copied `sw-push.js`. Workbox assets are unminified in development mode (acceptable for a private companion). Phone offline / update-on-reload needs an owner smoke check after the next fs-dev companion rebuild. Expo/`companion-native` audit findings remain a separate tree.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
