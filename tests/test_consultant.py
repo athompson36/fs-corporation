@@ -60,3 +60,14 @@ class ConsultantTests(unittest.TestCase):
         with self.assertRaises(ValueError):desk.submit("consultant",{**proposal(),"evidence":""})
         pid=desk.submit("human-ceo",proposal())
         with self.assertRaises(PermissionError):desk.decide("human-ceo",pid,"approved","Self")
+
+    def test_stale_evidence_hash_rejects_decision(self):
+        c = Company()
+        self.addCleanup(c.close)
+        desk = ConsultantDesk(c)
+        pid = desk.submit("master-consultant", proposal())
+        with self.assertRaises(ValueError) as ctx:
+            desk.decide("human-ceo", pid, "approved", "ok", expected_source_hash="not-the-hash")
+        self.assertIn("Stale evidence", str(ctx.exception))
+        row = c.db.execute("SELECT status FROM consultant_proposals WHERE id=?", (pid,)).fetchone()
+        self.assertEqual(row["status"], "pending")

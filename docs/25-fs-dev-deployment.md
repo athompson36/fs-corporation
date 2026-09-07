@@ -270,6 +270,7 @@ Complete list of `FS_CORP_*` variables read by code in `company/`, `scripts/`, a
 | `FS_CORP_RATE_LIMIT_AUTH` | `120` | Authenticated requests per window per principal |
 | `FS_CORP_RATE_LIMIT_UNAUTH` | `60` | Webhook/redeem requests per window per client IP |
 | `FS_CORP_RATE_LIMIT_WINDOW_SEC` | `60` | Sliding-window length in seconds |
+| `FS_CORP_SSE_IDLE_SEC` | `1` | SSE idle poll interval; `0` ends the stream after one page (tests) |
 
 `FS_CORP_API_HOST` and `FS_CORP_API_PORT` appear in `deploy/fs-dev/env.example` and
 `scripts/deploy_to_fs_dev.sh` but **nothing reads them**. The bind address comes from

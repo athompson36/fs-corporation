@@ -745,6 +745,7 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
     async def events_stream(cursor: int = 0, authorization: str | None = Header(default=None)):
         ident = principal(authorization)
         scoped(ident, "audit.read")
+        idle = float(os.environ.get("FS_CORP_SSE_IDLE_SEC", "1"))
 
         async def generate():
             pos = cursor
@@ -753,10 +754,12 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 for item in page["items"]:
                     pos = item["seq"]
                     yield f"data: {json.dumps({'seq': item['seq'], 'kind': item['kind'], 'at': item['at']})}\n\n"
+                if idle <= 0:
+                    return
                 if not page["items"]:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(idle)
                 if len(page["items"]) < 20:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(idle)
 
         return StreamingResponse(generate(), media_type="text/event-stream")
 

@@ -1,17 +1,16 @@
 # Verification record
 
-Updated 2026-09-07 for **0.3.45** (worker-completion transaction). Prior: 0.3.44 atomic
-idempotency; 0.3.43 Alembic-on-startup; 0.3.42 HTTP 429; 0.3.41 same-host worker plane.
-Run on Python 3.14.3 in `.venv` on macOS. CI additionally runs Python 3.12 and 3.13
-(`.github/workflows/ci.yml`).
+Updated 2026-09-07 for **0.3.46** (M10-02 test gaps). Prior: 0.3.45–0.3.42 M10-01; 0.3.41
+same-host worker plane. Run on Python 3.14.3 in `.venv` on macOS. CI additionally runs
+Python 3.12 and 3.13 (`.github/workflows/ci.yml`).
 
 Earlier records: 0.2.0 ZIP (2026-09-01, Python 3.12.13) and 0.3.13 cosmic-glass desk (2026-09-01).
 
 ## Verified in this workspace
 
-- **198 unit tests pass** via `python -m unittest discover -s tests`, including
-  `tests.test_rate_limit`, `tests.test_migrate`, `tests.test_idempotency_atomic`, and
-  worker-completion atomicity. Run twice: clean environment and with developer `.env` exported.
+- **201 unit tests pass** via `python -m unittest discover -s tests`, including
+  `tests.test_service_edges` (bind refusal + SSE frames). Run twice: clean environment and
+  with developer `.env` exported.
 - `python3 scripts/check_bundle.py` passes: all JSON parses, required context files present,
   and every relative Markdown link resolves.
 - `scripts/verify_fs_dev_workers.py` reports worker readiness and `worker_plane` state;

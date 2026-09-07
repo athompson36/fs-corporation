@@ -43,6 +43,15 @@ class CatalogAndRoutingTests(unittest.TestCase):
         self.assertEqual(result["meta_info"]["usage"]["cost_cents"], 0)
         with self.assertRaises(PermissionError):
             MockChatDevAdapter().run(WorkOrder("t1", "p1", 1, "digest-abc", 10, {"tools": ["shell"]}))
+        cancelled = MockChatDevAdapter().cancel("company-p1-t1")
+        self.assertEqual(cancelled["session_name"], "company-p1-t1")
+        self.assertTrue(cancelled["cancelled"])
+        self.assertNotIn("accepted", cancelled)
+        failed = MockChatDevAdapter().fail(order, "provider timeout")
+        self.assertTrue(failed["failed"])
+        self.assertEqual(failed["reason"], "provider timeout")
+        self.assertFalse(failed["accepted"])
+        self.assertEqual(failed["task_id"], "t1")
         live_order = WorkOrder("t1", "p1", 1, wf_digest, 10, {"tools": ["none"]})
         with self.assertRaises(NotImplementedError):
             ChatDevAdapter().run(live_order)

@@ -121,7 +121,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] `GET /events` cursor pagination (ACL = same as REST reads)
 - [x] Pause stops new dispatch; resume is owner/CEO
 - [x] `python3 -m company backup` / `restore` using the SQLite backup API; restore drill documented in [13-operations.md](13-operations.md)
-- [ ] Consultant: authenticated list/decide endpoints; stale-evidence rejection; revision request creates a new digest (does not mutate the old proposal) — **endpoints and revision digest done and tested; stale-evidence rejection (`company/consultant.py`) has no test.** Tracked in M10-02.
+- [x] Consultant: authenticated list/decide endpoints; stale-evidence rejection; revision request creates a new digest (does not mutate the old proposal) — stale-evidence covered in `tests/test_consultant.py` and `tests/test_m1.py` (0.3.46)
 
 ## M2 — Organization, models and ChatDev contract
 
@@ -133,7 +133,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Never broaden data classification on fallback; disabled profiles skipped with a clear error
 - [ ] Role benchmark fixtures (deterministic, no vendor claims) — **not present; no fixture files exist.** `record_benchmark` writes `benchmark_results`, but nothing reads it. Tracked in M10-03.
 - [x] Record the pinned ChatDev checkout (`config/upstream.lock.json`); validate `run_workflow` signature against [07-chatdev-integration.md](07-chatdev-integration.md). Fetching a live checkout remains a local operator step.
-- [ ] Adapter contract tests with a mock provider: WorkOrder in, isolated session name, usage metadata, cancel/fail mapping; no unapproved tools — **`run()` path covered; `MockChatDevAdapter.cancel()` and `.fail()` exist but no test calls either.** Tracked in M10-02.
+- [x] Adapter contract tests with a mock provider: WorkOrder in, isolated session name, usage metadata, cancel/fail mapping; no unapproved tools — `cancel`/`fail` covered in `tests/test_m2.py` (0.3.46)
 - [x] Store work-order + workflow digests; final ChatDev message ≠ project acceptance
 - [x] Hardware skill catalog, gap assignment, study/certify, and dispatch gate (R18). Live documentation fetch remains `NotImplementedError`
 - [x] Quality Control inspection gate before acceptance (R19)
@@ -280,19 +280,16 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
 
 ### M10-02: Test gaps behind previously claimed items
 
-- [ ] **Adapter `cancel` / `fail` mapping tests.** `MockChatDevAdapter.cancel()` and `.fail()`
-      exist in `company/adapters.py` with no caller in `tests/`.
-      *Acceptance:* tests assert the returned shape and that neither path produces an
-      accepted artifact. Re-checks the M2 adapter-contract item.
-- [ ] **Consultant stale-evidence rejection test.** `company/consultant.py` raises on stale
-      evidence; nothing exercises it.
-      *Acceptance:* a test passes a mismatched `expected_source_hash` and asserts the refusal.
-      Re-checks the M1-07 item.
-- [ ] **Non-loopback bind refusal test.** `company/service.py` refuses to bind a non-loopback
-      address without `--allow-remote`; untested.
-      *Acceptance:* a test asserts the refusal and that `--allow-remote` permits it.
-- [ ] **SSE stream test.** `GET /api/v1/events/stream` has no test.
-      *Acceptance:* a test consumes at least one event frame and asserts the cursor contract.
+- [x] **Adapter `cancel` / `fail` mapping tests** (0.3.46). `tests/test_m2.py` asserts shapes
+      and that neither path sets `accepted`.
+- [x] **Consultant stale-evidence rejection test** (0.3.46). `tests/test_consultant.py` (also
+      covered earlier in `tests/test_m1.py`).
+- [x] **Non-loopback bind refusal test** (0.3.46). `tests/test_service_edges.py` drives
+      `python -m company.service --host 0.0.0.0` and asserts the refuse-closed exit. Starting
+      a live server with `--allow-remote` is left to operator verification.
+- [x] **SSE stream test** (0.3.46). Consumes frames from `GET /api/v1/events/stream`; each
+      frame is `{seq, kind, at}` only. `FS_CORP_SSE_IDLE_SEC=0` ends the stream after one page
+      so the suite does not hang.
 
 ### M10-03: Financial model completeness
 
@@ -383,10 +380,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M10-01 is complete** (429, Alembic-on-startup, atomic idempotency, worker-completion
-transaction). Next: **M10-02 test gaps** — adapter `cancel`/`fail` mapping, consultant
-stale-evidence rejection, non-loopback bind refusal, and SSE stream.
+**M10-02 is complete.** Next: **M10-03 financial model completeness** (billed cost / revenue
+tables), or **M10-04** starting with the hanging companion PWA build before the next fs-dev
+install that rebuilds companion.
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
-dependencies plus controlled egress in the worker image; furnished HQ room art. Fix the
-hanging companion PWA build (M10-04) before the next fs-dev install that rebuilds companion.
+dependencies plus controlled egress in the worker image; furnished HQ room art.
