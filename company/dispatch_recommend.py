@@ -142,13 +142,10 @@ def _coerce_budget_cents(value) -> int:
         stripped = value.strip()
         if not stripped:
             return 0
-        try:
-            as_float = float(stripped)
-        except ValueError as exc:
-            raise ValueError("budget_cents must be an integer") from exc
-        if as_float != int(as_float):
+        numeric = stripped[1:] if stripped.startswith("+") else stripped
+        if not numeric.isdigit():
             raise ValueError("budget_cents must be an integer")
-        return int(as_float)
+        return int(numeric)
     raise ValueError("budget_cents must be an integer")
 
 def validate_suggestion(raw: dict, catalog_ids: set[str], max_cents: int) -> dict:

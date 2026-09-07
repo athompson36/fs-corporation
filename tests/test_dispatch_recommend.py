@@ -2,10 +2,15 @@ import unittest
 from pathlib import Path
 from company.core import Company
 from company.dispatch_recommend import (
+    _coerce_budget_cents,
     remaining_budget_cents,
     validate_suggestion,
 )
 from tests.test_core import install, policy
+
+# One past JavaScript Number.MAX_SAFE_INTEGER; must not round via float().
+HUGE_CENTS_STRING = "9007199254740993"
+HUGE_CENTS = int(HUGE_CENTS_STRING)
 
 
 class DispatchOptionsTests(unittest.TestCase):
@@ -128,3 +133,23 @@ class ValidateSuggestionTests(unittest.TestCase):
                 self.catalog_ids,
                 self.max_cents,
             )
+
+    def test_rejects_decimal_string_budget_cents(self):
+        with self.assertRaises(ValueError):
+            validate_suggestion(
+                self._raw(departments=[{"id": "engineering", "budget_cents": "12.5"}]),
+                self.catalog_ids,
+                self.max_cents,
+            )
+
+    def test_huge_integer_string_budget_preserved_exactly(self):
+        self.assertEqual(_coerce_budget_cents(HUGE_CENTS_STRING), HUGE_CENTS)
+        out = validate_suggestion(
+            self._raw(departments=[{"id": "engineering", "budget_cents": HUGE_CENTS_STRING}]),
+            self.catalog_ids,
+            HUGE_CENTS,
+        )
+        self.assertEqual(out["departments"][0]["budget_cents"], HUGE_CENTS)
+
+    def test_accepts_leading_plus_budget_string(self):
+        self.assertEqual(_coerce_budget_cents("+100"), 100)
