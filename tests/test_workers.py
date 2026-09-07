@@ -38,6 +38,42 @@ class WorkerIsolationTests(AmbientEnvIsolatedTestCase):
         run = self.c.db.execute("SELECT * FROM worker_runs WHERE task_id='w2'").fetchone()
         self.assertEqual(run["runtime"], "subprocess")
         self.assertEqual(run["status"], "completed")
+        events = [
+            r["kind"] for r in self.c.db.execute(
+                "SELECT kind FROM events WHERE kind IN ('worker.finished','task.worker_completed') "
+                "ORDER BY seq").fetchall()
+        ]
+        self.assertEqual(events[-2:], ["worker.finished", "task.worker_completed"])
+
+    def test_mark_worker_completed_rolls_back_together_on_failure(self):
+        """Queue done + completion event must share one transaction (M10-01)."""
+        from unittest.mock import patch
+        self.c.queue_task("head", "app", "draft", 10, "w-atomic")
+        self.c.claim_lease("worker-1", "w-atomic")
+        run_id = self.c._start_worker_run(
+            "worker-1", "w-atomic", "subprocess", str(Path(self.scratch.name) / "w-atomic"))
+
+        real_event = Company._event
+
+        def flaky(company_self, kind, body, **kwargs):
+            if kind == "task.worker_completed":
+                raise RuntimeError("simulated crash after queue update")
+            return real_event(company_self, kind, body, **kwargs)
+
+        with patch.object(Company, "_event", flaky):
+            with self.assertRaises(RuntimeError):
+                self.c.mark_worker_completed(
+                    run_id, "w-atomic", "worker-1", "subprocess")
+
+        row = self.c.db.execute("SELECT status FROM queue WHERE task_id='w-atomic'").fetchone()
+        self.assertEqual(row["status"], "leased")
+        run = self.c.db.execute("SELECT status FROM worker_runs WHERE id=?", (run_id,)).fetchone()
+        self.assertEqual(run["status"], "running")
+        self.assertIsNone(
+            self.c.db.execute(
+                "SELECT 1 FROM events WHERE kind='task.worker_completed' AND body LIKE '%w-atomic%'"
+            ).fetchone()
+        )
 
     def test_container_file_gateway_completes_queued_task(self):
         repo = Path(__file__).resolve().parents[1]

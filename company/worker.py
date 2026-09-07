@@ -202,9 +202,7 @@ class SubprocessWorkerRuntime:
         child.close()
         try:
             result = self._pump(company, parent, approval=approval, artifact_root=scratch_root)
-            company._finish_worker_run(run_id, "completed")
-            company.db.execute("UPDATE queue SET status='done' WHERE task_id=?", (task_id,))
-            company._event("task.worker_completed", {"task_id": task_id, "worker": worker_id, "runtime": self.runtime_name})
+            company.mark_worker_completed(run_id, task_id, worker_id, self.runtime_name)
             return result
         except Exception:
             company._finish_worker_run(run_id, "failed")
@@ -286,9 +284,7 @@ class ContainerWorkerRuntime:
                 raise NotImplementedError(
                     "Container worker image is not built; local subprocess runtime is available. "
                     f"stderr={(stderr or '').strip()}")
-            company._finish_worker_run(run_id, "completed")
-            company.db.execute("UPDATE queue SET status='done' WHERE task_id=?", (task_id,))
-            company._event("task.worker_completed", {"task_id": task_id, "worker": worker_id, "runtime": self.runtime_name})
+            company.mark_worker_completed(run_id, task_id, worker_id, self.runtime_name)
             return result
         except Exception:
             if proc.poll() is None:

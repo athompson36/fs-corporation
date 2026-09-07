@@ -270,11 +270,10 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
       is re-entrant; `run_idempotent` runs the handler and inserts `command_idempotency` in one
       transaction; API `run()` uses it whenever an Idempotency-Key is present. Tests in
       `tests/test_idempotency_atomic.py`.
-- [ ] **Close the worker-completion transaction gap.** `company/worker.py` updates the queue
-      and emits `task.worker_completed` outside `tx()`, so a crash can leave a produced task
-      still queued or leased.
-      *Acceptance:* queue transition and event persist in one transaction; a test asserts no
-      intermediate state survives a simulated failure.
+- [x] **Close the worker-completion transaction gap** (0.3.45). `Company.mark_worker_completed`
+      finishes the run, marks the queue done, and emits `task.worker_completed` in one
+      transaction; both subprocess and container runtimes use it. Test asserts a simulated
+      crash rolls all three back.
 - [ ] **Add an idempotency-key retention policy.** `command_idempotency` grows without bound
       and has no TTL or eviction.
       *Acceptance:* documented retention window plus a prune path with a test.
@@ -384,8 +383,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M10-01 remaining:** worker-completion transaction gap in `company/worker.py`. HTTP `429`,
-Alembic-on-startup, and atomic idempotency shipped in 0.3.42–0.3.44.
+**M10-01 is complete** (429, Alembic-on-startup, atomic idempotency, worker-completion
+transaction). Next: **M10-02 test gaps** — adapter `cancel`/`fail` mapping, consultant
+stale-evidence rejection, non-loopback bind refusal, and SSE stream.
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
 dependencies plus controlled egress in the worker image; furnished HQ room art. Fix the

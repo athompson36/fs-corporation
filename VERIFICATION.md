@@ -1,16 +1,17 @@
 # Verification record
 
-Updated 2026-09-07 for **0.3.44** (atomic idempotency). Prior: 0.3.43 Alembic-on-startup;
-0.3.42 HTTP 429; 0.3.41 same-host worker plane. Run on Python 3.14.3 in `.venv` on macOS.
-CI additionally runs Python 3.12 and 3.13 (`.github/workflows/ci.yml`).
+Updated 2026-09-07 for **0.3.45** (worker-completion transaction). Prior: 0.3.44 atomic
+idempotency; 0.3.43 Alembic-on-startup; 0.3.42 HTTP 429; 0.3.41 same-host worker plane.
+Run on Python 3.14.3 in `.venv` on macOS. CI additionally runs Python 3.12 and 3.13
+(`.github/workflows/ci.yml`).
 
 Earlier records: 0.2.0 ZIP (2026-09-01, Python 3.12.13) and 0.3.13 cosmic-glass desk (2026-09-01).
 
 ## Verified in this workspace
 
-- **197 unit tests pass** via `python -m unittest discover -s tests`, including
-  `tests.test_rate_limit`, `tests.test_migrate`, and `tests.test_idempotency_atomic`.
-  Run twice: clean environment and with developer `.env` exported.
+- **198 unit tests pass** via `python -m unittest discover -s tests`, including
+  `tests.test_rate_limit`, `tests.test_migrate`, `tests.test_idempotency_atomic`, and
+  worker-completion atomicity. Run twice: clean environment and with developer `.env` exported.
 - `python3 scripts/check_bundle.py` passes: all JSON parses, required context files present,
   and every relative Markdown link resolves.
 - `scripts/verify_fs_dev_workers.py` reports worker readiness and `worker_plane` state;
@@ -40,9 +41,9 @@ not a check any clone can repeat.
 - Production SLO samples; the catalog and manual observations exist, measurement does not.
 - Remote GitHub CI against this repository, and any App Store release.
 - Live Web Push delivery, which needs owner VAPID keys and a real browser subscription.
-- HTTP `429`, Alembic-on-startup, and atomic idempotency are implemented (0.3.42–0.3.44).
-  Remaining M10 gaps: worker-completion transaction, adapter `cancel`/`fail` mapping tests,
-  consultant stale-evidence rejection tests, and role benchmark fixtures. See M10 in
+- M10-01 correctness items are implemented (0.3.42–0.3.45). Remaining M10 gaps: adapter
+  `cancel`/`fail` mapping tests, consultant stale-evidence rejection tests, non-loopback
+  bind refusal, SSE stream, and the hanging companion PWA build. See M10 in
   [docs/14-roadmap.md](docs/14-roadmap.md).
 - Actual billed cost and real revenue are not modeled in the schema; only simulated
   credits, estimates, and reservations exist.

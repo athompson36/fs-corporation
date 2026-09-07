@@ -693,6 +693,18 @@ class Company:
             self.db.execute("UPDATE worker_runs SET status=?, finished_at=? WHERE id=?",(status,now().isoformat(),run_id))
             self._event("worker.finished",{"run_id":run_id,"status":status})
 
+    def mark_worker_completed(self, run_id, task_id, worker_id, runtime):
+        """Finish the run, mark the queue done, and emit completion in one transaction."""
+        with self.tx():
+            self.db.execute(
+                "UPDATE worker_runs SET status=?, finished_at=? WHERE id=?",
+                ("completed", now().isoformat(), run_id))
+            self._event("worker.finished", {"run_id": run_id, "status": "completed"})
+            self.db.execute("UPDATE queue SET status='done' WHERE task_id=?", (task_id,))
+            self._event(
+                "task.worker_completed",
+                {"task_id": task_id, "worker": worker_id, "runtime": runtime})
+
     def claim_lease(self,worker_id,task_id,seconds=30):
         until=(now()+timedelta(seconds=seconds)).isoformat()
         with self.tx():
