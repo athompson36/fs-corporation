@@ -61,5 +61,47 @@ class IdempotencyPruneTests(unittest.TestCase):
         self.assertEqual(r.json()["result"]["deleted"], 1)
 
 
+class ModelBenchmarkReadTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.addCleanup(self.c.close)
+        root = Path(__file__).resolve().parents[1]
+        self.c.seed_models(root / "config" / "models.example.json")
+        self.fixtures = root / "config" / "benchmarks.example.json"
+
+    def test_list_model_profiles_and_seed_benchmarks(self):
+        profiles = self.c.list_model_profiles()
+        ids = {p["id"] for p in profiles}
+        self.assertIn("mock-text", ids)
+        mock = next(p for p in profiles if p["id"] == "mock-text")
+        self.assertTrue(mock["enabled"])
+        self.assertEqual(mock["body"]["provider"], "mock")
+        seeded = self.c.seed_benchmarks(self.fixtures)
+        self.assertGreaterEqual(seeded["count"], 2)
+        rows = self.c.list_benchmark_results()
+        self.assertGreaterEqual(len(rows), 2)
+        roles = {r["role"] for r in rows}
+        self.assertIn("reviewer", roles)
+        self.assertIn("creator", roles)
+        filtered = self.c.list_benchmark_results(role="reviewer")
+        self.assertTrue(filtered)
+        self.assertTrue(all(r["role"] == "reviewer" for r in filtered))
+
+    def test_model_and_benchmark_http(self):
+        c, client = owner_client()
+        self.addCleanup(c.close)
+        root = Path(__file__).resolve().parents[1]
+        c.seed_models(root / "config" / "models.example.json")
+        c.seed_benchmarks(root / "config" / "benchmarks.example.json")
+        h = {"Authorization": "Bearer owner-token"}
+        profiles = client.get("/api/v1/model-profiles", headers=h)
+        self.assertEqual(profiles.status_code, 200, profiles.text)
+        self.assertTrue(any(p["id"] == "mock-text" for p in profiles.json()["profiles"]))
+        benches = client.get("/api/v1/benchmarks", headers=h)
+        self.assertEqual(benches.status_code, 200, benches.text)
+        self.assertGreaterEqual(len(benches.json()["items"]), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

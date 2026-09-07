@@ -1762,6 +1762,45 @@ class Company:
                                 (pid,canonical(body),1 if body.get("enabled") else 0))
             self._event("models.seeded",{"profiles":len(data.get("profiles",{}))})
 
+    def list_model_profiles(self):
+        rows = []
+        for row in self.db.execute("SELECT id, body, enabled FROM model_profiles ORDER BY id"):
+            body = json.loads(row["body"])
+            rows.append({
+                "id": row["id"],
+                "enabled": bool(row["enabled"]),
+                "body": body,
+            })
+        return rows
+
+    def list_benchmark_results(self, role=None):
+        if role:
+            rows = self.db.execute(
+                "SELECT * FROM benchmark_results WHERE role=? ORDER BY recorded_at, id",
+                (role,),
+            )
+        else:
+            rows = self.db.execute(
+                "SELECT * FROM benchmark_results ORDER BY role, recorded_at, id",
+            )
+        return [dict(r) for r in rows]
+
+    def seed_benchmarks(self, path):
+        data = json.loads(Path(path).read_text())
+        items = data.get("benchmarks") or []
+        ids = []
+        for item in items:
+            bid = self.record_benchmark(
+                item["role"],
+                item["profile_id"],
+                item["quality"],
+                item["latency_ms"],
+                item["cost_cents"],
+                item["failure_rate"],
+            )
+            ids.append(bid)
+        return {"count": len(ids), "ids": ids}
+
     def assign_model(self,actor,scope_kind,scope_id,profile_id):
         self._ceo(actor)
         if scope_kind not in {"company","department","position","task"}:raise ValueError("Unknown assignment scope")

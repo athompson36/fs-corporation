@@ -1576,6 +1576,18 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.get("/api/v1/model-profiles")
+    def model_profiles(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"profiles": company.list_model_profiles()}
+
+    @app.get("/api/v1/benchmarks")
+    def benchmarks(role: str | None = None, authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"items": company.list_benchmark_results(role=role)}
+
     @app.get("/api/v1/objectives")
     def objectives(status: str | None = None,
                    authorization: str | None = Header(default=None)):
