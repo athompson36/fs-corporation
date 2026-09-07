@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import {
   ApiClient,
   ActivityItem,
+  CompanySetting,
   CrossDeptRequest,
   DecisionItem,
   DispatchOptions,
@@ -12,7 +13,9 @@ import {
   OrgDepartment,
   OwnerRequest,
   PromotionItem,
+  SecretStatus,
   SessionInfo,
+  SettingValue,
   StaffingProposal,
   WorkerCard,
   loadSettings,
@@ -145,6 +148,10 @@ export default function App() {
   const [workerLookupId, setWorkerLookupId] = useState("");
   const [workerCard, setWorkerCard] = useState<WorkerCard | null>(null);
   const [session, setSession] = useState<SessionInfo | null>(null);
+  const [companySettings, setCompanySettings] = useState<CompanySetting[]>([]);
+  const [settingsDraft, setSettingsDraft] = useState<Record<string, SettingValue>>({});
+  const [secretStatuses, setSecretStatuses] = useState<SecretStatus[]>([]);
+  const [companySettingsBusy, setCompanySettingsBusy] = useState(false);
   const [lastMoreTab, setLastMoreTab] = useState<Tab>("decisions");
   const [formStatus, setFormStatus] = useState<Record<string, FormStatus>>({});
 
@@ -269,6 +276,27 @@ export default function App() {
     setDiagBusy(false);
   }, [api, settings.token]);
 
+  const loadCompanySettings = useCallback(async () => {
+    if (!settings.token) return;
+    setCompanySettingsBusy(true);
+    try {
+      const [catalog, secrets] = await Promise.all([
+        api.companySettings(),
+        api.secretsStatus(),
+      ]);
+      setCompanySettings(catalog.items);
+      setSettingsDraft(Object.fromEntries(catalog.items.map((item) => [item.key, item.value])));
+      setSecretStatuses(secrets.secrets);
+    } catch (e) {
+      setFormStatus((prev) => ({
+        ...prev,
+        settingsLoad: { ok: false, text: e instanceof Error ? e.message : String(e) },
+      }));
+    } finally {
+      setCompanySettingsBusy(false);
+    }
+  }, [api, settings.token]);
+
   // Scopes come from the server, never from whatever a shell wrote into storage.
   // The native WebView injects a session without them, which would otherwise
   // hide every control behind canManage* checks.
@@ -310,6 +338,12 @@ export default function App() {
       loadDiagnostics();
     }
   }, [tab, settings.token, loadDiagnostics]);
+
+  useEffect(() => {
+    if (tab === "settings" && settings.token) {
+      loadCompanySettings();
+    }
+  }, [tab, settings.token, loadCompanySettings]);
 
   useEffect(() => {
     if (MORE_TABS.some(([t]) => t === tab)) setLastMoreTab(tab);
@@ -451,12 +485,44 @@ export default function App() {
     setSettings(s);
   }
 
+  async function saveRuntimeSettings(event: FormEvent) {
+    event.preventDefault();
+    const updates = Object.fromEntries(
+      companySettings
+        .filter((item) => item.editable && settingsDraft[item.key] !== item.value)
+        .map((item) => [item.key, settingsDraft[item.key]]),
+    );
+    if (!Object.keys(updates).length) {
+      setFormStatus((prev) => ({
+        ...prev,
+        settingsSave: { ok: true, text: "No runtime changes to save." },
+      }));
+      return;
+    }
+    await runAction("settingsSave", "Runtime settings saved.", async () => {
+      await api.patchCompanySettings(updates);
+      await loadCompanySettings();
+    });
+  }
+
+  async function resetRuntimeSettings(keys?: string[]) {
+    await runAction(
+      "settingsReset",
+      keys ? "Runtime setting reset." : "All runtime overlays reset.",
+      async () => {
+        await api.resetCompanySettings(keys, !keys);
+        await loadCompanySettings();
+      },
+    );
+  }
+
   const company = (dashboard?.company ?? {}) as Record<string, unknown>;
   const pad = (n: number) => String(n).padStart(2, "0");
   const accessBadge = settings.access_level === "read_only"
     ? "Read only"
     : settings.label || (settings.access_level ? settings.access_level : null);
   const canManageOrg = canManageOrganization(scopes);
+  const canEditSettings = canPause(scopes);
   const isMoreTab = MORE_TABS.some(([t]) => t === tab);
   const moreCount = decisions.length + inbox.length;
 
@@ -1664,86 +1730,185 @@ export default function App() {
       )}
 
       {tab === "settings" && (
-        <section className="card">
-          <label htmlFor="baseUrl">API base URL</label>
-          <input id="baseUrl" type="text" value={settings.baseUrl}
-            onChange={(e) => save({ ...settings, baseUrl: e.target.value })} />
-          <label htmlFor="token">Bearer token</label>
-          <input id="token" type="password" value={settings.token}
-            onChange={(e) => save({ ...settings, token: e.target.value })} />
-          {session ? (
-            <p className="muted">
-              Signed in as {session.principal_id}
-              {session.access_level ? ` (${session.access_level})` : ""} · scopes:{" "}
-              {session.scopes.length ? session.scopes.join(", ") : "none"}
-            </p>
-          ) : (
-            <p className="muted">Session scopes not confirmed by the server yet.</p>
-          )}
-          <p className="muted">Pair a new device from the CEO desk QR at /desk, or clear token below and scan again.</p>
-          {pushStatus ? <p className="muted">{pushStatus}</p> : (
-            <p className="muted">Push status unknown — tap Enable push.</p>
-          )}
-          {pushSubscriptions.length ? (
-            <p className="muted">{pushSubscriptions.length} active push subscription(s) registered.</p>
-          ) : (
-            <p className="muted">No push subscription yet. On iPhone you must open the home-screen app icon, not a Safari tab.</p>
-          )}
-          <div className="actions">
-            <button type="button" onClick={refresh}>Test connection</button>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const msg = await ensureWebPushRegistration(api);
-                  setPushStatus(msg);
-                  const r = await api.pushSubscriptions();
-                  setPushSubscriptions(r.subscriptions.map((s) => ({ id: s.id, endpoint: s.endpoint })));
-                } catch (e) {
-                  setPushStatus(e instanceof Error ? e.message : String(e));
-                }
-              }}
-            >
-              Enable push
-            </button>
+        <section>
+          <div className="card">
+            <h2>Connection</h2>
+            <label htmlFor="baseUrl">API base URL</label>
+            <input id="baseUrl" type="text" value={settings.baseUrl}
+              onChange={(e) => save({ ...settings, baseUrl: e.target.value })} />
+            <label htmlFor="token">Bearer token</label>
+            <input id="token" type="password" value={settings.token}
+              onChange={(e) => save({ ...settings, token: e.target.value })} />
+            {session ? (
+              <p className="muted">
+                Signed in as {session.principal_id}
+                {session.access_level ? ` (${session.access_level})` : ""} · scopes:{" "}
+                {session.scopes.length ? session.scopes.join(", ") : "none"}
+              </p>
+            ) : (
+              <p className="muted">Session scopes not confirmed by the server yet.</p>
+            )}
+            <p className="muted">Pair a new device from the CEO desk QR at /desk, or clear token below and scan again.</p>
+            {pushStatus ? <p className="muted">{pushStatus}</p> : (
+              <p className="muted">Push status unknown — tap Enable push.</p>
+            )}
             {pushSubscriptions.length ? (
+              <p className="muted">{pushSubscriptions.length} active push subscription(s) registered.</p>
+            ) : (
+              <p className="muted">No push subscription yet. On iPhone you must open the home-screen app icon, not a Safari tab.</p>
+            )}
+            <div className="actions">
+              <button type="button" onClick={refresh}>Test connection</button>
               <button
                 type="button"
-                className="primary"
                 onClick={async () => {
                   try {
-                    const body = await api.pushNotify(`Companion test ${new Date().toLocaleTimeString()}`);
-                    const deliveries = body.result?.deliveries || body.deliveries || [];
-                    if (!deliveries.length) {
-                      setPushStatus("Test push returned no deliveries.");
-                      return;
-                    }
-                    const statuses = [...new Set(deliveries.map((d) => d.status))];
-                    if (statuses.includes("applied")) {
-                      setPushStatus(`Test push applied (${deliveries.length} delivery). Check OS notification.`);
-                    } else if (statuses.every((s) => s === "failed")) {
-                      setPushStatus(`Test push failed: ${statuses.join(", ")}. Server could not deliver.`);
-                    } else {
-                      setPushStatus(`Test push statuses: ${statuses.join(", ")}.`);
-                    }
+                    const msg = await ensureWebPushRegistration(api);
+                    setPushStatus(msg);
+                    const r = await api.pushSubscriptions();
+                    setPushSubscriptions(r.subscriptions.map((s) => ({ id: s.id, endpoint: s.endpoint })));
                   } catch (e) {
                     setPushStatus(e instanceof Error ? e.message : String(e));
                   }
                 }}
               >
-                Send test push
+                Enable push
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => {
-                sessionSyncedFor.current = null;
-                setSession(null);
-                save({ baseUrl: settings.baseUrl, token: "" });
-              }}
-            >
-              Clear token
-            </button>
+              {pushSubscriptions.length ? (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={async () => {
+                    try {
+                      const body = await api.pushNotify(`Companion test ${new Date().toLocaleTimeString()}`);
+                      const deliveries = body.result?.deliveries || body.deliveries || [];
+                      if (!deliveries.length) {
+                        setPushStatus("Test push returned no deliveries.");
+                        return;
+                      }
+                      const statuses = [...new Set(deliveries.map((d) => d.status))];
+                      if (statuses.includes("applied")) {
+                        setPushStatus(`Test push applied (${deliveries.length} delivery). Check OS notification.`);
+                      } else if (statuses.every((s) => s === "failed")) {
+                        setPushStatus(`Test push failed: ${statuses.join(", ")}. Server could not deliver.`);
+                      } else {
+                        setPushStatus(`Test push statuses: ${statuses.join(", ")}.`);
+                      }
+                    } catch (e) {
+                      setPushStatus(e instanceof Error ? e.message : String(e));
+                    }
+                  }}
+                >
+                  Send test push
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  sessionSyncedFor.current = null;
+                  setSession(null);
+                  save({ baseUrl: settings.baseUrl, token: "" });
+                }}
+              >
+                Clear token
+              </button>
+            </div>
+          </div>
+
+          <form className="card" onSubmit={saveRuntimeSettings}>
+            <h2>Runtime</h2>
+            {companySettingsBusy && !companySettings.length && <p className="muted">Loading settings…</p>}
+            {companySettings.filter((item) => item.editable).map((item) => (
+              <div key={item.key} style={{ marginBottom: "1rem" }}>
+                <label htmlFor={`runtime-${item.key}`}>{item.key}</label>
+                <p className="muted">{item.description}</p>
+                {item.type === "bool" ? (
+                  <select
+                    id={`runtime-${item.key}`}
+                    value={String(settingsDraft[item.key] ?? item.value)}
+                    disabled={!canEditSettings}
+                    onChange={(e) => setSettingsDraft((prev) => ({
+                      ...prev,
+                      [item.key]: e.target.value === "true",
+                    }))}
+                  >
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                  </select>
+                ) : item.type === "enum" ? (
+                  <select
+                    id={`runtime-${item.key}`}
+                    value={String(settingsDraft[item.key] ?? item.value)}
+                    disabled={!canEditSettings}
+                    onChange={(e) => setSettingsDraft((prev) => ({ ...prev, [item.key]: e.target.value }))}
+                  >
+                    {(item.enum_values || []).map((value) => (
+                      <option key={value} value={value}>{value}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id={`runtime-${item.key}`}
+                    type={item.type === "int" || item.type === "float" ? "number" : "text"}
+                    step={item.type === "int" ? 1 : item.type === "float" ? "any" : undefined}
+                    min={item.min}
+                    max={item.max}
+                    value={String(settingsDraft[item.key] ?? item.value)}
+                    disabled={!canEditSettings}
+                    onChange={(e) => setSettingsDraft((prev) => ({
+                      ...prev,
+                      [item.key]: e.target.value,
+                    }))}
+                  />
+                )}
+                <div className="actions">
+                  <span className="tag tag-proposal">Source: {item.source}</span>
+                  {canEditSettings && item.source === "overlay" && (
+                    <button type="button" onClick={() => resetRuntimeSettings([item.key])}>Reset</button>
+                  )}
+                </div>
+                {item.restart_required && item.source === "overlay" && (
+                  <p className="muted">Takes effect after API restart</p>
+                )}
+              </div>
+            ))}
+            {canEditSettings ? (
+              <div className="actions">
+                <button className="primary" type="submit">Save runtime changes</button>
+                <button type="button" onClick={() => resetRuntimeSettings()}>Reset all overlays</button>
+              </div>
+            ) : scopeNotice("edit runtime settings", "company.pause")}
+            {status("settingsSave")}
+            {status("settingsReset")}
+            {status("settingsLoad")}
+          </form>
+
+          <div className="card">
+            <h2>Host (read-only)</h2>
+            {companySettings.filter((item) => !item.editable).map((item) => (
+              <div key={item.key} style={{ marginBottom: "0.75rem" }}>
+                <strong>{item.key}</strong>
+                <div>{String(item.value || "Not configured")}</div>
+                <div className="muted">{item.description} · source: {item.source}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="card">
+            <h2>Secrets</h2>
+            <p className="muted">Configuration only from secrets-status; secret values are never shown.</p>
+            {secretStatuses.map((secret) => (
+              <div key={secret.name} style={{ marginBottom: "0.5rem" }}>
+                <strong>{secret.name}</strong>
+                {" "}
+                <span className={secret.configured ? "badge-active" : "badge-dormant"}>
+                  {secret.configured ? "configured" : "missing"}
+                </span>
+              </div>
+            ))}
+            {!secretStatuses.length && !companySettingsBusy && (
+              <p className="muted">No secret status returned.</p>
+            )}
           </div>
         </section>
       )}

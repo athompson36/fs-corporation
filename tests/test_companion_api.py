@@ -84,6 +84,17 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("dispatch-brief-template", app)
         self.assertIn("Valid values", app)
 
+    def test_companion_wires_company_settings(self):
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        client = (root / "api" / "client.ts").read_text()
+        app = (root / "App.tsx").read_text()
+        self.assertIn("/api/v1/settings", client)
+        self.assertIn("/api/v1/settings/secrets-status", client)
+        self.assertIn("patchCompanySettings", client)
+        self.assertIn("Runtime", app)
+        self.assertIn("secrets-status", app.lower() or "Secrets")
+        self.assertIn("Takes effect after API restart", app)
+
     def test_companion_replaces_window_prompt_ops_forms(self):
         app = (
             Path(__file__).resolve().parents[1] / "companion" / "src" / "App.tsx"

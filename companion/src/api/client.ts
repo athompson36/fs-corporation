@@ -455,6 +455,30 @@ export class ApiClient {
     );
   }
 
+  companySettings() {
+    return this.get<{ items: CompanySetting[] }>("/api/v1/settings");
+  }
+
+  patchCompanySettings(updates: Record<string, SettingValue>) {
+    return this.patch<{ result: { items: CompanySetting[] } }>(
+      "/api/v1/settings",
+      { updates },
+      `company-settings-${Date.now()}`,
+    );
+  }
+
+  resetCompanySettings(keys?: string[], allOverlay = false) {
+    return this.post<{ result: { items: CompanySetting[] } }>(
+      "/api/v1/settings/reset",
+      allOverlay ? { all_overlay: true } : { keys: keys || [] },
+      `company-settings-reset-${Date.now()}`,
+    );
+  }
+
+  secretsStatus() {
+    return this.get<{ secrets: SecretStatus[] }>("/api/v1/settings/secrets-status");
+  }
+
   pause() {
     return this.post("/api/v1/company/pause", {}, "pause");
   }
@@ -469,6 +493,27 @@ export type SessionInfo = {
   kind: string;
   access_level: string | null;
   scopes: string[];
+};
+
+export type SettingValue = string | number | boolean;
+
+export type CompanySetting = {
+  key: string;
+  value: SettingValue;
+  default: SettingValue;
+  source: "overlay" | "env" | "default";
+  type: "int" | "float" | "string" | "bool" | "enum";
+  editable: boolean;
+  restart_required: boolean;
+  description: string;
+  min?: number;
+  max?: number;
+  enum_values?: string[];
+};
+
+export type SecretStatus = {
+  name: string;
+  configured: boolean;
 };
 
 export type DispatchTemplate = { id: string; label: string; body: string };
