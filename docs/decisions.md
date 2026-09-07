@@ -31,6 +31,7 @@
 | ADR-027 | 2026-09-07 | Phone GitHub assign by address with same-owner -corp write repo | Companion pastes upstream URL; API creates/reuses `{repo}-corp`; enrolls both ids; companion-admin may act as CEO mobile for enroll/dispatch. |
 | ADR-028 | 2026-09-07 | Department heads assign only through seat, grant, roster, and queue gates | Inbox reads persisted dispatches; assignment requires `work.assign` scope and queues work under the specialist's own grant; head vacancy blocks open work and cancels linked queues. |
 | ADR-029 | 2026-09-07 | HQ live activity is a transactional event projection | `_event` applies a deterministic reducer after persisting each event; `started_event_id` is unique and references the audit sequence, so replay cannot invent duplicate occupancy. Sessions use persisted department rooms when available, while the Desk polls the authenticated read API and suppresses pulse animation for reduced-motion users. |
+| ADR-030 | 2026-09-07 | Promotions require persisted evidence and separate HR/CEO authority | Department ladders define skills, accepted-artifact/QC thresholds, review score, and quality standards. HR or CEO captures an immutable evaluation in a pending proposal; only CEO/admin companion decides. Approval updates the employee level and missing training targets in one transaction. |
 
 ### ADR-010 detail
 

@@ -51,6 +51,10 @@ listed scope can still receive 403 from those routes.
 | POST /employees/{id}/goals | Set a performance goal | organization.read |
 | POST /employees/{id}/reviews | Record an independent performance review | organization.read |
 | GET /employees/{id}/performance | Score trend and goals | organization.read |
+| GET /employees/{id}/ladder | Current/next career level, standards, and pending promotion records | organization.read |
+| GET /promotions | Promotion records, optionally filtered by `status` | organization.read |
+| POST /employees/{id}/promotions | Propose a promotion with a captured evidence evaluation | organization.write |
+| POST /promotions/{id}/decision | Approve/reject a pending promotion | organization.write |
 | POST /model-assignments | Propose role/provider assignment | model.assign |
 | POST /signals | Record source evidence | intelligence.ingest |
 | GET /impact-briefs | List impact briefs (no auto-publish) | company.read |
@@ -133,6 +137,8 @@ These routes pass the scope check above and then apply a further identity check 
 | `POST /projects/{id}/dispatch-brief` | project.enroll | CEO or `companion-admin-*` |
 | `POST /remote-access/pairing`, `POST /remote-access/revoke/{principal_id}` | company.pause | CEO principal (`_ceo`). The route table says "owner only" because the owner *is* the CEO principal by default; the code compares against the CEO id, not an `owner` kind. `paired_devices` on `GET /remote-access` is likewise CEO-only and returns `[]` for others |
 | `GET /employees/{id}/training`, `GET /employees/{id}/performance`, `GET /hr/development`, `POST /employees`, `POST /training/schedule`, `POST /employees/{id}/goals`, `POST /employees/{id}/reviews` | organization.read | `_hr_or_ceo`: the CEO, or an actor `people:<title>` where title is `HR Director`, `People Director`, or `Training Specialist`. `GET /employees/{id}` additionally allows the employee reading their own record |
+| `POST /employees/{id}/promotions` | organization.write | `_hr_or_ceo`; an employee cannot propose their own promotion |
+| `POST /promotions/{id}/decision` | organization.write | `_ceo_or_admin_companion`; the proposal must still be pending and its from-level must match current state |
 
 ## Status endpoint responses
 

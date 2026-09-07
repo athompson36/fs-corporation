@@ -2795,25 +2795,357 @@ class Company:
             if now()-when>interval:due.append(sid)
         return due
 
-    def _assign_training(self, employee_id, actor):
-        dept=self.db.execute("SELECT position_id FROM employees WHERE id=?",(employee_id,)).fetchone()["position_id"].split(":",1)[0]
-        created=[]
-        due=self.training_due(employee_id)
+    @staticmethod
+    def _career_level(row):
+        if not row:
+            return None
+        result=dict(row)
+        result["required_skills"]=json.loads(result["required_skills"])
+        result["quality_standard"]=json.loads(result["quality_standard"])
+        return result
+
+    def seed_career_ladders(self, path=None):
+        path=Path(path) if path else (
+            Path(__file__).resolve().parents[1]/"config"/"career-ladders.json")
+        catalog=json.loads(path.read_text())
+        levels=catalog.get("levels") if isinstance(catalog,dict) else None
+        if not isinstance(levels,list) or not levels:
+            raise ValueError("Career ladder catalog must contain levels")
+        seen=set()
         with self.tx():
-            for skill_id in due:
+            for level in levels:
+                required={
+                    "id","level_index","title","required_skills",
+                    "min_accepted_artifacts","min_review_score","quality_standard"}
+                if (
+                        not isinstance(level,dict)
+                        or not required.issubset(level)
+                        or not isinstance(level["id"],str) or not level["id"].strip()
+                        or type(level["level_index"]) is not int or level["level_index"]<1
+                        or not isinstance(level["title"],str) or not level["title"].strip()
+                        or not isinstance(level["required_skills"],list)
+                        or any(not isinstance(skill,str) or not skill.strip()
+                               for skill in level["required_skills"])
+                        or type(level["min_accepted_artifacts"]) is not int
+                        or level["min_accepted_artifacts"]<0
+                        or type(level["min_review_score"]) is not int
+                        or not 0<=level["min_review_score"]<=100
+                        or not isinstance(level["quality_standard"],dict)
+                        or not level["quality_standard"]):
+                    raise ValueError("Invalid career level")
+                scope=(level.get("division_id"),level.get("department_id"),
+                       level["level_index"])
+                if scope in seen or (not scope[0] and not scope[1]):
+                    raise ValueError("Career level scope and index must be unique")
+                seen.add(scope)
+                self.db.execute(
+                    """INSERT INTO career_levels(
+                         id,division_id,department_id,level_index,title,
+                         required_skills,min_accepted_artifacts,min_review_score,
+                         quality_standard)
+                       VALUES(?,?,?,?,?,?,?,?,?)
+                       ON CONFLICT(id) DO UPDATE SET
+                         division_id=excluded.division_id,
+                         department_id=excluded.department_id,
+                         level_index=excluded.level_index,
+                         title=excluded.title,
+                         required_skills=excluded.required_skills,
+                         min_accepted_artifacts=excluded.min_accepted_artifacts,
+                         min_review_score=excluded.min_review_score,
+                         quality_standard=excluded.quality_standard""",
+                    (
+                        level["id"],level.get("division_id"),
+                        level.get("department_id"),level["level_index"],
+                        level["title"].strip(),canonical(level["required_skills"]),
+                        level["min_accepted_artifacts"],level["min_review_score"],
+                        canonical(level["quality_standard"]),
+                    ),
+                )
+                department=level.get("department_id") or "company"
+                for skill_id in level["required_skills"]:
+                    self.db.execute(
+                        """INSERT OR IGNORE INTO skills(
+                             id,name,platform,department_id) VALUES(?,?,?,?)""",
+                        (skill_id,skill_id.replace("-"," ").title(),"hr",department),
+                    )
+            self._event("career_ladders.seeded",{"levels":len(levels)})
+        return {"levels":len(levels)}
+
+    def _employee_level_rows(self, employee_id):
+        employee=self.db.execute(
+            "SELECT * FROM employees WHERE id=?",(employee_id,)).fetchone()
+        if not employee:
+            raise ValueError("Employee not found")
+        department=employee["position_id"].split(":",1)[0]
+        levels=list(self.db.execute(
+            """SELECT * FROM career_levels
+               WHERE department_id=? ORDER BY level_index,id""",(department,)))
+        current=self.db.execute(
+            """SELECT c.* FROM employee_levels e
+               JOIN career_levels c ON c.id=e.level_id
+               WHERE e.employee_id=?""",(employee_id,)).fetchone()
+        return employee,levels,current
+
+    def employee_ladder(self, employee_id):
+        _employee,levels,current=self._employee_level_rows(employee_id)
+        current_data=self._career_level(current)
+        next_row=None
+        if current:
+            next_row=next(
+                (level for level in levels
+                 if level["level_index"]>current["level_index"]),None)
+        pending=[self._promotion_record(row) for row in self.db.execute(
+            """SELECT * FROM promotion_records
+               WHERE employee_id=? AND status='pending'
+               ORDER BY created_at,id""",(employee_id,))]
+        return {
+            "employee_id":employee_id,
+            "current_level":current_data,
+            "next_level":self._career_level(next_row),
+            "levels":[self._career_level(level) for level in levels],
+            "pending_promotions":pending,
+        }
+
+    def standards_for(self, employee_id):
+        _employee,_levels,current=self._employee_level_rows(employee_id)
+        return json.loads(current["quality_standard"]) if current else None
+
+    def _evaluate_promotion_to(self, employee_id, target):
+        _employee,_levels,current=self._employee_level_rows(employee_id)
+        if not current:
+            raise ValueError("Employee has no current career level")
+        accepted=list(self.db.execute(
+            """SELECT DISTINCT t.id,t.artifact_hash
+               FROM tasks t LEFT JOIN artifacts a ON a.task_id=t.id
+               WHERE t.status='accepted' AND (t.actor=? OR a.producer=?)
+               ORDER BY t.id""",(employee_id,employee_id)))
+        qc=list(self.db.execute(
+            """SELECT DISTINCT q.task_id,q.artifact_hash
+               FROM qc_inspections q
+               JOIN tasks t ON t.id=q.task_id
+               LEFT JOIN artifacts a ON a.task_id=t.id
+               WHERE q.verdict='pass' AND q.artifact_hash=t.artifact_hash
+                 AND (t.actor=? OR a.producer=?)
+               ORDER BY q.task_id""",(employee_id,employee_id)))
+        held=sorted(row["skill_id"] for row in self.db.execute(
+            "SELECT skill_id FROM acquired_skills WHERE holder=?",(employee_id,)))
+        required=json.loads(target["required_skills"])
+        missing=[skill for skill in required if skill not in held]
+        reviews=list(self.db.execute(
+            """SELECT score,created_at FROM performance_reviews
+               WHERE employee_id=? ORDER BY created_at,rowid""",(employee_id,)))
+        scores=[row["score"] for row in reviews]
+        trend="stable"
+        if len(scores)>=2:
+            if scores[-1]>scores[-2]:trend="improving"
+            elif scores[-1]<scores[-2]:trend="declining"
+        unmet=[]
+        if len(accepted)<target["min_accepted_artifacts"]:
+            unmet.append({
+                "kind":"accepted_artifacts","actual":len(accepted),
+                "required":target["min_accepted_artifacts"]})
+        if len(qc)<target["min_accepted_artifacts"]:
+            unmet.append({
+                "kind":"qc_passes","actual":len(qc),
+                "required":target["min_accepted_artifacts"]})
+        if missing:
+            unmet.append({"kind":"required_skills","missing":missing})
+        latest=scores[-1] if scores else None
+        if latest is None or latest<target["min_review_score"] or trend=="declining":
+            unmet.append({
+                "kind":"review_score","actual":latest,
+                "required":target["min_review_score"],"trend":trend})
+        evidence={
+            "accepted_artifacts":len(accepted),
+            "artifact_hashes":[row["artifact_hash"] for row in accepted
+                               if row["artifact_hash"]],
+            "qc_passes":len(qc),
+            "qc_artifact_hashes":[row["artifact_hash"] for row in qc
+                                  if row["artifact_hash"]],
+            "certified_skills":held,
+            "review_scores":scores,
+            "review_trend":trend,
+        }
+        return {
+            "eligible":not unmet,
+            "current_level":self._career_level(current),
+            "next_level":self._career_level(target),
+            "unmet":unmet,
+            "evidence":evidence,
+        }
+
+    def evaluate_promotion(self, employee_id):
+        _employee,levels,current=self._employee_level_rows(employee_id)
+        if not current:
+            raise ValueError("Employee has no current career level")
+        target=next(
+            (level for level in levels
+             if level["level_index"]>current["level_index"]),None)
+        if not target:
+            return {
+                "eligible":False,
+                "current_level":self._career_level(current),
+                "next_level":None,
+                "unmet":[{"kind":"max_level"}],
+                "evidence":{},
+            }
+        return self._evaluate_promotion_to(employee_id,target)
+
+    @staticmethod
+    def _promotion_record(row):
+        result=dict(row)
+        result["evidence"]=json.loads(result["evidence"])
+        return result
+
+    def list_promotions(self, status=None):
+        if status is not None and status not in {"pending","approved","rejected"}:
+            raise ValueError("Unknown promotion status")
+        sql="SELECT * FROM promotion_records"
+        args=()
+        if status:
+            sql+=" WHERE status=?"
+            args=(status,)
+        sql+=" ORDER BY created_at,id"
+        return {"items":[self._promotion_record(row)
+                         for row in self.db.execute(sql,args)]}
+
+    def propose_promotion(self, actor, employee_id, to_level_id=None):
+        self._hr_or_ceo(actor)
+        if actor==employee_id:
+            raise PermissionError("Employee cannot propose their own promotion")
+        _employee,levels,current=self._employee_level_rows(employee_id)
+        if not current:
+            raise ValueError("Employee has no current career level")
+        target=None
+        if to_level_id:
+            target=next((level for level in levels if level["id"]==to_level_id),None)
+            if not target or target["level_index"]<=current["level_index"]:
+                raise ValueError("Promotion target must be a higher level in the same ladder")
+        else:
+            target=next(
+                (level for level in levels
+                 if level["level_index"]>current["level_index"]),None)
+        if not target:
+            raise ValueError("No higher career level exists")
+        existing=self.db.execute(
+            """SELECT * FROM promotion_records
+               WHERE employee_id=? AND to_level=? AND status='pending'""",
+            (employee_id,target["id"])).fetchone()
+        if existing:
+            return self._promotion_record(existing)
+        evaluation=self._evaluate_promotion_to(employee_id,target)
+        stamp=now().isoformat()
+        promotion_id=digest({
+            "employee":employee_id,"from":current["id"],"to":target["id"],
+            "proposed_by":actor,"created_at":stamp})[:24]
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO promotion_records(
+                     id,employee_id,from_level,to_level,evidence,proposed_by,
+                     approved_by,status,created_at,decided_at)
+                   VALUES(?,?,?,?,?,?,NULL,'pending',?,NULL)""",
+                (promotion_id,employee_id,current["id"],target["id"],
+                 canonical(evaluation),actor,stamp),
+            )
+            self._event(
+                "promotion.proposed",
+                {"id":promotion_id,"employee_id":employee_id,
+                 "from_level":current["id"],"to_level":target["id"],
+                 "eligible":evaluation["eligible"]},
+                actor_id=actor,
+            )
+        return self._promotion_record(self.db.execute(
+            "SELECT * FROM promotion_records WHERE id=?",(promotion_id,)).fetchone())
+
+    def decide_promotion(self, actor, promotion_id, decision):
+        self._ceo_or_admin_companion(actor)
+        if decision not in {"approved","rejected"}:
+            raise ValueError("Promotion decision must be approved or rejected")
+        promotion=self.db.execute(
+            "SELECT * FROM promotion_records WHERE id=?",(promotion_id,)).fetchone()
+        if not promotion:
+            raise ValueError("Promotion not found")
+        if promotion["status"]!="pending":
+            raise ValueError("Promotion is already decided")
+        current=self.db.execute(
+            "SELECT level_id FROM employee_levels WHERE employee_id=?",
+            (promotion["employee_id"],)).fetchone()
+        if not current or current["level_id"]!=promotion["from_level"]:
+            raise ValueError("Promotion evidence is stale")
+        target=self.db.execute(
+            "SELECT * FROM career_levels WHERE id=?",(promotion["to_level"],)).fetchone()
+        stamp=now().isoformat()
+        with self.tx():
+            self.db.execute(
+                """UPDATE promotion_records
+                   SET status=?,approved_by=?,decided_at=? WHERE id=?""",
+                (decision,actor,stamp,promotion_id),
+            )
+            training=[]
+            if decision=="approved":
+                self.db.execute(
+                    """INSERT INTO employee_levels(
+                         employee_id,level_id,effective_at,set_by) VALUES(?,?,?,?)
+                       ON CONFLICT(employee_id) DO UPDATE SET
+                         level_id=excluded.level_id,
+                         effective_at=excluded.effective_at,
+                         set_by=excluded.set_by""",
+                    (promotion["employee_id"],target["id"],stamp,actor),
+                )
+                held={row["skill_id"] for row in self.db.execute(
+                    "SELECT skill_id FROM acquired_skills WHERE holder=?",
+                    (promotion["employee_id"],))}
+                missing=[skill for skill in json.loads(target["required_skills"])
+                         if skill not in held]
+                training=self._assign_training_skills(
+                    promotion["employee_id"],actor,missing)
+            self._event(
+                "promotion.decided",
+                {"id":promotion_id,"employee_id":promotion["employee_id"],
+                 "decision":decision,"training_assignments":
+                     [item["id"] for item in training]},
+                actor_id=actor,
+            )
+        result=self._promotion_record(self.db.execute(
+            "SELECT * FROM promotion_records WHERE id=?",(promotion_id,)).fetchone())
+        result["training"]=training
+        return result
+
+    def _assign_training_skills(self, employee_id, actor, skills):
+        row=self.db.execute(
+            "SELECT position_id FROM employees WHERE id=?",(employee_id,)).fetchone()
+        if not row:
+            raise ValueError("Employee not found")
+        dept=row["position_id"].split(":",1)[0]
+        created=[]
+        with self.tx():
+            for skill_id in skills:
                 open_row=self.db.execute(
-                    "SELECT * FROM learning_assignments WHERE learner=? AND skill_id=? AND status IN ('assigned','studying')",
+                    """SELECT * FROM learning_assignments
+                       WHERE learner=? AND skill_id=?
+                         AND status IN ('assigned','studying')""",
                     (employee_id,skill_id)).fetchone()
                 if open_row:
-                    created.append(dict(open_row));continue
-                lid=digest({"employee":employee_id,"skill":skill_id,"cycle":now().isoformat()})
+                    created.append(dict(open_row))
+                    continue
+                lid=digest({
+                    "employee":employee_id,"skill":skill_id,
+                    "cycle":now().isoformat()})
                 self.db.execute(
                     "INSERT INTO learning_assignments VALUES(?,?,?,?,?,?,?,?,?)",
-                    (lid,"hr-training",skill_id,employee_id,dept,None,"assigned",None,now().isoformat()))
-                self._event("skill.learning_assigned",{"id":lid,"skill_id":skill_id,"learner":employee_id},
-                            actor_id=actor,project_id="hr-training")
-                created.append(dict(self.db.execute("SELECT * FROM learning_assignments WHERE id=?",(lid,)).fetchone()))
+                    (lid,"hr-training",skill_id,employee_id,dept,None,
+                     "assigned",None,now().isoformat()))
+                self._event(
+                    "skill.learning_assigned",
+                    {"id":lid,"skill_id":skill_id,"learner":employee_id},
+                    actor_id=actor,project_id="hr-training")
+                created.append(dict(self.db.execute(
+                    "SELECT * FROM learning_assignments WHERE id=?",(lid,)).fetchone()))
         return created
+
+    def _assign_training(self, employee_id, actor):
+        due=self.training_due(employee_id)
+        return self._assign_training_skills(employee_id,actor,due)
 
     def hire_employee(self,actor,employee_id,position_id,display_name,attributes,background):
         self._hr_or_ceo(actor)
@@ -2825,16 +3157,27 @@ class Company:
         if self.db.execute("SELECT 1 FROM employees WHERE id=?",(employee_id,)).fetchone():
             raise ValueError("Employee already hired")
         self.seed_development_skills()
+        self.seed_career_ladders()
         with self.tx():
             self.db.execute(
                 """INSERT INTO employees(
                      id,position_id,display_name,attributes,background,hired_at,status)
                    VALUES(?,?,?,?,?,?,?)""",
                 (employee_id,position_id,display_name,canonical(attributes),background.strip(),now().isoformat(),"active"))
+            department=position_id.split(":",1)[0]
+            entry=self.db.execute(
+                """SELECT id FROM career_levels WHERE department_id=?
+                   ORDER BY level_index,id LIMIT 1""",(department,)).fetchone()
+            if entry:
+                self.db.execute(
+                    "INSERT INTO employee_levels VALUES(?,?,?,?)",
+                    (employee_id,entry["id"],now().isoformat(),actor),
+                )
             self._event("employee.hired",{"id":employee_id,"position_id":position_id},actor_id=actor)
         training=self._assign_training(employee_id,actor)
         return {"id":employee_id,"position_id":position_id,"display_name":display_name,
-                "attributes":attributes,"background":background.strip(),"training":training}
+                "attributes":attributes,"background":background.strip(),"training":training,
+                "level":self.employee_ladder(employee_id)["current_level"]}
 
     def employee(self, employee_id):
         row=self.db.execute("SELECT * FROM employees WHERE id=?",(employee_id,)).fetchone()
@@ -3046,6 +3389,7 @@ class Company:
             "viewpoint": identity.get("viewpoint"),
             "skills": skills,
             "position_assignments": assignments,
+            "ladder": self.employee_ladder(employee_id),
             "sprite": self._worker_sprite(employee_id),
             "sprite_placeholder": {
                 "kind": "neutral",

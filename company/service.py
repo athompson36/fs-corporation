@@ -207,7 +207,10 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <p class="muted">Open dispatches returned for this authenticated principal.</p>
 <ul id="head-inbox-list"></ul>
 </section>
-<section class="glass" id="people"><h2>People</h2><ul id="people-list"></ul></section>
+<section class="glass" id="people">
+<h2>People</h2><ul id="people-list"></ul>
+<h3>Pending promotions</h3><ul id="promotion-list"></ul>
+</section>
 <section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="budget"><h2>Budget</h2>
 <p class="muted">Simulated credits, billed cost, and revenue are separate totals.</p>
@@ -531,9 +534,12 @@ async function openRoom(roomId) {
 async function openWorkerCard(employeeId) {
   const panel = document.getElementById('worker-card');
   const facts = document.getElementById('worker-facts');
-  const res = await fetch(
-    '/api/v1/workers/' + encodeURIComponent(employeeId) + '/card', {headers});
+  const [res, ladderRes] = await Promise.all([
+    fetch('/api/v1/workers/' + encodeURIComponent(employeeId) + '/card', {headers}),
+    fetch('/api/v1/employees/' + encodeURIComponent(employeeId) + '/ladder', {headers})
+  ]);
   const card = await res.json();
+  const ladder = ladderRes.ok ? await ladderRes.json() : null;
   panel.hidden = false;
   facts.innerHTML = '';
   if (!res.ok) {
@@ -552,6 +558,10 @@ async function openWorkerCard(employeeId) {
     'Skills: ' + listed(card.skills, skill => skill.name),
     'Positions: ' + listed(
       card.position_assignments, assignment => assignment.title),
+    'Career level: ' + (
+      ladder && ladder.current_level
+        ? ladder.current_level.title + ' (L' + ladder.current_level.level_index + ')'
+        : 'not assigned'),
     'Sprite: ' + (card.sprite ? card.sprite.sprite_set : 'neutral placeholder')
   ];
   lines.forEach(line => {
@@ -708,6 +718,11 @@ async function load() {
   const people = await fetch('/api/v1/hr/development', {headers});
   const peoplej = await people.json();
   fill('people-list', peoplej.employees || peoplej.assignments || [], p => (p.display_name || p.employee_id || p.id) + ' — ' + (p.position_id || p.status || ''));
+  const promotions = await fetch('/api/v1/promotions?status=pending', {headers});
+  const promotionsj = await promotions.json();
+  fill('promotion-list', promotionsj.items || [], promotion =>
+    promotion.employee_id + ' — ' + promotion.from_level + ' → ' +
+      promotion.to_level + ' — ' + promotion.status);
   const briefs = await fetch('/api/v1/impact-briefs', {headers});
   const bj = await briefs.json();
   fill('intelligence-list', bj.briefs||[], b => {
@@ -1505,6 +1520,62 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/employees/{employee_id}/ladder")
+    def employee_ladder(employee_id: str,
+                        authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        try:
+            return company.employee_ladder(employee_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/promotions")
+    def promotions(status: str | None = None,
+                   authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        try:
+            return company.list_promotions(status)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/employees/{employee_id}/promotions")
+    def propose_promotion(
+            employee_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload | {"employee_id":employee_id},
+            lambda: (
+                company.propose_promotion(
+                    ident["principal_id"],employee_id,payload.get("to_level_id")),
+                200,
+            ),
+        )
+
+    @app.post("/api/v1/promotions/{promotion_id}/decision")
+    def decide_promotion(
+            promotion_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload | {"promotion_id":promotion_id},
+            lambda: (
+                company.decide_promotion(
+                    ident["principal_id"],promotion_id,payload["decision"]),
+                200,
+            ),
+        )
 
     @app.get("/api/v1/employees/{employee_id}/training")
     def employee_training(employee_id: str, authorization: str | None = Header(default=None)):

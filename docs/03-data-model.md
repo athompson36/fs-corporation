@@ -22,10 +22,12 @@
 | Expansion | Source milestone, plan, budget, contractor, inspection | Completion cannot be counted twice |
 | Event | Sequence, actor, correlation ID, payload, timestamp | Persist with state transaction |
 | ActivitySession | Kind, project/department/room, participants, start/end events | Must originate from a persisted event; replay is idempotent by start event |
+| CareerLevel | Department/division scope, index, title, required skills, evidence thresholds, quality standard | Indices are ordered within one ladder scope |
+| PromotionRecord | Employee, from/to levels, evidence snapshot, proposer, decision | HR/CEO proposes; only CEO/admin companion decides; approval updates level transactionally |
 
 ## Reference tables
 
-`company/schema.py` and Alembic revisions `0001_initial` through `0019_activity_projection`
+`company/schema.py` and Alembic revisions `0001_initial` through `0020_career_ladder`
 create settings, policies, proposals, approvals, tasks, ledger, completions, signals,
 expansions, events (with envelope columns that do not change the audit hash),
 consultant_proposals, identities, departments, positions, **department_seats**,
@@ -37,8 +39,10 @@ briefs, budget periods, memories, command idempotency, benchmark results, consul
 review cooldowns, skills, acquired_skills, project_capabilities, learning_assignments,
 qc_inspections, employees, training_records, performance_goals and performance_reviews,
 **billed_costs**, **revenue**, floorplans/rooms, worker sprites, and
-**activity_sessions**. JSON configurations remain seed templates via
-`seed_catalog` / `seed_models` / `seed_hardware_skills` / `seed_development_skills`.
+**activity_sessions**, **career_levels**, **employee_levels**, and
+**promotion_records**. JSON configurations remain seed templates via
+`seed_catalog` / `seed_models` / `seed_hardware_skills` /
+`seed_development_skills` / `seed_career_ladders`.
 
 The ledger records synthetic integer costs for mock actions. `billed_costs` records live provider usage in integer USD cents (`amount_cents`, often 0 until a pricing rate is set) plus `usage_tokens`. `revenue` records real income separately. Policy changes never reset simulated ledger totals. Refunds and period rollover of billed amounts remain future work.
 
