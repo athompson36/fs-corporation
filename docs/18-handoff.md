@@ -1,35 +1,33 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.43**. State: **Alembic on startup** delivered; M10-01 continues.
+Date: 2026-09-07. Version: **0.3.44**. State: **Atomic idempotency** delivered; M10-01 nearly done.
 
-## Delivered in 0.3.43
+## Delivered in 0.3.44
 
-- File-backed `Company()` runs `alembic upgrade head` after `apply_schema`, so column-only
-  migrations (e.g. `0011_pairing_access_level`) apply even when the DB was created by an older
-  app build. Fails closed if still behind head.
-- `:memory:` databases skip Alembic (in-repo SCHEMA is complete for ephemeral use).
-- Per-path lock + fast path when already at `HEAD_REVISION` so concurrent `Company(path)`
-  openers do not deadlock SQLite.
-- Module: `company/migrate.py`. Tests: `tests/test_migrate.py`.
+- `Company.tx()` is re-entrant so nested domain mutations join an outer transaction.
+- `Company.run_idempotent` runs the handler and inserts `command_idempotency` in one commit.
+- API `run()` uses `run_idempotent` whenever an `Idempotency-Key` is present, so a crash can
+  no longer leave an applied effect without a replayable record (or the reverse).
+- Tests: `tests/test_idempotency_atomic.py`.
 
-## Prior (0.3.42)
+## Prior
 
-HTTP 429 rate limiting per principal / IP; health and desk exempt.
+- 0.3.43 Alembic on startup for file-backed DBs
+- 0.3.42 HTTP 429 rate limiting
+- 0.3.41 same-host worker plane + audit remediation
 
 ## Verify
 
 ```bash
-.venv/bin/python -m unittest tests.test_migrate tests.test_core.PersistenceTests -v
+.venv/bin/python -m unittest tests.test_idempotency_atomic tests.test_api -v
 .venv/bin/python -m unittest discover -s tests
 python3 scripts/check_bundle.py
 ```
 
 ## Next implementation
 
-**M10-01 remaining**, in order:
-
-1. Atomic idempotency — `remember_command` must commit with the protected effect.
-2. Worker-completion transaction gap in `company/worker.py`.
+**M10-01 last item:** worker-completion transaction — `company/worker.py` updates the queue
+and emits `task.worker_completed` outside `tx()`.
 
 Then M10-02 test gaps. Before the next fs-dev companion rebuild: M10-04 hanging
 `vite-plugin-pwa` service-worker build.

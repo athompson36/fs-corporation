@@ -496,32 +496,43 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
 
     def run(ident, key: str | None, payload: dict, handler):
         req_hash = digest({"payload": payload})
+
+        def execute():
+            try:
+                result, code = handler()
+            except PermissionError as exc:
+                raise HTTPException(status_code=403, detail=str(exc)) from exc
+            except LookupError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            except ValueError as exc:
+                text = str(exc)
+                if "Stale" in text or "stale" in text or "rebase" in text:
+                    raise HTTPException(status_code=409, detail=text) from exc
+                raise HTTPException(status_code=422, detail=text) from exc
+            wrapped = {
+                "operation_id": digest({"result": result, "principal": ident["principal_id"]})[:16],
+                "resource_version": company.policy()["version"],
+                "status": "ok" if code < 300 else "error",
+                "event_correlation_id": wrapped_corr(result),
+                "result": result,
+            }
+            return result, code, wrapped
+
         if key:
-            existing = company.lookup_command(key)
-            if existing:
-                if existing["request_hash"] != req_hash:
-                    raise HTTPException(status_code=409, detail="Idempotency key reused with different payload")
-                return _json(json.loads(existing["response_body"]), existing["status_code"])
-        try:
-            result, code = handler()
-        except PermissionError as exc:
-            raise HTTPException(status_code=403, detail=str(exc)) from exc
-        except LookupError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        except ValueError as exc:
-            text = str(exc)
-            if "Stale" in text or "stale" in text or "rebase" in text:
-                raise HTTPException(status_code=409, detail=text) from exc
-            raise HTTPException(status_code=422, detail=text) from exc
-        wrapped = {
-            "operation_id": digest({"result": result, "principal": ident["principal_id"]})[:16],
-            "resource_version": company.policy()["version"],
-            "status": "ok" if code < 300 else "error",
-            "event_correlation_id": wrapped_corr(result),
-            "result": result,
-        }
-        if key:
-            company.remember_command(key, ident["principal_id"], req_hash, code, json.dumps(wrapped))
+            def work():
+                _result, code, wrapped = execute()
+                return wrapped, code, json.dumps(wrapped)
+
+            try:
+                outcome = company.run_idempotent(
+                    key, ident["principal_id"], req_hash, work)
+            except ValueError as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
+            if outcome["replay"]:
+                return _json(json.loads(outcome["response_body"]), outcome["status_code"])
+            return _json(outcome["result"], outcome["status_code"])
+
+        _result, code, wrapped = execute()
         return _json(wrapped, code)
 
     def wrapped_corr(result):

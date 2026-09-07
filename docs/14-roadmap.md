@@ -266,11 +266,10 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
       fails closed if still behind head. `:memory:` databases skip Alembic (SCHEMA is
       authoritative). Concurrent openers of the same path are serialized. Test:
       `tests/test_migrate.py`.
-- [ ] **Record idempotency atomically with the effect it protects.** `remember_command`
-      commits in a transaction separate from the handler (`company/service.py`), so a crash
-      between them lets a retry re-execute unless a domain-level key happens to catch it.
-      *Acceptance:* the mutation and its idempotency record commit together, or the handler
-      is proven safe by a domain key; a test simulates failure between the two.
+- [x] **Record idempotency atomically with the effect it protects** (0.3.44). `Company.tx()`
+      is re-entrant; `run_idempotent` runs the handler and inserts `command_idempotency` in one
+      transaction; API `run()` uses it whenever an Idempotency-Key is present. Tests in
+      `tests/test_idempotency_atomic.py`.
 - [ ] **Close the worker-completion transaction gap.** `company/worker.py` updates the queue
       and emits `task.worker_completed` outside `tx()`, so a crash can leave a produced task
       still queued or leased.
@@ -385,9 +384,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**M10-01 remaining:** atomic idempotency (`remember_command` must commit with the protected
-effect), then the worker-completion transaction. Alembic-on-startup and HTTP `429` shipped
-in 0.3.42–0.3.43.
+**M10-01 remaining:** worker-completion transaction gap in `company/worker.py`. HTTP `429`,
+Alembic-on-startup, and atomic idempotency shipped in 0.3.42–0.3.44.
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
 dependencies plus controlled egress in the worker image; furnished HQ room art. Fix the

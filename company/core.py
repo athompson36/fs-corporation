@@ -134,13 +134,22 @@ class Company:
     def tx(self):
         # Hold the connection lock for the whole transaction so concurrent
         # FastAPI threadpool requests cannot interleave statements.
+        # Nested tx() calls join the outer transaction (savepoint-free reentry)
+        # so idempotency records can commit atomically with domain mutations.
         with self.db.lock:
-            self.db._conn.execute("BEGIN IMMEDIATE")
+            depth = getattr(self, "_tx_depth", 0)
+            if depth == 0:
+                self.db._conn.execute("BEGIN IMMEDIATE")
+            self._tx_depth = depth + 1
             try:
                 yield
-                self.db._conn.execute("COMMIT")
+                self._tx_depth -= 1
+                if self._tx_depth == 0:
+                    self.db._conn.execute("COMMIT")
             except BaseException:
-                self.db._conn.execute("ROLLBACK")
+                self._tx_depth -= 1
+                if self._tx_depth == 0:
+                    self.db._conn.execute("ROLLBACK")
                 raise
 
     def _event(self,kind,body,actor_id=None,correlation_id=None,project_id=None):
@@ -1260,6 +1269,36 @@ class Company:
     def lookup_command(self,key):
         row=self.db.execute("SELECT * FROM command_idempotency WHERE key=?",(key,)).fetchone()
         return dict(row) if row else None
+
+    def run_idempotent(self, key, principal_id, request_hash, work):
+        """Run *work* and persist the idempotency record in one transaction.
+
+        *work* is ``() -> (result, status_code, response_body_json)``. On replay, *work*
+        is not called. Returns
+        ``{"replay": bool, "result": ..., "status_code": int, "response_body": str}``.
+        """
+        with self.tx():
+            existing = self.lookup_command(key)
+            if existing:
+                if existing["request_hash"] != request_hash:
+                    raise ValueError("Idempotency key reused with different payload")
+                return {
+                    "replay": True,
+                    "result": None,
+                    "status_code": existing["status_code"],
+                    "response_body": existing["response_body"],
+                }
+            result, status_code, response_body = work()
+            self.db.execute(
+                "INSERT INTO command_idempotency VALUES(?,?,?,?,?,?)",
+                (key, principal_id, request_hash, status_code, response_body, now().isoformat()),
+            )
+            return {
+                "replay": False,
+                "result": result,
+                "status_code": status_code,
+                "response_body": response_body,
+            }
 
     def _hardware_catalog(self, path=None):
         path=Path(path or Path(__file__).resolve().parents[1]/"config"/"hardware-skills.json")
