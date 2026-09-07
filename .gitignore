@@ -24,3 +24,4 @@ companion-native/.expo/
 companion/dist/
 examples/*.png
 examples/*.jpg
+.worktrees/
