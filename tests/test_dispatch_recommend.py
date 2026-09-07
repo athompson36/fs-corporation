@@ -159,6 +159,20 @@ class ValidateSuggestionTests(unittest.TestCase):
         self.assertEqual(_coerce_budget_cents("+100"), 100)
 
 
+class DispatchDeskWiringTests(unittest.TestCase):
+    def test_desk_wires_dispatch_recommend_controls(self):
+        desk = (Path(__file__).resolve().parents[1] / "company" / "service.py").read_text()
+        for needle in (
+            'id="dispatch-recommend-btn"',
+            "/dispatch-options",
+            "/dispatch-recommend",
+            'id="dispatch-brief-template"',
+            'id="dispatch-valid-values"',
+            "presets_cents",
+        ):
+            self.assertIn(needle, desk)
+
+
 class DispatchRecommendLiveTests(unittest.TestCase):
     def setUp(self):
         self.c, self.client = owner_client()

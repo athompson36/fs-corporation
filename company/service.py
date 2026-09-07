@@ -177,11 +177,22 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <form id="dispatch-form" class="compact">
 <h3>Dispatch brief to heads</h3>
 <label for="dispatch-project">Project id</label><input id="dispatch-project" required/>
+<label for="dispatch-brief-template">Brief template</label>
+<select id="dispatch-brief-template"><option value="">Custom / free text</option></select>
 <label for="dispatch-brief">Brief</label><textarea id="dispatch-brief" required></textarea>
+<label for="dispatch-criteria-template">Acceptance criteria template</label>
+<select id="dispatch-criteria-template"><option value="">Custom / free text</option></select>
 <label for="dispatch-criteria">Acceptance criteria</label><textarea id="dispatch-criteria" required></textarea>
-<label for="dispatch-budgets">Department budgets (one <code>department=¢</code> per line)</label>
+<div id="dispatch-dept-list" class="dispatch-dept-list"></div>
+<label for="dispatch-budgets">Department budgets (advanced; synced from list)</label>
 <textarea id="dispatch-budgets" placeholder="engineering=500&#10;product=300" required></textarea>
-<button type="submit" class="chip">Dispatch</button>
+<div class="row" role="group" aria-label="Dispatch actions">
+<button type="button" class="chip" id="dispatch-recommend-btn">Recommend for this project</button>
+<button type="submit" class="chip" id="dispatch-submit-btn">Dispatch</button>
+</div>
+<details id="dispatch-valid-values"><summary>Valid values</summary>
+<pre id="dispatch-valid-values-body" class="muted">Load a project id to see templates, presets, and department status.</pre>
+</details>
 <p id="dispatch-status" class="muted"></p>
 </form>
 <h3>Local candidates</h3>
@@ -397,12 +408,181 @@ function parseDepartmentBudgets(raw) {
   });
   return departmentBudgets;
 }
+let dispatchOptionsCache = null;
+function fillTemplateSelect(selectId, templates) {
+  const select = document.getElementById(selectId);
+  const current = select.value;
+  select.innerHTML = '<option value="">Custom / free text</option>';
+  (templates || []).forEach(template => {
+    const option = document.createElement('option');
+    option.value = template.id;
+    option.textContent = template.label;
+    option.dataset.body = template.body;
+    select.appendChild(option);
+  });
+  if ([...select.options].some(option => option.value === current)) select.value = current;
+}
+function syncBudgetsTextarea() {
+  const lines = [];
+  document.querySelectorAll('#dispatch-dept-list .dispatch-dept-row').forEach(row => {
+    const check = row.querySelector('input[type="checkbox"]');
+    const budget = row.querySelector('input[data-budget]');
+    if (check && check.checked && budget) {
+      const amount = Number(budget.value);
+      if (Number.isInteger(amount) && amount >= 0) lines.push(check.value + '=' + amount);
+    }
+  });
+  document.getElementById('dispatch-budgets').value = lines.join('\\n');
+  updateDispatchSubmitGate();
+}
+function updateDispatchSubmitGate() {
+  const status = document.getElementById('dispatch-status');
+  const submit = document.getElementById('dispatch-submit-btn');
+  let blocked = false;
+  document.querySelectorAll('#dispatch-dept-list .dispatch-dept-row').forEach(row => {
+    const check = row.querySelector('input[type="checkbox"]');
+    if (check && check.checked && check.dataset.dispatchable === 'false') blocked = true;
+  });
+  submit.disabled = blocked;
+  if (blocked) status.textContent = 'Activate dormant departments before dispatch.';
+}
+function renderDispatchDepartments(options) {
+  const host = document.getElementById('dispatch-dept-list');
+  host.innerHTML = '';
+  const presets = ((options.fields || {}).department_budgets || {}).presets_cents || [];
+  const maxCents = ((options.fields || {}).department_budgets || {}).max_cents || 0;
+  (options.departments || []).forEach(dept => {
+    const row = document.createElement('div');
+    row.className = 'dispatch-dept-row';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.value = dept.id;
+    check.id = 'dispatch-dept-' + dept.id;
+    check.dataset.dispatchable = dept.dispatchable ? 'true' : 'false';
+    check.addEventListener('change', syncBudgetsTextarea);
+    const label = document.createElement('label');
+    label.htmlFor = check.id;
+    label.textContent = dept.name + ' (' + dept.status + (dept.dispatchable ? '' : ' — Activate first') + ')';
+    const budget = document.createElement('input');
+    budget.type = 'number';
+    budget.min = '0';
+    budget.max = String(maxCents);
+    budget.value = '0';
+    budget.dataset.budget = dept.id;
+    budget.setAttribute('aria-label', dept.name + ' budget cents');
+    budget.addEventListener('input', syncBudgetsTextarea);
+    const chips = document.createElement('span');
+    chips.className = 'row';
+    presets.filter(preset => preset <= maxCents).forEach(preset => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = String(preset);
+      chip.addEventListener('click', () => {
+        budget.value = String(preset);
+        check.checked = true;
+        syncBudgetsTextarea();
+      });
+      chips.appendChild(chip);
+    });
+    row.appendChild(check);
+    row.appendChild(label);
+    row.appendChild(budget);
+    row.appendChild(chips);
+    host.appendChild(row);
+  });
+  syncBudgetsTextarea();
+}
+function renderValidValues(options) {
+  const body = document.getElementById('dispatch-valid-values-body');
+  const budgets = (options.fields || {}).department_budgets || {};
+  const lines = [
+    'max_cents=' + budgets.max_cents,
+    'presets_cents=' + JSON.stringify(budgets.presets_cents || []),
+    'departments=' + (options.departments || []).map(
+      dept => dept.id + ':' + dept.status + (dept.dispatchable ? ':ok' : ':dormant')).join(', '),
+  ];
+  body.textContent = lines.join('\\n');
+}
+async function loadDispatchOptions() {
+  const projectId = document.getElementById('dispatch-project').value.trim();
+  const status = document.getElementById('dispatch-status');
+  if (!projectId) return;
+  const res = await fetch('/api/v1/projects/' + encodeURIComponent(projectId) + '/dispatch-options', {headers});
+  if (!res.ok) {
+    status.textContent = await res.text();
+    return;
+  }
+  dispatchOptionsCache = await res.json();
+  fillTemplateSelect('dispatch-brief-template', dispatchOptionsCache.fields.brief.templates);
+  fillTemplateSelect('dispatch-criteria-template', dispatchOptionsCache.fields.acceptance_criteria.templates);
+  if (!document.getElementById('dispatch-brief').value) {
+    document.getElementById('dispatch-brief').value = dispatchOptionsCache.brief_default || '';
+  }
+  renderDispatchDepartments(dispatchOptionsCache);
+  renderValidValues(dispatchOptionsCache);
+  status.textContent = 'Options loaded for ' + projectId + '.';
+}
+document.getElementById('dispatch-project').addEventListener('change', loadDispatchOptions);
+document.getElementById('dispatch-project').addEventListener('blur', loadDispatchOptions);
+document.getElementById('dispatch-brief-template').addEventListener('change', event => {
+  const option = event.target.selectedOptions[0];
+  if (option && option.dataset.body) document.getElementById('dispatch-brief').value = option.dataset.body;
+});
+document.getElementById('dispatch-criteria-template').addEventListener('change', event => {
+  const option = event.target.selectedOptions[0];
+  if (option && option.dataset.body) document.getElementById('dispatch-criteria').value = option.dataset.body;
+});
+document.getElementById('dispatch-recommend-btn').addEventListener('click', async () => {
+  const projectId = document.getElementById('dispatch-project').value.trim();
+  const status = document.getElementById('dispatch-status');
+  if (!projectId) {
+    status.textContent = 'Enter a project id first.';
+    return;
+  }
+  if (!dispatchOptionsCache || dispatchOptionsCache.project_id !== projectId) {
+    await loadDispatchOptions();
+  }
+  const res = await fetch('/api/v1/projects/' + encodeURIComponent(projectId) + '/dispatch-recommend', {
+    method: 'POST',
+    headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'desk-rec-' + Date.now()},
+    body: JSON.stringify({payload: {use_live: true}})
+  });
+  if (!res.ok) {
+    status.textContent = await res.text();
+    return;
+  }
+  const wrapped = await res.json();
+  const body = wrapped.result || wrapped;
+  document.getElementById('dispatch-brief').value = body.brief || '';
+  document.getElementById('dispatch-criteria').value = body.acceptance_criteria || '';
+  const recommended = new Map((body.departments || []).map(item => [item.id, item]));
+  document.querySelectorAll('#dispatch-dept-list .dispatch-dept-row').forEach(row => {
+    const check = row.querySelector('input[type="checkbox"]');
+    const budget = row.querySelector('input[data-budget]');
+    const item = recommended.get(check.value);
+    if (item) {
+      check.checked = !!item.recommended;
+      budget.value = String(item.budget_cents || 0);
+    } else {
+      check.checked = false;
+    }
+  });
+  syncBudgetsTextarea();
+  const notes = (body.notes || []).join(', ');
+  status.textContent = 'Recommendation source=' + body.source + (notes ? (' notes=' + notes) : '');
+});
 document.getElementById('dispatch-form').addEventListener('submit', async event => {
   event.preventDefault();
+  syncBudgetsTextarea();
   const departmentBudgets = parseDepartmentBudgets(document.getElementById('dispatch-budgets').value);
   const status = document.getElementById('dispatch-status');
   if (!Object.keys(departmentBudgets).length) {
-    status.textContent = 'Enter at least one valid department=budget line.';
+    status.textContent = 'Select at least one department with a budget.';
+    return;
+  }
+  if (document.getElementById('dispatch-submit-btn').disabled) {
+    status.textContent = 'Activate dormant departments before dispatch.';
     return;
   }
   const projectId = document.getElementById('dispatch-project').value.trim();
@@ -416,7 +596,7 @@ document.getElementById('dispatch-form').addEventListener('submit', async event 
     }})
   });
   status.textContent = res.ok ? 'Dispatch created.' : await res.text();
-  if (res.ok) { event.target.reset(); load(); }
+  if (res.ok) { event.target.reset(); dispatchOptionsCache = null; document.getElementById('dispatch-dept-list').innerHTML = ''; load(); }
 });
 async function submitOrgCommand(form, path, payload, success) {
   const status = form.querySelector('span');
