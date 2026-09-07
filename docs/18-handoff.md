@@ -1,7 +1,7 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.53**. State: **P0.2 M10 ops merged to `main` (local;
-ahead of origin; not yet deployed).**
+Date: 2026-09-07. Version: **0.3.53**. State: **P1 Settings platform slice A done on
+`feature/settings-platform-p1` (local; not merged to `main`).**
 
 ## P0.2 (merged)
 
@@ -13,13 +13,17 @@ ahead of origin; not yet deployed).**
 - `LearningAdapter.fetch` allowlists HTTPS prefixes from
   `config/learning-sources.example.json` (or `FS_CORP_LEARNING_SOURCES_FILE`).
 
-## P1 Settings platform (in progress)
+## P1 Settings platform slice A (done)
 
-- Companion API client supports GET/PATCH/reset settings and secrets-status.
-- Companion Settings now separates Connection, editable Runtime overlays,
-  read-only Host values, and configured/missing Secrets without exposing values.
-- Runtime entries show their source; restart-gated overlays state that an API
-  restart is required.
+- `company_settings` SQLite overlay + catalog (`company/settings_catalog.py`,
+  `company/settings_runtime.py`); effective resolution overlay → env → default.
+- APIs: `GET/PATCH /api/v1/settings`, `POST /api/v1/settings/reset`,
+  `GET /api/v1/settings/secrets-status` (ADR-036).
+- Hot-apply wired for non-`restart_required` keys; rate-limit keys store overlay but
+  take effect only after API restart (`restart_required: true`, honest UI copy).
+- Companion Settings: Connection, editable **Runtime** (source badge + restart notice),
+  read-only **Host**, configured/missing **Secrets** (no values).
+- Tests: `tests/test_settings_platform.py`, companion API/build coverage.
 
 ## Also on main
 
@@ -28,21 +32,20 @@ ahead of origin; not yet deployed).**
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **360 passed** (post-merge)
-- Task 4: `cd companion && npm run build`: **passed**.
-- Task 4: full unittest discovery: **374 passed, 2 unrelated
-  `test_dispatch_recommend` failures** (`live_unavailable` under the current
-  environment instead of the tests' expected live-provider paths).
+- `.venv/bin/python -m unittest discover -s tests`: run before merge (Task 5).
+- `cd companion && npm run build`: run before merge (Task 5).
 
 ## Production roadmap
 
-Settings **C** + horizon everything:
-[docs/superpowers/plans/2026-09-07-production-feature-build-out.md](superpowers/plans/2026-09-07-production-feature-build-out.md).
+Settings **C** slice A complete; slice B (desk mirror + expanded sections) or **P2 Live ops**
+next: [docs/superpowers/plans/2026-09-07-production-feature-build-out.md](superpowers/plans/2026-09-07-production-feature-build-out.md).
 
 ## Next
 
-1. Optional: `git push origin main` and deploy with `scripts/deploy_to_fs_dev.sh`.
-2. Continue **P1 Settings platform** with Task 5 documentation, ADR, and
-   capability/roadmap updates.
-3. Remaining M10-04 chrome (version in primary UI, HQ tile keyboard) deferred with P5.
-4. Do not commit `local repos/service-department/`.
+1. Merge `feature/settings-platform-p1` to `main`; optional deploy with
+   `scripts/deploy_to_fs_dev.sh`.
+2. **P2 Live ops completeness** (feeds CRUD, push/GitHub secret-status polish, ChatDev egress)
+   **or** expand Settings sections (Company, Models, Workers, …) — owner choice.
+3. Desk Settings UI deferred (companion-only in slice A).
+4. Remaining M10-04 chrome (version in primary UI, HQ tile keyboard) deferred with P5.
+5. Do not commit `local repos/service-department/`.

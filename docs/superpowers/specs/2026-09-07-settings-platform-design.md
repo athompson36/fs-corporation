@@ -1,6 +1,6 @@
 # Design: Settings platform (P1 slice A)
 
-Date: 2026-09-07. Status: **approved for planning** (not implemented).
+Date: 2026-09-07. Status: **implemented** (P1 slice A on `feature/settings-platform-p1`).
 
 ## Goal
 

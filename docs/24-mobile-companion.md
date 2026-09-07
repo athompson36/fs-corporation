@@ -97,7 +97,7 @@ outcome on an inline status line next to the control, not only at the top of the
 | More → Decisions | Approve/reject when `policy.approve` or `consultant.decide` |
 | More → Inbox | Respond when `company.pause`; escalate when `owner.escalate` |
 | More → Diagnostics | Parallel live probes: health, workers, model, github, push, chatdev, feeds, slos, local-repos |
-| More → Settings | API URL, token, session principal and scopes; clear token to re-pair |
+| More → Settings | Connection (API URL, token, session principal/scopes, clear to re-pair); **Runtime** editable overlays with source badge and restart notice when `restart_required`; read-only **Host** (LAN IP, worker NIC, gateway egress); **Secrets** configured/missing list (no values). PATCH/reset when `company.pause` + CEO/admin companion |
 
 ## API endpoints
 
@@ -114,6 +114,7 @@ outcome on an inline status line next to the control, not only at the top of the
 - `POST /api/v1/remote-access/redeem` — companion redeems ticket (no auth)
 - `GET /api/v1/events/stream` (SSE; PWA polls every 15s as fallback)
 - `POST /api/v1/push/subscriptions`, `POST /api/v1/push/subscriptions/{id}/revoke`, `GET /api/v1/push/status`
+- `GET /api/v1/settings`, `PATCH /api/v1/settings`, `POST /api/v1/settings/reset`, `GET /api/v1/settings/secrets-status`
 
 ## Security
 

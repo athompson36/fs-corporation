@@ -29,6 +29,10 @@ listed scope can still receive 403 from those routes.
 | GET /projects/{id}/dispatch-options | Parameter key: templates, presets, max_cents, department statuses | project.enroll |
 | POST /projects/{id}/dispatch-recommend | Advisory mock→live recommend/autofill payload (never dispatches) | project.enroll |
 | POST /ops/idempotency/prune | Delete `command_idempotency` rows older than retention (default 7 days) | company.pause |
+| GET /settings | Catalog of allowlisted company settings with effective value, source, type, editable, restart_required | company.read |
+| PATCH /settings | Update editable non-secret settings overlay (`payload.updates` map) | company.pause |
+| POST /settings/reset | Delete overlay row(s) for allowlisted editable keys (`payload.keys` or `payload.all_overlay`) | company.pause |
+| GET /settings/secrets-status | Configured/missing status for host secret env vars (no values returned) | company.read |
 | GET /model-profiles | List seeded model profiles (id, enabled, body) | company.read |
 | GET /benchmarks | List recorded benchmark results (optional `role` query) | company.read |
 | GET /events/stream | SSE audit events (cursor query param). Each frame carries `{seq, kind, at}` only; fetch bodies from `GET /events` | audit.read |
@@ -157,6 +161,7 @@ These routes pass the scope check above and then apply a further identity check 
 | `POST /promotions/{id}/decision` | organization.write | `_ceo_or_admin_companion`; the proposal must still be pending and its from-level must match current state |
 | `POST /divisions/proposals` | organization.write | Consultant principal, CEO, or principal occupying an active department-head seat |
 | `POST /divisions/{id}/activate`, `POST /divisions/{id}/deactivate` | organization.write | `_ceo_or_admin_companion`; deactivation also rejects open linked work |
+| `PATCH /settings`, `POST /settings/reset` | company.pause | `_ceo_or_admin_companion`; read-only companion levels receive 403 |
 
 ## Status endpoint responses
 
@@ -192,6 +197,14 @@ of them.
 - **`GET /company`** — the `company.status()` fields (`mode`, `policy_version`, counts,
   `simulated_spend_cents`, `billed_cost_cents`, `revenue_cents`, `rooms`, `audit_valid`)
   merged with `paused`. Simulated, billed, and revenue totals are never summed together.
+- **`GET /settings`** — `items[]` with `key`, effective `value`, catalog `default`, `source`
+  (`overlay` \| `env` \| `default`), `type`, `editable`, `restart_required`, and `description`.
+  Includes editable runtime knobs and read-only host-bound keys (`FS_CORP_LAN_IP`,
+  `FS_CORP_WORKER_NIC_IP`, `FS_CORP_GATEWAY_EGRESS`). Resolution order: overlay wins when
+  set, else non-empty env, else catalog default (ADR-036).
+- **`GET /settings/secrets-status`** — `secrets[]` with `name` and `configured` only; never
+  values or file contents. `*_FILE` keys are configured when the path is set and the file exists.
+
 ## Command envelope
 
 Each mutation uses an Idempotency-Key header plus a body containing expected resource/policy version and typed payload. Derive requester identity from the session/service token. Approval commands include proposal digest, decision and reason. Reject changed payloads under the same idempotency key.

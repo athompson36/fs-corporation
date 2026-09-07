@@ -37,6 +37,7 @@
 | ADR-033 | 2026-09-07 | Event-projected HQ and governed industry packs remain persisted operational views | Headquarters activity and scorecards derive from persisted events/rows; industry packs are inert templates until CEO activation. UI projections never create operational or financial facts. |
 | ADR-034 | 2026-09-07 | A paired admin phone is a CEO actor for operations, never for root authority | `_is_ceo_actor` accepts the owner or a `companion-admin-*` principal, covering policy and consultant decisions, owner-inbox responses, HR actions and division proposals. Pairing, revenue, budget, rollback, model, feed and SLO operations stay strict `_ceo`. Scopes are served by `GET /api/v1/session` so a client never infers its own authority. |
 | ADR-035 | 2026-09-07 | Dispatch recommend/autofill is advisory; mock always, live when configured | `GET …/dispatch-options` is the server parameter key. `POST …/dispatch-recommend` returns editable suggestions (`source` mock|live) and never calls `dispatch_project_brief`. Live uses `invoke_model` + validation; unusable/unavailable falls back to mock with notes. |
+| ADR-036 | 2026-09-07 | Settings platform uses SQLite overlay; secrets status only; honest restart_required | Allowlisted non-secret knobs persist in `company_settings`; effective resolution is overlay → env → catalog default. PATCH/reset require `company.pause` + CEO/admin companion. Secrets API returns configured/missing only. Rate-limit keys store overlay but apply only after API restart; UI states that honestly. Host-bound IPs are read-only in GET. |
 
 ### ADR-010 detail
 
@@ -406,5 +407,28 @@ autofill.
 **Consequences.** Live recommends may write `billed_costs` through `invoke_model`. Dormant
 departments remain non-dispatchable until activated; UI blocks submit when a checked dept is
 dormant. Recommendations never activate seats or invent HQ/revenue state.
+
+### ADR-036 detail
+
+**Context.** Settings **C** requires editing non-secret runtime knobs from the companion without
+rewriting host `secrets.env`, while keeping secret values out of API responses and logs. Rate
+limits are built at app startup; faking hot reload would mislead operators.
+
+**Decision.** Add `company_settings` overlay with catalog validation and
+`settings_runtime.effective(company, key)` resolution (overlay wins, then env, then default).
+Expose `GET/PATCH /api/v1/settings`, `POST …/reset`, and `GET …/secrets-status`. PATCH/reset
+auth: `company.pause` + `_ceo_or_admin_companion`. Secrets-status lists `configured` booleans
+only, aligned with `scripts/check_owner_config.py`. Keys marked `restart_required` persist
+overlay but do not change the in-process rate limiter until restart; companion shows explicit
+copy. Host-bound LAN/worker/egress keys are GET-only.
+
+**Alternatives considered.** Rewriting `secrets.env` from the phone was rejected (secret store
+and audit boundary). Returning secret values for “debugging” was rejected. Hot-reloading the
+rate limiter in slice A was rejected in favor of honest `restart_required` metadata.
+
+**Consequences.** Operators can tune SSE idle, public URL, worker runtime default, model pricing,
+ChatDev control-plane flag, and idempotency retention without shell access. Desk Settings and
+expanded Settings sections (Company, Models, Feeds, …) remain follow-ons. Overlay does not
+escalate scopes or invent HQ/financial state.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
