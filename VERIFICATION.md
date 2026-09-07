@@ -1,15 +1,16 @@
 # Verification record
 
-Updated 2026-09-07 for **0.3.49** (phone GitHub assign-by-address). Prior: 0.3.48 billed
-cost/revenue; 0.3.47 companion PWA; 0.3.46 M10-02. Run on Python 3.14.3 in `.venv` on macOS /
-Node 18.20.8. CI additionally runs Python 3.12 and 3.13 (`.github/workflows/ci.yml`).
+Updated 2026-09-07 for **0.3.50** (local-repos + Diagnostics). Prior: 0.3.49 GitHub
+assign; 0.3.48 billed cost/revenue; 0.3.47 companion PWA. Run on Python 3.14.3 in `.venv`
+on macOS / Node 18.20.8. CI additionally runs Python 3.12 and 3.13
+(`.github/workflows/ci.yml`).
 
 Earlier records: 0.2.0 ZIP (2026-09-01, Python 3.12.13) and 0.3.13 cosmic-glass desk (2026-09-01).
 
 ## Verified in this workspace
 
-- **217 unit tests pass** via `python -m unittest discover -s tests`, including
-  `tests.test_github_assign` and companion github-assign API coverage.
+- **221 unit tests pass** via `python -m unittest discover -s tests`, including
+  `tests.test_local_repos` and prior finance/github-assign coverage.
 - `python3 scripts/check_bundle.py` passes: all JSON parses, required context files present,
   and every relative Markdown link resolves.
 - Alembic revision chain is linear and single-headed: `0001_initial` through

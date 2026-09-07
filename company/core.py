@@ -1709,6 +1709,11 @@ class Company:
         return [self._project_summary(dict(r)) for r in self.db.execute(
             "SELECT * FROM projects ORDER BY enrolled_at")]
 
+    def list_local_repos(self):
+        from company.local_repos import scan_local_repos
+        enrolled = {r[0] for r in self.db.execute("SELECT id FROM projects")}
+        return scan_local_repos(enrolled_ids=enrolled)
+
     def project_detail(self, project_id):
         row = self.db.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
         if not row:

@@ -18,7 +18,17 @@ import {
   canResume,
 } from "./scopes";
 
-type Tab = "dashboard" | "projects" | "decisions" | "inbox" | "settings";
+type Tab = "dashboard" | "projects" | "decisions" | "inbox" | "diagnostics" | "settings";
+
+type LocalCandidate = {
+  id: string;
+  path: string;
+  has_git: boolean;
+  remote_url: string | null;
+  enrolled: boolean;
+};
+
+type DiagBlock = { label: string; ok: boolean; data?: unknown; error?: string };
 
 function pairingTicketFromHash(): string | null {
   const m = window.location.hash.match(/^#fs-pair=(.+)$/);
@@ -48,6 +58,10 @@ export default function App() {
   const [ghProjectId, setGhProjectId] = useState("");
   const [ghBusy, setGhBusy] = useState(false);
   const [ghResult, setGhResult] = useState<string | null>(null);
+  const [localCandidates, setLocalCandidates] = useState<LocalCandidate[]>([]);
+  const [localReposRoot, setLocalReposRoot] = useState<string | null>(null);
+  const [diagBlocks, setDiagBlocks] = useState<DiagBlock[]>([]);
+  const [diagBusy, setDiagBusy] = useState(false);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [pushSubscriptions, setPushSubscriptions] = useState<{ id: string; endpoint: string }[]>([]);
 
@@ -98,20 +112,52 @@ export default function App() {
     setError(null);
     setOffline(false);
     try {
-      const [d, p, dec, own] = await Promise.all([
+      const [d, p, dec, own, local] = await Promise.all([
         api.dashboard(),
         api.projects(),
         api.decisions(),
         api.ownerInbox("open"),
+        api.localRepos().catch(() => null),
       ]);
       setDashboard(d);
       setProjects(p.projects);
       setDecisions(dec.items);
       setInbox(own.items);
+      if (local) {
+        setLocalReposRoot(local.root);
+        setLocalCandidates(local.candidates);
+      }
     } catch (e) {
       setOffline(true);
       setError(e instanceof Error ? e.message : String(e));
     }
+  }, [api, settings.token]);
+
+  const loadDiagnostics = useCallback(async () => {
+    if (!settings.token) return;
+    setDiagBusy(true);
+    const probes: { label: string; run: () => Promise<unknown> }[] = [
+      { label: "health", run: () => api.health() },
+      { label: "workers", run: () => api.workersStatus() },
+      { label: "model", run: () => api.modelStatus() },
+      { label: "github", run: () => api.githubStatus() },
+      { label: "push", run: () => api.pushStatus() },
+      { label: "chatdev", run: () => api.chatdevStatus() },
+      { label: "feeds", run: () => api.feeds() },
+      { label: "slos", run: () => api.slos() },
+      { label: "local-repos", run: () => api.localRepos() },
+    ];
+    const settled = await Promise.all(
+      probes.map(async (p) => {
+        try {
+          return { label: p.label, ok: true, data: await p.run() } as DiagBlock;
+        } catch (e) {
+          return { label: p.label, ok: false, error: e instanceof Error ? e.message : String(e) } as DiagBlock;
+        }
+      }),
+    );
+    setDiagBlocks(settled);
+    setDiagBusy(false);
   }, [api, settings.token]);
 
   useEffect(() => {
@@ -120,6 +166,12 @@ export default function App() {
     const id = setInterval(refresh, 15000);
     return () => clearInterval(id);
   }, [refresh, settings.token]);
+
+  useEffect(() => {
+    if (tab === "diagnostics" && settings.token) {
+      loadDiagnostics();
+    }
+  }, [tab, settings.token, loadDiagnostics]);
 
   useEffect(() => {
     const manualOwnerToken = Boolean(settings.token) && !scopes?.length;
@@ -271,6 +323,43 @@ export default function App() {
                   </div>
                 </div>
               ))}
+              <div className="card">
+                <h2>Local candidates</h2>
+                <p className="muted">
+                  Folders under {localReposRoot || "local repos/"}. Tap Enroll to create a company project.
+                </p>
+                {localCandidates.map((c) => (
+                  <div key={c.id} style={{ marginBottom: "0.75rem" }}>
+                    <strong>{c.id}</strong>
+                    <div className="muted">
+                      {c.enrolled ? "enrolled" : "not enrolled"}
+                      {c.has_git ? " · git" : ""}
+                      {c.remote_url ? ` · ${c.remote_url}` : ""}
+                    </div>
+                    {canEnroll(scopes) && !c.enrolled && (
+                      <div className="actions">
+                        <button
+                          className="primary"
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await api.enrollProject(c.id, c.remote_url || `Local repo ${c.path}`);
+                              await refresh();
+                            } catch (e) {
+                              setError(String(e));
+                            }
+                          }}
+                        >
+                          Enroll
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {!localCandidates.length && (
+                  <p className="muted">No local folders found (add directories under local repos/).</p>
+                )}
+              </div>
               {canEnroll(scopes) && (
                 <div className="card">
                   <h2>Assign GitHub by address</h2>
@@ -419,6 +508,30 @@ export default function App() {
         </section>
       )}
 
+      {tab === "diagnostics" && (
+        <section>
+          <div className="actions" style={{ marginBottom: "0.75rem" }}>
+            <button type="button" className="primary" disabled={diagBusy} onClick={loadDiagnostics}>
+              {diagBusy ? "Refreshing…" : "Refresh diagnostics"}
+            </button>
+          </div>
+          <p className="muted">Live probes only. Unavailable endpoints show an error — nothing is invented.</p>
+          {diagBlocks.map((b) => (
+            <div key={b.label} className="card">
+              <strong>{b.label}</strong>
+              {b.ok ? (
+                <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem" }}>
+                  {JSON.stringify(b.data, null, 2)}
+                </pre>
+              ) : (
+                <p className="error">{b.error}</p>
+              )}
+            </div>
+          ))}
+          {!diagBlocks.length && <p className="muted">No diagnostics loaded yet.</p>}
+        </section>
+      )}
+
       {tab === "settings" && (
         <section className="card">
           <label htmlFor="baseUrl">API base URL</label>
@@ -495,6 +608,7 @@ export default function App() {
           ["projects", "Projects"],
           ["decisions", "Decisions"],
           ["inbox", "Inbox"],
+          ["diagnostics", "Diagnostics"],
           ["settings", "Settings"],
         ] as [Tab, string][]).map(([t, label]) => (
           <button key={t} type="button" className={tab === t ? "active" : ""} onClick={() => setTab(t)}>

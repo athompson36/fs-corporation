@@ -71,6 +71,52 @@ export class ApiClient {
     return this.get<{ projects: Record<string, unknown>[] }>("/api/v1/projects");
   }
 
+  localRepos() {
+    return this.get<{
+      root: string;
+      present: boolean;
+      candidates: {
+        id: string;
+        path: string;
+        has_git: boolean;
+        remote_url: string | null;
+        enrolled: boolean;
+      }[];
+    }>("/api/v1/local-repos");
+  }
+
+  health() {
+    return this.get<{ ok: boolean; version?: string; db?: string }>("/api/v1/health");
+  }
+
+  workersStatus() {
+    return this.get<Record<string, unknown>>("/api/v1/workers/status");
+  }
+
+  modelStatus() {
+    return this.get<Record<string, unknown>>("/api/v1/model/status");
+  }
+
+  githubStatus() {
+    return this.get<Record<string, unknown>>("/api/v1/github/status");
+  }
+
+  pushStatus() {
+    return this.get<Record<string, unknown>>("/api/v1/push/status");
+  }
+
+  chatdevStatus() {
+    return this.get<Record<string, unknown>>("/api/v1/chatdev/status");
+  }
+
+  feeds() {
+    return this.get<{ feeds: Record<string, unknown>[] }>("/api/v1/feeds");
+  }
+
+  slos() {
+    return this.get<Record<string, unknown>>("/api/v1/slos");
+  }
+
   project(id: string) {
     return this.get<Record<string, unknown>>(`/api/v1/projects/${id}`);
   }

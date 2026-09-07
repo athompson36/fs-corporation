@@ -1,24 +1,22 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.49**. State: **phone GitHub assign-by-address shipped**.
+Date: 2026-09-07. Version: **0.3.50**. State: **local repo candidates + Diagnostics**.
 
-## Delivered in 0.3.49
+## Delivered in 0.3.50
 
-- `POST /api/v1/projects/{id}/github-assign`: paste upstream URL/`owner/repo`, ensure
-  same-owner `{repo}-corp`, enroll both numeric ids
-- Companion Projects form (admin): Assign GitHub — no `window.prompt` for this path
-- `companion-admin-*` may enroll/dispatch/github (CEO mobile); App installation account
-  must match upstream owner
-- Companion package **0.3.49**
+- `GET /api/v1/local-repos` scans `local repos/` (or `FS_CORP_LOCAL_REPOS_DIR`)
+- Desk + companion: Local candidates with Enroll; Diagnostics probes status endpoints +
+  local-repos (unavailable on failure, no invented state)
+- Companion package **0.3.50**
 
 ## Prior
 
-- 0.3.48 billed cost/revenue; 0.3.47 PWA generateSW; 0.3.46 M10-02
+- 0.3.49 GitHub assign-by-address; 0.3.48 billed/revenue; 0.3.47 PWA generateSW
 
 ## Verify
 
 ```bash
-.venv/bin/python -m unittest tests.test_github_assign tests.test_companion_api -v
+.venv/bin/python -m unittest tests.test_local_repos -v
 .venv/bin/python -m unittest discover -s tests
 cd companion && npm run build
 python3 scripts/check_bundle.py
@@ -26,5 +24,5 @@ python3 scripts/check_bundle.py
 
 ## Next implementation
 
-Deploy 0.3.49 to fs-dev for phone smoke. Remaining M10-03 benchmarks / M10-04 UI
-(version display, status surface, keyboard, replace remaining prompts).
+Deploy 0.3.50 to fs-dev. Remaining M10-04: version in primary chrome, HQ keyboard,
+replace remaining `window.prompt` flows.

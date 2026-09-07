@@ -13,6 +13,7 @@ listed scope can still receive 403 from those routes.
 | GET /company | Current company and pause state | company.read |
 | GET /dashboard | CEO dashboard: stats, projects, decisions, queues, inbox count | company.read |
 | GET /projects | List enrolled projects with summary stats | company.read |
+| GET /local-repos | List `local repos/` folder candidates (enrolled flag) | company.read |
 | GET /projects/{id} | Project detail, tasks, timeline, dispatches | company.read |
 | GET /decisions/inbox | Unified pending policy, consultant, expansion items | company.read |
 | GET /owner-inbox | Owner feedback/escalation requests (optional `status` query filter) | company.read |

@@ -100,6 +100,7 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 <a href="#intelligence">Intelligence</a>
 <a href="#decisions">Decisions</a>
 <a href="#budget">Budget</a>
+<a href="#diagnostics">Diagnostics</a>
 <a href="#activity">Activity</a>
 <a href="#consultant">Consultant</a>
 </nav>
@@ -138,13 +139,22 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 </div>
 <section class="glass" id="status"><h2>Status</h2><pre id="status-json">Loading…</pre></section>
 <section class="glass" id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul></section>
-<section class="glass" id="projects"><h2>Projects</h2><ul id="project-list"></ul></section>
+<section class="glass" id="projects"><h2>Projects</h2><ul id="project-list"></ul>
+<h3>Local candidates</h3>
+<p class="muted">Folders under local repos/ on the host. Enroll creates a company project (id = folder name).</p>
+<ul id="local-repo-list"></ul>
+</section>
 <section class="glass" id="departments"><h2>Departments</h2><ul id="department-list"></ul></section>
 <section class="glass" id="people"><h2>People</h2><ul id="people-list"></ul></section>
 <section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="budget"><h2>Budget</h2>
 <p class="muted">Simulated credits, billed cost, and revenue are separate totals.</p>
 <pre id="budget-json">Loading…</pre>
+</section>
+<section class="glass" id="diagnostics"><h2>Diagnostics</h2>
+<p class="muted">Live probes only. Missing endpoints show unavailable — nothing is invented.</p>
+<button type="button" class="chip" id="diag-refresh">Refresh diagnostics</button>
+<div id="diag-blocks"></div>
 </section>
 <section class="glass" id="activity"><h2>Activity</h2><ul id="activity-list"></ul></section>
 <section class="glass" id="pairing">
@@ -359,6 +369,53 @@ async function load() {
   const projects = await fetch('/api/v1/projects', {headers});
   const pj = await projects.json();
   fill('project-list', pj.projects||[], p => p.id + ' — ' + (p.brief || p.status || ''));
+  const localReposEl = document.getElementById('local-repo-list');
+  localReposEl.innerHTML = '';
+  try {
+    const lr = await fetch('/api/v1/local-repos', {headers});
+    const lj = await lr.json();
+    if (!lr.ok) {
+      const li = document.createElement('li');
+      li.textContent = 'local-repos unavailable';
+      localReposEl.appendChild(li);
+    } else if (!(lj.candidates||[]).length) {
+      const li = document.createElement('li');
+      li.className = 'muted';
+      li.textContent = 'No folders under ' + (lj.root || 'local repos/');
+      localReposEl.appendChild(li);
+    } else {
+      (lj.candidates||[]).forEach(c => {
+        const li = document.createElement('li');
+        const label = document.createElement('span');
+        label.textContent = c.id + ' — ' + (c.enrolled ? 'enrolled' : 'not enrolled')
+          + (c.has_git ? ' · git' : '')
+          + (c.remote_url ? ' · ' + c.remote_url : '');
+        li.appendChild(label);
+        if (!c.enrolled) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'chip';
+          btn.textContent = 'Enroll';
+          btn.style.marginLeft = '0.5rem';
+          btn.addEventListener('click', async () => {
+            const res = await fetch('/api/v1/projects', {
+              method: 'POST',
+              headers: Object.assign({'Content-Type': 'application/json', 'Idempotency-Key': 'local-enroll-' + c.id}, headers),
+              body: JSON.stringify({payload: {id: c.id, brief: c.remote_url || ('Local repo ' + c.path)}}),
+            });
+            if (!res.ok) { alert(await res.text()); return; }
+            load();
+          });
+          li.appendChild(btn);
+        }
+        localReposEl.appendChild(li);
+      });
+    }
+  } catch (e) {
+    const li = document.createElement('li');
+    li.textContent = 'local-repos unavailable';
+    localReposEl.appendChild(li);
+  }
   const depts = await fetch('/api/v1/departments', {headers});
   const dj = await depts.json();
   fill('department-list', dj.departments||[], d => d.id + ' — ' + d.name + ' — ' + d.head_title);
@@ -433,6 +490,46 @@ async function load() {
   });
 }
 load().catch(err => { document.getElementById('status-json').textContent = String(err); });
+async function loadDiagnostics() {
+  const host = document.getElementById('diag-blocks');
+  host.innerHTML = 'Loading…';
+  const probes = [
+    ['health', '/api/v1/health'],
+    ['workers', '/api/v1/workers/status'],
+    ['model', '/api/v1/model/status'],
+    ['github', '/api/v1/github/status'],
+    ['push', '/api/v1/push/status'],
+    ['chatdev', '/api/v1/chatdev/status'],
+    ['feeds', '/api/v1/feeds'],
+    ['slos', '/api/v1/slos'],
+    ['local-repos', '/api/v1/local-repos'],
+  ];
+  const parts = await Promise.all(probes.map(async ([label, path]) => {
+    try {
+      const res = await fetch(path, {headers});
+      const text = await res.text();
+      let body = text;
+      try { body = JSON.stringify(JSON.parse(text), null, 2); } catch (e) {}
+      return {label, ok: res.ok, body: res.ok ? body : (res.status + ': ' + text)};
+    } catch (e) {
+      return {label, ok: false, body: String(e)};
+    }
+  }));
+  host.innerHTML = '';
+  parts.forEach(p => {
+    const wrap = document.createElement('div');
+    wrap.style.marginTop = '0.75rem';
+    const h = document.createElement('h3');
+    h.textContent = p.label + (p.ok ? '' : ' (unavailable)');
+    const pre = document.createElement('pre');
+    pre.textContent = p.body;
+    wrap.appendChild(h);
+    wrap.appendChild(pre);
+    host.appendChild(wrap);
+  });
+}
+document.getElementById('diag-refresh').addEventListener('click', () => loadDiagnostics());
+loadDiagnostics().catch(() => {});
 </script>
 </body>
 </html>
@@ -650,6 +747,12 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "company.read")
         return {"projects": company.list_projects()}
+
+    @app.get("/api/v1/local-repos")
+    def local_repos(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.list_local_repos()
 
     @app.get("/api/v1/projects/{project_id}")
     def get_project(project_id: str, authorization: str | None = Header(default=None)):

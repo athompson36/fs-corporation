@@ -315,14 +315,15 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
       ^1.2.0; Node 18 crypto polyfill + Workbox `mode: "development"` so SW generation
       exits. `npm run build` emits `dist/sw.js` and `dist/sw-push.js`. Phone offline /
       update-on-reload still needs an owner smoke check after the next fs-dev install.
-- [ ] **Surface operational status in the UI.** `workers/status`, `chatdev/status`,
-      `github/status`, `model/status`, `feeds`, and `slos` are API-only today.
-      *Acceptance:* a desk section rendering these from live responses, showing nothing when
-      an endpoint is unavailable rather than inventing state.
-- [ ] **Display the version.** No UI surface shows one; `GET /api/v1/health` already returns
-      it, and `companion/package.json` has drifted behind the backend.
-      *Acceptance:* desk and companion render the backend version; companion package version
-      tracks releases.
+- [x] **Surface operational status in the UI** (0.3.50). Desk **Diagnostics** and companion
+      Diagnostics tab probe `health`, `workers/status`, `model/status`, `github/status`,
+      `push/status`, `chatdev/status`, `feeds`, `slos`, and `local-repos` in parallel; failed
+      probes show unavailable rather than invented healthy state. Local repo candidates appear
+      under Projects with tap-to-enroll.
+- [ ] **Display the version.** No dedicated chrome shows one; `GET /api/v1/health` returns it
+      (also visible inside Diagnostics). Companion package version now tracks releases (0.3.50).
+      *Acceptance:* desk and companion render the backend version in primary chrome (not only
+      diagnostics).
 - [ ] **Keyboard access for HQ room tiles.** Isometric and plan tiles in `company/service.py`
       are click-only SVG with no focus or key handler; the list view is already accessible.
       *Acceptance:* tiles are focusable and activate on Enter/Space.
