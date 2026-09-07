@@ -203,6 +203,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Corporate HQ Phase 4 — migration `0019_activity_projection`, idempotent event-derived work/review/meeting/context sessions, stale-session closure, company-read API, room-aware SSE frames, and reduced-motion-safe Desk badges
 - [x] Corporate HQ Phase 5 — migration `0020_career_ladder`, seeded Engineering L1–L3 standards, evidence-backed promotion evaluation, HR proposals, CEO decisions, training targets, authenticated APIs, and minimal Desk ladder/pending-promotion views
 - [x] Corporate HQ Phase 6 — migration `0021_staffing_proposals`, cooldown-limited evidence scans, pending-proposal deduplication, HR/CEO proposal authority, CEO/admin decisions, atomic approval-gated hires, authenticated APIs, and Desk approve/reject controls
+- [x] Corporate HQ Phase 7 — migration `0022_divisions`, four persisted industry packs, consultant/CEO/seated-head proposals, CEO/admin atomic activation, division departments/skills/floorplans, open-work deactivation gates, authenticated APIs, and Desk controls
 
 **Acceptance:** one accepted project earns progress; justified expansion is approved and provisioned; a room opens real department data; restart/replay keeps room identity and count. Reduced-motion and list navigation work.
 
@@ -389,10 +390,10 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Corporate HQ Phase 6 shipped additively after 0.3.52.** Next: define Phase 7 before
-extending furnishing/movement, or resume remaining M10-03 (benchmark read path or removal;
-role fixtures) and **M10-04** UI items (version display, desk keyboard access,
-`window.prompt` replacement for remaining flows).
+**Corporate HQ Phase 7 shipped additively after 0.3.52.** Next: define the next governed
+headquarters increment before extending furnishing/movement, or resume remaining M10-03
+(benchmark read path or removal; role fixtures) and **M10-04** UI items (version display,
+desk keyboard access, `window.prompt` replacement for remaining flows).
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
 dependencies plus controlled egress in the worker image; furnished HQ room art.

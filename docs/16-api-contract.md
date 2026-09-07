@@ -59,6 +59,11 @@ listed scope can still receive 403 from those routes.
 | POST /staffing-proposals | Create an evidence-backed staffing proposal | organization.write + HR/CEO |
 | POST /staffing-proposals/scan | Run the cooldown-limited staffing-gap scan | organization.write + HR/CEO |
 | POST /staffing-proposals/{id}/decision | Approve/reject; approved hires require evidence fields and execute atomically | organization.write + CEO/admin companion |
+| GET /industry-packs | List persisted industry-pack templates | organization.read |
+| GET /divisions | List divisions, modes, linked departments and activation history | organization.read |
+| POST /divisions/proposals | Propose a minimal/full division | organization.write + consultant/CEO/seated head |
+| POST /divisions/{id}/activate | Atomically activate a proposed division | organization.write + CEO/admin companion |
+| POST /divisions/{id}/deactivate | Deactivate when linked departments have no open work | organization.write + CEO/admin companion |
 | POST /model-assignments | Propose role/provider assignment | model.assign |
 | POST /signals | Record source evidence | intelligence.ingest |
 | GET /impact-briefs | List impact briefs (no auto-publish) | company.read |
@@ -143,6 +148,8 @@ These routes pass the scope check above and then apply a further identity check 
 | `GET /employees/{id}/training`, `GET /employees/{id}/performance`, `GET /hr/development`, `POST /employees`, `POST /training/schedule`, `POST /employees/{id}/goals`, `POST /employees/{id}/reviews` | organization.read | `_hr_or_ceo`: the CEO, or an actor `people:<title>` where title is `HR Director`, `People Director`, or `Training Specialist`. `GET /employees/{id}` additionally allows the employee reading their own record |
 | `POST /employees/{id}/promotions` | organization.write | `_hr_or_ceo`; an employee cannot propose their own promotion |
 | `POST /promotions/{id}/decision` | organization.write | `_ceo_or_admin_companion`; the proposal must still be pending and its from-level must match current state |
+| `POST /divisions/proposals` | organization.write | Consultant principal, CEO, or principal occupying an active department-head seat |
+| `POST /divisions/{id}/activate`, `POST /divisions/{id}/deactivate` | organization.write | `_ceo_or_admin_companion`; deactivation also rejects open linked work |
 
 ## Status endpoint responses
 

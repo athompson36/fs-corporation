@@ -195,7 +195,7 @@ class CareerLadderApiAndMigrationTests(unittest.TestCase):
         self.assertIn("/api/v1/promotions?status=pending", desk)
 
     def test_file_database_migrates_through_0020(self):
-        self.assertEqual(HEAD_REVISION, "0021_staffing_proposals")
+        self.assertEqual(HEAD_REVISION, "0022_divisions")
         with tempfile.TemporaryDirectory() as directory:
             company = Company(str(Path(directory) / "career.db"))
             try:

@@ -1,0 +1,19 @@
+{
+  "id": "investment-research",
+  "industry": "Investment research",
+  "compliance_notes": "Outputs are research simulations, not investment advice or authority to trade.",
+  "minimal_departments": [
+    {"id":"research","name":"Investment Research","head":"Research Director","mission":"Produce sourced company, sector and macro research.","measures":["Evidence coverage","Forecast calibration"],"room_type":"research-library","positions":["Research Analyst","Data Analyst"],"default_model_profile":"mock-text","initially_active":true}
+  ],
+  "full_departments": [
+    {"id":"research","name":"Investment Research","head":"Research Director","mission":"Produce sourced company, sector and macro research.","measures":["Evidence coverage","Forecast calibration"],"room_type":"research-library","positions":["Research Analyst","Data Analyst"],"default_model_profile":"mock-text","initially_active":true},
+    {"id":"portfolio","name":"Portfolio Strategy","head":"Portfolio Director","mission":"Translate approved research into simulated portfolio proposals.","measures":["Mandate alignment","Proposal quality"],"room_type":"portfolio-room","positions":["Portfolio Analyst","Allocation Strategist"],"default_model_profile":"mock-text","initially_active":true},
+    {"id":"risk","name":"Investment Risk","head":"Risk Director","mission":"Independently challenge assumptions and quantify downside scenarios.","measures":["Risk coverage","Limit exceptions"],"room_type":"risk-lab","positions":["Risk Analyst","Scenario Reviewer"],"default_model_profile":"mock-text","initially_active":true}
+  ],
+  "required_skills": [
+    {"id":"investment-sourcing","name":"Investment evidence sourcing","department_id":"research","platform":"hr"},
+    {"id":"investment-allocation","name":"Portfolio allocation analysis","department_id":"portfolio","platform":"hr"},
+    {"id":"investment-risk","name":"Investment risk analysis","department_id":"risk","platform":"hr"}
+  ],
+  "default_floorplan": {"grid_cols":8,"grid_rows":6}
+}

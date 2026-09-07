@@ -101,6 +101,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <a href="#hq">Headquarters</a>
 <a href="#projects">Projects</a>
 <a href="#departments">Departments</a>
+<a href="#corporate-upgrades">Corporate upgrades</a>
 <a href="#people">People</a>
 <a href="#intelligence">Intelligence</a>
 <a href="#decisions">Decisions</a>
@@ -201,6 +202,20 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <h3>Release assignment</h3>
 <label for="desk-release-assignment">Assignment id</label><input id="desk-release-assignment" required/>
 <button type="submit" class="chip">Release assignment</button><span class="muted"></span>
+</form>
+</section>
+<section class="glass" id="corporate-upgrades">
+<h2>Corporate upgrades</h2>
+<p class="muted">Industry packs are templates. Divisions remain proposals until the CEO activates them.</p>
+<h3>Industry packs</h3><ul id="industry-pack-list"></ul>
+<h3>Divisions</h3><ul id="division-list"></ul>
+<form id="division-proposal-form" class="compact">
+<h3>Propose division</h3>
+<label for="division-pack-id">Industry pack id</label><input id="division-pack-id" required/>
+<label for="division-name">Division name</label><input id="division-name" required/>
+<label for="division-mode">Mode</label>
+<select id="division-mode"><option value="minimal">Minimal</option><option value="full">Full</option></select>
+<button type="submit" class="chip">Propose</button><span class="muted"></span>
 </form>
 </section>
 <section class="glass" id="head-inbox"><h2>Head inbox</h2>
@@ -401,6 +416,14 @@ document.getElementById('release-assignment-form').addEventListener('submit', as
     assignment_id: document.getElementById('desk-release-assignment').value.trim(),
     release: true
   }, 'Assignment released.');
+});
+document.getElementById('division-proposal-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  await submitOrgCommand(event.target, '/api/v1/divisions/proposals', {
+    pack_id: document.getElementById('division-pack-id').value.trim(),
+    name: document.getElementById('division-name').value.trim(),
+    mode: document.getElementById('division-mode').value
+  }, 'Division proposed.');
 });
 function setHqView(mode) {
   document.getElementById('iso').hidden = mode !== 'iso';
@@ -655,6 +678,43 @@ function renderStaffingProposals(items) {
     list.appendChild(li);
   });
 }
+function renderDivisions(items) {
+  const list = document.getElementById('division-list');
+  list.innerHTML = '';
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No division proposals.';
+    list.appendChild(li);
+    return;
+  }
+  items.forEach(division => {
+    const li = document.createElement('li');
+    const label = document.createElement('span');
+    label.textContent = division.name + ' — ' + division.industry_pack_id +
+      ' — ' + division.mode + ' — ' + division.status;
+    li.appendChild(label);
+    if (division.status === 'proposed') {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip';
+      button.textContent = 'Activate (CEO)';
+      button.style.marginLeft = '0.5rem';
+      button.addEventListener('click', async () => {
+        const res = await fetch('/api/v1/divisions/' + division.id + '/activate', {
+          method: 'POST',
+          headers: {...headers, 'Content-Type': 'application/json',
+            'Idempotency-Key': 'desk-division-activate-' + division.id},
+          body: JSON.stringify({payload: {}})
+        });
+        if (!res.ok) { alert(await res.text()); return; }
+        load();
+      });
+      li.appendChild(button);
+    }
+    list.appendChild(li);
+  });
+}
 async function load() {
   const status = await fetch('/api/v1/company', {headers});
   document.getElementById('status-json').textContent = await status.text();
@@ -751,6 +811,14 @@ async function load() {
       (seat.status || 'vacant') + ' — ' + (seat.principal_id || 'vacant') +
       ' — order ' + (d.display_order ?? 0) + ' — roster: ' + roster;
   });
+  const packs = await fetch('/api/v1/industry-packs', {headers});
+  const packsj = await packs.json();
+  fill('industry-pack-list', packsj.industry_packs || [], pack =>
+    pack.id + ' — ' + pack.industry + ' — minimal ' +
+    pack.minimal_departments.length + ' / full ' + pack.full_departments.length);
+  const divisions = await fetch('/api/v1/divisions', {headers});
+  const divisionsj = await divisions.json();
+  renderDivisions(divisionsj.divisions || []);
   const headInbox = await fetch('/api/v1/inbox/head', {headers});
   const hij = await headInbox.json();
   renderHeadInbox(hij.items || []);
@@ -1064,6 +1132,66 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "organization.read")
         rows = [dict(r) for r in company.db.execute("SELECT id,name,head_title,initially_active FROM departments ORDER BY id")]
         return {"departments": rows}
+
+    @app.get("/api/v1/industry-packs")
+    def industry_packs(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        return company.list_industry_packs()
+
+    @app.get("/api/v1/divisions")
+    def divisions(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        return company.list_divisions()
+
+    @app.post("/api/v1/divisions/proposals")
+    def propose_division(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.propose_division(ident["principal_id"], **payload), 200))
+
+    @app.post("/api/v1/divisions/{division_id}/activate")
+    def activate_division(
+            division_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        if payload:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(payload)}")
+        return run(
+            ident, idempotency_key, {"division_id": division_id},
+            lambda: (
+                company.activate_division(ident["principal_id"], division_id), 200))
+
+    @app.post("/api/v1/divisions/{division_id}/deactivate")
+    def deactivate_division(
+            division_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        if payload:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(payload)}")
+        return run(
+            ident, idempotency_key, {"division_id": division_id},
+            lambda: (
+                company.deactivate_division(ident["principal_id"], division_id), 200))
 
     @app.get("/api/v1/org")
     def org(authorization: str | None = Header(default=None)):
@@ -2269,6 +2397,7 @@ def main():
               file=sys.stderr)
     company = Company(str(db_path))
     bootstrap_owner(company, token_path)
+    company.seed_industry_packs()
     import uvicorn
     uvicorn.run(create_app(company), host=args.host, port=args.port, log_level="info")
 

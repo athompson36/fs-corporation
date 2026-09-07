@@ -1,23 +1,26 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.52** (unchanged). State: **Corporate HQ Phase 6 implemented on feature/corporate-hq-phases**.
+Date: 2026-09-07. Version: **0.3.52** (unchanged). State: **Corporate HQ Phase 7 implemented on feature/corporate-hq-phases**.
 
-## Corporate HQ Phase 6 (no version bump)
+## Corporate HQ Phase 7 (no version bump)
 
-- Alembic `0021_staffing_proposals` adds typed, evidence-backed staffing proposals,
-  a unique pending kind/department/position key, and a durable 15-minute scan cooldown
-- HR/CEO scans persisted vacant-head dispatches, high unassigned dispatch queues,
-  unmet floorplan room requirements, and overdue employee training; scans only propose
-  and never hire
-- HR/CEO may create manual proposals; only CEO/admin companion may decide; approved hire
-  proposals require employee id, display name, and background evidence and commit the
-  proposal decision, employee, career level, training, and events atomically
-- approved promote proposals remain staffing decisions only; Phase 5 promotion APIs retain
-  separate evidence and decision authority
-- authenticated list/create/scan/decision endpoints are available; Desk People lists pending
-  proposals with approve/reject controls
-- Tests: 27 focused integration/regression tests and 308 full-discovery tests pass on
-  Python 3.14.3; Alembic reports `0021_staffing_proposals` as head
+- Alembic `0022_divisions` adds persisted industry packs, divisions, division/department
+  links, and durable activation history
+- four JSON packs cover software delivery, finance operations, investment research, and
+  corporate consulting; software full mode maps every current catalog department id
+- consultant authors, the CEO, and currently seated department heads may propose minimal or
+  full divisions; only CEO/admin companions may activate or deactivate
+- activation commits missing departments/positions, links, pack skills, company learning
+  assignments, a division-tagged floorplan, status, history, and events atomically
+- deactivation fails closed while linked departments have open dispatches or cross-department
+  requests; it does not retire shared department records
+- authenticated pack/division lifecycle endpoints are available; Desk Corporate upgrades
+  lists packs/divisions and provides propose/CEO-activate controls
+- Tests: 7 focused Phase 7 tests and 315 full-discovery tests pass on Python 3.14.3;
+  Alembic reports `0022_divisions` as head
+- `scripts/check_bundle.py` is blocked by a pre-existing untracked
+  `local repos/service-department/README.md` link to its missing `LICENSE`; Phase 7 does not
+  modify or commit that unrelated local repository tree
 
 ## Prior
 
@@ -37,11 +40,12 @@ Date: 2026-09-07. Version: **0.3.52** (unchanged). State: **Corporate HQ Phase 6
 - Corporate HQ Phase 2 persisted floorplans/rooms and requirement warnings
 - 0.3.52 Phase 1 runtime department/position editing and `0016_department_editing`
 - 0.3.51 org roster, head handoff, cross-department requests
+- Corporate HQ Phase 6 added approval-gated HR staffing proposals and atomic hires
 
 ## Verify
 
 ```bash
-.venv/bin/python -m unittest tests.test_staffing_proposals tests.test_career_ladder tests.test_api tests.test_migrate -v
+.venv/bin/python -m unittest tests.test_divisions tests.test_staffing_proposals tests.test_floorplans tests.test_api tests.test_migrate -v
 .venv/bin/python -m unittest discover -s tests
 PYTHONPATH=. .venv/bin/alembic heads
 PYTHONPATH=. .venv/bin/python scripts/check_bundle.py
@@ -49,5 +53,6 @@ PYTHONPATH=. .venv/bin/python scripts/check_bundle.py
 
 ## Next
 
-Define Corporate HQ Phase 7 before extending furnishing or movement; retain separate
-proposer/decider authority and keep visual presence derived from persisted activity sessions.
+Define the next governed Corporate HQ increment before extending furnishing or movement;
+retain separate proposer/decider authority and keep visual presence derived from persisted
+activity sessions.

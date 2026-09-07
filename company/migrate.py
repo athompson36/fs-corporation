@@ -13,7 +13,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
-HEAD_REVISION = "0021_staffing_proposals"
+HEAD_REVISION = "0022_divisions"
 ROOT = Path(__file__).resolve().parents[1]
 
 _locks_guard = threading.Lock()

@@ -2076,6 +2076,301 @@ class Company:
             self._event("expansion.inspected",{"id":eid,"passed":passed,"inspector":inspector},actor_id=inspector)
         return passed
 
+    @staticmethod
+    def _validate_industry_pack(body):
+        required = {
+            "id", "industry", "compliance_notes", "minimal_departments",
+            "full_departments", "required_skills", "default_floorplan",
+        }
+        if set(body) != required:
+            raise ValueError("Industry pack has unknown or missing fields")
+        if not all(isinstance(body[key], str) and body[key].strip()
+                   for key in ("id", "industry", "compliance_notes")):
+            raise ValueError("Industry pack id, industry and compliance_notes required")
+        department_fields = {
+            "id", "name", "head", "mission", "measures", "room_type", "positions",
+            "default_model_profile", "initially_active",
+        }
+        full_ids = set()
+        for mode in ("minimal_departments", "full_departments"):
+            departments = body[mode]
+            if not isinstance(departments, list) or not departments:
+                raise ValueError(f"{mode} must be a nonempty list")
+            for department in departments:
+                if set(department) != department_fields:
+                    raise ValueError("Industry pack department has unknown or missing fields")
+                if not all(isinstance(department[key], str) and department[key].strip()
+                           for key in ("id", "name", "head", "mission", "room_type",
+                                       "default_model_profile")):
+                    raise ValueError("Industry pack department text fields required")
+                if not isinstance(department["measures"], list):
+                    raise ValueError("Industry pack measures must be a list")
+                if not isinstance(department["positions"], list):
+                    raise ValueError("Industry pack positions must be a list")
+                if type(department["initially_active"]) is not bool:
+                    raise ValueError("Industry pack initially_active must be boolean")
+                if mode == "full_departments":
+                    full_ids.add(department["id"])
+        minimal_ids = {d["id"] for d in body["minimal_departments"]}
+        if not minimal_ids.issubset(full_ids):
+            raise ValueError("Minimal departments must be included in full departments")
+        skill_fields = {"id", "name", "department_id", "platform"}
+        for skill in body["required_skills"]:
+            if set(skill) != skill_fields or not all(
+                    isinstance(skill[key], str) and skill[key].strip()
+                    for key in skill_fields):
+                raise ValueError("Industry pack skill is invalid")
+            if skill["department_id"] not in full_ids:
+                raise ValueError("Industry pack skill references unknown department")
+        floorplan = body["default_floorplan"]
+        if set(floorplan) != {"grid_cols", "grid_rows"}:
+            raise ValueError("Industry pack default_floorplan is invalid")
+        if any(type(floorplan[key]) is not int or floorplan[key] < 1
+               for key in ("grid_cols", "grid_rows")):
+            raise ValueError("Industry pack floorplan dimensions must be positive integers")
+
+    def seed_industry_packs(self, path=None):
+        directory = Path(path) if path else (
+            Path(__file__).resolve().parents[1] / "config" / "industry-packs")
+        paths = sorted(directory.glob("*.json"))
+        if not paths:
+            raise ValueError("No industry packs found")
+        packs = []
+        for pack_path in paths:
+            body = json.loads(pack_path.read_text())
+            self._validate_industry_pack(body)
+            packs.append(body)
+        with self.tx():
+            for body in packs:
+                self.db.execute(
+                    """INSERT INTO industry_packs(id,industry,body,enabled)
+                       VALUES(?,?,?,1)
+                       ON CONFLICT(id) DO UPDATE SET
+                         industry=excluded.industry,body=excluded.body""",
+                    (body["id"], body["industry"], canonical(body)),
+                )
+            self._event("industry_packs.seeded", {"packs": len(packs)})
+        return self.list_industry_packs()
+
+    def list_industry_packs(self):
+        result = []
+        for row in self.db.execute(
+                "SELECT * FROM industry_packs ORDER BY industry,id"):
+            body = json.loads(row["body"])
+            body["enabled"] = bool(row["enabled"])
+            result.append(body)
+        return {"industry_packs": result}
+
+    def _division_proposer(self, actor):
+        if actor == self.ceo:
+            return
+        if actor == "consultant" or str(actor).startswith("consultant:"):
+            return
+        seat = self.db.execute(
+            """SELECT 1 FROM department_seats
+               WHERE principal_id=? AND status='active'""", (actor,)).fetchone()
+        if seat:
+            return
+        identity = self.db.execute(
+            "SELECT scopes FROM identities WHERE principal_id=?", (actor,)).fetchone()
+        if identity and "consultant.propose" in json.loads(identity["scopes"]):
+            return
+        raise PermissionError("Consultant, seated department head, or CEO authority required")
+
+    def _division(self, division_id):
+        row = self.db.execute(
+            "SELECT * FROM divisions WHERE id=?", (division_id,)).fetchone()
+        if not row:
+            raise ValueError("Unknown division")
+        return dict(row)
+
+    def propose_division(self, actor, pack_id, name, mode="minimal"):
+        self._division_proposer(actor)
+        name = str(name or "").strip()
+        if not name:
+            raise ValueError("name required")
+        if mode not in {"minimal", "full"}:
+            raise ValueError("mode must be minimal or full")
+        pack = self.db.execute(
+            "SELECT enabled FROM industry_packs WHERE id=?", (pack_id,)).fetchone()
+        if not pack:
+            raise ValueError("Unknown industry pack")
+        if not pack["enabled"]:
+            raise ValueError("Industry pack is disabled")
+        division_id = str(uuid.uuid4())
+        stamp = now().isoformat()
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO divisions(
+                     id,name,industry_pack_id,status,activated_by,activated_at,
+                     proposed_by,created_at)
+                   VALUES(?,?,?,'proposed',NULL,NULL,?,?)""",
+                (division_id, name, pack_id, actor, stamp),
+            )
+            self.db.execute(
+                "INSERT INTO division_activations VALUES(?,?,?,?,?,?)",
+                (str(uuid.uuid4()), division_id, "proposed", actor, stamp, mode),
+            )
+            self._event(
+                "division.proposed",
+                {"id": division_id, "pack_id": pack_id, "mode": mode},
+                actor_id=actor,
+            )
+        return next(
+            item for item in self.list_divisions()["divisions"]
+            if item["id"] == division_id)
+
+    def list_divisions(self):
+        divisions = []
+        for row in self.db.execute(
+                "SELECT * FROM divisions ORDER BY created_at,id"):
+            result = dict(row)
+            mode = self.db.execute(
+                """SELECT note FROM division_activations
+                   WHERE division_id=? AND action='proposed'
+                   ORDER BY at,id LIMIT 1""", (row["id"],)).fetchone()
+            result["mode"] = mode["note"] if mode else "minimal"
+            result["departments"] = [
+                department["department_id"] for department in self.db.execute(
+                    """SELECT department_id FROM division_departments
+                       WHERE division_id=? ORDER BY department_id""", (row["id"],))
+            ]
+            result["activations"] = [
+                dict(item) for item in self.db.execute(
+                    """SELECT id,action,actor,at,note FROM division_activations
+                       WHERE division_id=? ORDER BY at,id""", (row["id"],))
+            ]
+            divisions.append(result)
+        return {"divisions": divisions}
+
+    def activate_division(self, actor, division_id):
+        self._ceo_or_admin_companion(actor)
+        division = self._division(division_id)
+        if division["status"] != "proposed":
+            raise ValueError("Division is not proposed")
+        pack_row = self.db.execute(
+            "SELECT body,enabled FROM industry_packs WHERE id=?",
+            (division["industry_pack_id"],)).fetchone()
+        if not pack_row or not pack_row["enabled"]:
+            raise ValueError("Industry pack is unavailable")
+        pack = json.loads(pack_row["body"])
+        mode_row = self.db.execute(
+            """SELECT note FROM division_activations
+               WHERE division_id=? AND action='proposed'
+               ORDER BY at,id LIMIT 1""", (division_id,)).fetchone()
+        mode = mode_row["note"] if mode_row else "minimal"
+        departments = pack[f"{mode}_departments"]
+        selected_ids = {department["id"] for department in departments}
+        stamp = now().isoformat()
+        with self.tx():
+            for department in departments:
+                if not self.db.execute(
+                        "SELECT 1 FROM departments WHERE id=?",
+                        (department["id"],)).fetchone():
+                    self.create_department(
+                        actor,
+                        department_id=department["id"],
+                        name=department["name"],
+                        head_title=department["head"],
+                        mission=department["mission"],
+                        measures=department["measures"],
+                        room_type=department["room_type"],
+                        initially_active=department["initially_active"],
+                        default_model_profile=department["default_model_profile"],
+                    )
+                for title in department["positions"]:
+                    position_id = f"{department['id']}:{title}"
+                    if not self.db.execute(
+                            "SELECT 1 FROM positions WHERE id=?",
+                            (position_id,)).fetchone():
+                        self.create_position(
+                            actor, department_id=department["id"], title=title)
+                self.db.execute(
+                    "INSERT INTO division_departments VALUES(?,?)",
+                    (division_id, department["id"]),
+                )
+            heads = {department["id"]: department["head"] for department in departments}
+            for skill in pack["required_skills"]:
+                if skill["department_id"] not in selected_ids:
+                    continue
+                self.db.execute(
+                    """INSERT INTO skills(id,name,platform,department_id)
+                       VALUES(?,?,?,?)
+                       ON CONFLICT(id) DO UPDATE SET
+                         name=excluded.name,platform=excluded.platform,
+                         department_id=excluded.department_id""",
+                    (skill["id"], skill["name"], skill["platform"],
+                     skill["department_id"]),
+                )
+                learner = f"{skill['department_id']}:{heads[skill['department_id']]}"
+                assignment_id = digest({
+                    "project": "company", "skill": skill["id"], "learner": learner,
+                })
+                self.db.execute(
+                    """INSERT OR IGNORE INTO learning_assignments
+                       VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (assignment_id, "company", skill["id"], learner,
+                     skill["department_id"], None, "assigned", None, stamp),
+                )
+            self.default_floorplan_for(actor, division_id)
+            self.db.execute(
+                """UPDATE divisions SET status='active',activated_by=?,activated_at=?
+                   WHERE id=?""", (actor, stamp, division_id))
+            self.db.execute(
+                "INSERT INTO division_activations VALUES(?,?,?,?,?,?)",
+                (str(uuid.uuid4()), division_id, "activated", actor, stamp, mode),
+            )
+            self._event(
+                "division.activated",
+                {"id": division_id, "pack_id": division["industry_pack_id"],
+                 "mode": mode, "departments": sorted(selected_ids)},
+                actor_id=actor,
+            )
+        return next(
+            item for item in self.list_divisions()["divisions"]
+            if item["id"] == division_id)
+
+    def deactivate_division(self, actor, division_id):
+        self._ceo_or_admin_companion(actor)
+        division = self._division(division_id)
+        if division["status"] != "active":
+            raise ValueError("Division is not active")
+        department_ids = [
+            row["department_id"] for row in self.db.execute(
+                "SELECT department_id FROM division_departments WHERE division_id=?",
+                (division_id,))
+        ]
+        placeholders = ",".join("?" for _ in department_ids)
+        if department_ids and self.db.execute(
+                f"""SELECT 1 FROM project_dispatches
+                    WHERE department_id IN ({placeholders}) AND status IN (
+                      'queued_for_head','assigned','in_progress','blocked',
+                      'blocked_vacant_head') LIMIT 1""",
+                tuple(department_ids)).fetchone():
+            raise ValueError("Cannot deactivate division with open dispatches")
+        if department_ids and self.db.execute(
+                f"""SELECT 1 FROM cross_department_requests
+                    WHERE status NOT IN ('accepted','rejected','closed','cancelled')
+                      AND (requesting_department_id IN ({placeholders})
+                           OR delivering_department_id IN ({placeholders}))
+                    LIMIT 1""",
+                tuple(department_ids + department_ids)).fetchone():
+            raise ValueError(
+                "Cannot deactivate division with open cross-department requests")
+        stamp = now().isoformat()
+        with self.tx():
+            self.db.execute(
+                "UPDATE divisions SET status='inactive' WHERE id=?", (division_id,))
+            self.db.execute(
+                "INSERT INTO division_activations VALUES(?,?,?,?,?,?)",
+                (str(uuid.uuid4()), division_id, "deactivated", actor, stamp, None),
+            )
+            self._event(
+                "division.deactivated", {"id": division_id}, actor_id=actor)
+        return next(
+            item for item in self.list_divisions()["divisions"]
+            if item["id"] == division_id)
+
     def _floorplan(self, floorplan_id):
         row = self.db.execute(
             "SELECT * FROM floorplans WHERE id=?", (floorplan_id,)).fetchone()
@@ -2319,15 +2614,37 @@ class Company:
         return {"id": room_id, "removed": True}
 
     def default_floorplan_for(self, actor, division_id=None):
-        departments = [
-            dict(row) for row in self.db.execute(
-                """SELECT id,name,room_type FROM departments
-                   WHERE status!='retired' ORDER BY display_order,id""")
-        ]
-        grid_cols = 8
-        grid_rows = max(6, (len(departments) + grid_cols - 1) // grid_cols)
+        if division_id:
+            division = self._division(division_id)
+            departments = [
+                dict(row) for row in self.db.execute(
+                    """SELECT d.id,d.name,d.room_type
+                       FROM departments d
+                       JOIN division_departments dd ON dd.department_id=d.id
+                       WHERE dd.division_id=? AND d.status!='retired'
+                       ORDER BY d.display_order,d.id""", (division_id,))
+            ]
+            pack = self.db.execute(
+                "SELECT body FROM industry_packs WHERE id=?",
+                (division["industry_pack_id"],)).fetchone()
+            dimensions = json.loads(pack["body"])["default_floorplan"]
+            grid_cols = dimensions["grid_cols"]
+            grid_rows = max(
+                dimensions["grid_rows"],
+                (len(departments) + grid_cols - 1) // grid_cols,
+            )
+            name = f"{division['name']} headquarters"
+        else:
+            departments = [
+                dict(row) for row in self.db.execute(
+                    """SELECT id,name,room_type FROM departments
+                       WHERE status!='retired' ORDER BY display_order,id""")
+            ]
+            grid_cols = 8
+            grid_rows = max(6, (len(departments) + grid_cols - 1) // grid_cols)
+            name = "Default headquarters"
         plan = self.create_floorplan(
-            actor, "Default headquarters", grid_cols, grid_rows, division_id)
+            actor, name, grid_cols, grid_rows, division_id)
         for index, department in enumerate(departments):
             self.upsert_floorplan_room(
                 actor, plan["id"],

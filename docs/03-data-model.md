@@ -25,10 +25,12 @@
 | CareerLevel | Department/division scope, index, title, required skills, evidence thresholds, quality standard | Indices are ordered within one ladder scope |
 | PromotionRecord | Employee, from/to levels, evidence snapshot, proposer, decision | HR/CEO proposes; only CEO/admin companion decides; approval updates level transactionally |
 | StaffingProposal | Kind, department/position/optional level, rationale, evidence, estimated cost, proposer, decision | HR/CEO proposes; only CEO/admin companion decides; approved hires execute transactionally when complete hire evidence is present |
+| IndustryPack | Industry, complete JSON template, enabled state | Persisted seed template; disabled or malformed packs fail closed |
+| Division | Pack, mode, proposer, activation status and departments | Consultant/CEO/seated heads propose; only CEO/admin companion activates or deactivates |
 
 ## Reference tables
 
-`company/schema.py` and Alembic revisions `0001_initial` through `0021_staffing_proposals`
+`company/schema.py` and Alembic revisions `0001_initial` through `0022_divisions`
 create settings, policies, proposals, approvals, tasks, ledger, completions, signals,
 expansions, events (with envelope columns that do not change the audit hash),
 consultant_proposals, identities, departments, positions, **department_seats**,
@@ -41,10 +43,12 @@ review cooldowns, skills, acquired_skills, project_capabilities, learning_assign
 qc_inspections, employees, training_records, performance_goals and performance_reviews,
 **billed_costs**, **revenue**, floorplans/rooms, worker sprites, and
 **activity_sessions**, **career_levels**, **employee_levels**, and
-**promotion_records**, **staffing_proposals**, and **staffing_scan_cooldown**.
+**promotion_records**, **staffing_proposals**, **staffing_scan_cooldown**,
+**industry_packs**, **divisions**, **division_departments**, and
+**division_activations**.
 JSON configurations remain seed templates via
 `seed_catalog` / `seed_models` / `seed_hardware_skills` /
-`seed_development_skills` / `seed_career_ladders`.
+`seed_development_skills` / `seed_career_ladders` / `seed_industry_packs`.
 
 The ledger records synthetic integer costs for mock actions. `billed_costs` records live provider usage in integer USD cents (`amount_cents`, often 0 until a pricing rate is set) plus `usage_tokens`. `revenue` records real income separately. Policy changes never reset simulated ledger totals. Refunds and period rollover of billed amounts remain future work.
 
