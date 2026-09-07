@@ -1,7 +1,7 @@
 # Verification record
 
-Updated 2026-09-07 for **0.3.51** (additive cross-department request API; no UI/version bump).
-Prior: 0.3.51 desk + companion organization/head handoff UI; 0.3.50 local-repos +
+Updated 2026-09-07 for **0.3.52** plus Corporate HQ Phase 2 floorplans (no version bump).
+Prior: 0.3.52 runtime department editing; 0.3.51 desk + companion organization/head handoff UI; 0.3.50 local-repos +
 Diagnostics; 0.3.49 GitHub assign; 0.3.48 billed
 cost/revenue; 0.3.47 companion PWA. Run on Python 3.14.3 in `.venv`
 on macOS / Node 18.20.8. CI additionally runs Python 3.12 and 3.13
@@ -11,13 +11,14 @@ Earlier records: 0.2.0 ZIP (2026-09-01, Python 3.12.13) and 0.3.13 cosmic-glass 
 
 ## Verified in this workspace
 
-- **257 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`, including
-  cross-department create/list/accept authorization, org roster/handoff API, and UI wiring.
+- **276 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`, including
+  floorplan default generation, grid overlap denial, requirement gaps, expansion-bound room
+  protection, authenticated API CRUD, events, and prior organization behavior.
 - `python3 scripts/check_bundle.py` reaches the pre-existing nested local repository and
   fails on `local repos/service-department/README.md` → missing `./LICENSE`; no Task 7
   bundle link/config failure was reported before that point.
 - Alembic revision chain is linear and single-headed: `0001_initial` through
-  `0015_cross_dept_work_orders`.
+  `0017_floorplans`.
 - Companion **0.3.51** build completes (`generateSW`) and emits `dist/sw.js` /
   `dist/sw-push.js`.
 

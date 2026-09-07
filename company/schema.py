@@ -199,6 +199,21 @@ CREATE TABLE IF NOT EXISTS cross_department_requests(
   created_by TEXT NOT NULL, created_at TEXT NOT NULL,
   accepted_by TEXT, accepted_at TEXT,
   subject TEXT NOT NULL, brief TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS floorplans(
+  id TEXT PRIMARY KEY, division_id TEXT, name TEXT NOT NULL,
+  grid_cols INTEGER NOT NULL, grid_rows INTEGER NOT NULL, status TEXT NOT NULL,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS floorplan_rooms(
+  id TEXT PRIMARY KEY, floorplan_id TEXT NOT NULL REFERENCES floorplans(id),
+  department_id TEXT REFERENCES departments(id), room_type TEXT NOT NULL,
+  label TEXT NOT NULL, grid_x INTEGER NOT NULL, grid_y INTEGER NOT NULL,
+  width INTEGER NOT NULL, height INTEGER NOT NULL, capacity INTEGER NOT NULL,
+  status TEXT NOT NULL, source_expansion_id TEXT REFERENCES expansions(id),
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS room_requirements(
+  department_id TEXT NOT NULL REFERENCES departments(id),
+  required_room_type TEXT NOT NULL, min_capacity INTEGER NOT NULL,
+  PRIMARY KEY(department_id, required_room_type));
 """
 
 SLO_DEFINITIONS = (

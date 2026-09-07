@@ -926,6 +926,17 @@ class Company:
                         self.db.execute(
                             """UPDATE positions SET title=?, display_order=? WHERE id=? AND status!='retired'""",
                             (title, pidx, pid))
+            requirements_path = Path(departments_path).with_name("room-requirements.json")
+            if requirements_path.exists():
+                requirements = json.loads(requirements_path.read_text())
+                for department_id, requirement in requirements.items():
+                    self.db.execute(
+                        """INSERT OR REPLACE INTO room_requirements(
+                               department_id,required_room_type,min_capacity)
+                           SELECT ?,?,? WHERE EXISTS(
+                               SELECT 1 FROM departments WHERE id=?)""",
+                        (department_id, requirement["required_room_type"],
+                         requirement["min_capacity"], department_id))
             self._event("catalog.seeded", {
                 "departments": len(data["departments"]),
                 "created": created, "updated": updated, "preserved": preserved,
@@ -1778,14 +1789,357 @@ class Company:
             self._event("expansion.inspected",{"id":eid,"passed":passed,"inspector":inspector},actor_id=inspector)
         return passed
 
+    def _floorplan(self, floorplan_id):
+        row = self.db.execute(
+            "SELECT * FROM floorplans WHERE id=?", (floorplan_id,)).fetchone()
+        if not row:
+            raise LookupError("Floorplan not found")
+        return dict(row)
+
+    def _floorplan_room(self, room_id):
+        row = self.db.execute(
+            "SELECT * FROM floorplan_rooms WHERE id=?", (room_id,)).fetchone()
+        if not row:
+            raise LookupError("Floorplan room not found")
+        return dict(row)
+
+    def _room_with_org(self, room_id):
+        row = self.db.execute(
+            """SELECT r.*, d.name AS department_name,
+                      s.id AS seat_id, s.principal_id AS seat_principal_id,
+                      s.title AS seat_title, s.status AS seat_status
+               FROM floorplan_rooms r
+               LEFT JOIN departments d ON d.id=r.department_id
+               LEFT JOIN department_seats s ON s.department_id=r.department_id
+               WHERE r.id=?""",
+            (room_id,)).fetchone()
+        if not row:
+            raise LookupError("Floorplan room not found")
+        result = dict(row)
+        result["seat"] = None if result["seat_id"] is None else {
+            "id": result.pop("seat_id"),
+            "principal_id": result.pop("seat_principal_id"),
+            "title": result.pop("seat_title"),
+            "status": result.pop("seat_status"),
+        }
+        if result["seat"] is None:
+            for key in ("seat_id", "seat_principal_id", "seat_title", "seat_status"):
+                result.pop(key, None)
+        return result
+
+    def get_floorplan(self, floorplan_id):
+        plan = self._floorplan(floorplan_id)
+        plan["rooms"] = [
+            self._room_with_org(row["id"])
+            for row in self.db.execute(
+                "SELECT id FROM floorplan_rooms WHERE floorplan_id=? ORDER BY grid_y,grid_x,id",
+                (floorplan_id,))
+        ]
+        plan.update(self.floorplan_status(floorplan_id))
+        return plan
+
+    def list_floorplans(self):
+        return {
+            "floorplans": [
+                self.get_floorplan(row["id"])
+                for row in self.db.execute(
+                    "SELECT id FROM floorplans ORDER BY created_at,id")
+            ]
+        }
+
+    def create_floorplan(self, actor, name, grid_cols=8, grid_rows=6, division_id=None):
+        self._ceo_or_admin_companion(actor)
+        name = str(name or "").strip()
+        if not name:
+            raise ValueError("name required")
+        if type(grid_cols) is not int or type(grid_rows) is not int:
+            raise ValueError("grid dimensions must be integers")
+        if grid_cols < 1 or grid_rows < 1:
+            raise ValueError("grid dimensions must be positive")
+        floorplan_id = str(uuid.uuid4())
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO floorplans(
+                       id,division_id,name,grid_cols,grid_rows,status,created_by,created_at)
+                   VALUES(?,?,?,?,?,?,?,?)""",
+                (floorplan_id, division_id, name, grid_cols, grid_rows,
+                 "active", actor, now().isoformat()))
+            self._event(
+                "floorplan.created",
+                {"id": floorplan_id, "division_id": division_id},
+                actor_id=actor,
+            )
+        return self.get_floorplan(floorplan_id)
+
+    def _validate_room_placement(self, floorplan_id, room_id, grid_x, grid_y, width, height):
+        plan = self._floorplan(floorplan_id)
+        values = (grid_x, grid_y, width, height)
+        if any(type(value) is not int for value in values):
+            raise ValueError("room grid values must be integers")
+        if grid_x < 0 or grid_y < 0 or width < 1 or height < 1:
+            raise ValueError("room grid position and size are invalid")
+        if grid_x + width > plan["grid_cols"] or grid_y + height > plan["grid_rows"]:
+            raise ValueError("room is outside the floorplan grid")
+        overlap = self.db.execute(
+            """SELECT id FROM floorplan_rooms
+               WHERE floorplan_id=? AND id!=?
+                 AND grid_x < ? AND grid_x + width > ?
+                 AND grid_y < ? AND grid_y + height > ?
+               LIMIT 1""",
+            (floorplan_id, room_id or "", grid_x + width, grid_x,
+             grid_y + height, grid_y)).fetchone()
+        if overlap:
+            raise ValueError(f"Room overlap with {overlap['id']}")
+
+    def upsert_floorplan_room(self, actor, floorplan_id, **fields):
+        self._ceo_or_admin_companion(actor)
+        self._floorplan(floorplan_id)
+        allowed = {
+            "id", "department_id", "room_type", "label", "grid_x", "grid_y",
+            "width", "height", "capacity", "status", "source_expansion_id",
+        }
+        unknown = set(fields) - allowed
+        if unknown:
+            raise ValueError(f"Unknown room fields: {sorted(unknown)}")
+        room_id = fields.get("id")
+        existing = None
+        if room_id:
+            row = self.db.execute(
+                "SELECT * FROM floorplan_rooms WHERE id=?", (room_id,)).fetchone()
+            if row:
+                existing = dict(row)
+                if existing["floorplan_id"] != floorplan_id:
+                    raise ValueError("Room belongs to another floorplan")
+        if existing is None:
+            room_id = room_id or str(uuid.uuid4())
+            if self.db.execute(
+                    "SELECT 1 FROM floorplan_rooms WHERE id=?", (room_id,)).fetchone():
+                raise ValueError("Room id already exists")
+        values = {
+            "department_id": None,
+            "room_type": None,
+            "label": None,
+            "grid_x": 0,
+            "grid_y": 0,
+            "width": 1,
+            "height": 1,
+            "capacity": 1,
+            "status": "active",
+            "source_expansion_id": None,
+        }
+        if existing:
+            values.update({key: existing[key] for key in values})
+        values.update({key: value for key, value in fields.items() if key != "id"})
+        department = None
+        if values["department_id"] is not None:
+            department = self.db.execute(
+                "SELECT id,name,room_type FROM departments WHERE id=?",
+                (values["department_id"],)).fetchone()
+            if not department:
+                raise ValueError("Unknown department_id")
+        if not values["room_type"] and department:
+            values["room_type"] = department["room_type"]
+        known_types = {
+            row[0] for row in self.db.execute(
+                """SELECT room_type FROM departments
+                   UNION SELECT required_room_type FROM room_requirements""")
+        }
+        if values["room_type"] not in known_types:
+            raise ValueError("Unknown room_type")
+        if not values["label"]:
+            values["label"] = department["name"] if department else values["room_type"]
+        if type(values["capacity"]) is not int or values["capacity"] < 0:
+            raise ValueError("capacity must be a nonnegative integer")
+        if values["status"] not in {"active", "planned", "inactive"}:
+            raise ValueError("Unknown room status")
+        if values["source_expansion_id"] and not self.db.execute(
+                "SELECT 1 FROM expansions WHERE id=?",
+                (values["source_expansion_id"],)).fetchone():
+            raise ValueError("Unknown source_expansion_id")
+        self._validate_room_placement(
+            floorplan_id, room_id, values["grid_x"], values["grid_y"],
+            values["width"], values["height"])
+        with self.tx():
+            if existing:
+                self.db.execute(
+                    """UPDATE floorplan_rooms SET
+                       department_id=?,room_type=?,label=?,grid_x=?,grid_y=?,
+                       width=?,height=?,capacity=?,status=?,source_expansion_id=?
+                       WHERE id=?""",
+                    tuple(values[key] for key in (
+                        "department_id", "room_type", "label", "grid_x", "grid_y",
+                        "width", "height", "capacity", "status",
+                        "source_expansion_id")) + (room_id,))
+            else:
+                self.db.execute(
+                    """INSERT INTO floorplan_rooms(
+                       id,floorplan_id,department_id,room_type,label,grid_x,grid_y,
+                       width,height,capacity,status,source_expansion_id,created_by,created_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (room_id, floorplan_id) + tuple(values[key] for key in (
+                        "department_id", "room_type", "label", "grid_x", "grid_y",
+                        "width", "height", "capacity", "status",
+                        "source_expansion_id")) + (actor, now().isoformat()))
+            self._event(
+                "floorplan.room_upserted",
+                {"id": room_id, "floorplan_id": floorplan_id},
+                actor_id=actor,
+            )
+        return self._room_with_org(room_id)
+
+    def move_room(self, actor, room_id, grid_x, grid_y):
+        self._ceo_or_admin_companion(actor)
+        room = self._floorplan_room(room_id)
+        self._validate_room_placement(
+            room["floorplan_id"], room_id, grid_x, grid_y,
+            room["width"], room["height"])
+        with self.tx():
+            self.db.execute(
+                "UPDATE floorplan_rooms SET grid_x=?,grid_y=? WHERE id=?",
+                (grid_x, grid_y, room_id))
+            self._event(
+                "floorplan.room_moved",
+                {"id": room_id, "floorplan_id": room["floorplan_id"],
+                 "grid_x": grid_x, "grid_y": grid_y},
+                actor_id=actor,
+            )
+        return self._room_with_org(room_id)
+
+    def remove_room(self, actor, room_id):
+        self._ceo_or_admin_companion(actor)
+        room = self._floorplan_room(room_id)
+        if room["source_expansion_id"]:
+            raise ValueError("expansion-bound room cannot be removed")
+        with self.tx():
+            self.db.execute("DELETE FROM floorplan_rooms WHERE id=?", (room_id,))
+            self._event(
+                "floorplan.room_removed",
+                {"id": room_id, "floorplan_id": room["floorplan_id"]},
+                actor_id=actor,
+            )
+        return {"id": room_id, "removed": True}
+
+    def default_floorplan_for(self, actor, division_id=None):
+        departments = [
+            dict(row) for row in self.db.execute(
+                """SELECT id,name,room_type FROM departments
+                   WHERE status!='retired' ORDER BY display_order,id""")
+        ]
+        grid_cols = 8
+        grid_rows = max(6, (len(departments) + grid_cols - 1) // grid_cols)
+        plan = self.create_floorplan(
+            actor, "Default headquarters", grid_cols, grid_rows, division_id)
+        for index, department in enumerate(departments):
+            self.upsert_floorplan_room(
+                actor, plan["id"],
+                department_id=department["id"],
+                room_type=department["room_type"],
+                label=department["name"],
+                grid_x=index % grid_cols,
+                grid_y=index // grid_cols,
+                width=1, height=1, capacity=1,
+            )
+        return self.get_floorplan(plan["id"])
+
+    def floorplan_status(self, floorplan_id=None):
+        if floorplan_id is None:
+            row = self.db.execute(
+                "SELECT id FROM floorplans ORDER BY created_at DESC,id DESC LIMIT 1").fetchone()
+            if not row:
+                return {"floorplan_id": None, "unmet_requirements": [], "compliant": False}
+            floorplan_id = row["id"]
+        self._floorplan(floorplan_id)
+        gaps = []
+        for requirement in self.db.execute(
+                """SELECT rr.department_id,rr.required_room_type,rr.min_capacity
+                   FROM room_requirements rr
+                   JOIN departments d ON d.id=rr.department_id
+                   WHERE d.status!='retired'
+                   ORDER BY d.display_order,d.id,rr.required_room_type"""):
+            actual = self.db.execute(
+                """SELECT COALESCE(SUM(capacity),0) FROM floorplan_rooms
+                   WHERE floorplan_id=? AND department_id=?
+                     AND room_type=? AND status='active'""",
+                (floorplan_id, requirement["department_id"],
+                 requirement["required_room_type"])).fetchone()[0]
+            if actual < requirement["min_capacity"]:
+                gaps.append({
+                    "department_id": requirement["department_id"],
+                    "required_room_type": requirement["required_room_type"],
+                    "min_capacity": requirement["min_capacity"],
+                    "actual_capacity": actual,
+                })
+        return {
+            "floorplan_id": floorplan_id,
+            "unmet_requirements": gaps,
+            "compliant": not gaps,
+        }
+
     def headquarters(self):
-        rooms=[{"id":r["id"],"status":r["status"],"source_project":r["source_project"],
-                "contractor":r["contractor"]} for r in self.db.execute("SELECT * FROM expansions ORDER BY id")]
-        depts=[dict(r) for r in self.db.execute("SELECT id,name,initially_active,room_type FROM departments ORDER BY id")]
-        return {"rooms":rooms,"departments":depts,"room_count":1+sum(1 for r in rooms if r["status"]=="built"),
-                "occupancy_note":"Room occupancy is not running model count.","source":"persisted_events"}
+        floorplans = self.list_floorplans()["floorplans"]
+        floorplan_rooms = [
+            room for plan in floorplans for room in plan["rooms"]
+        ]
+        expansions = [
+            {"id": row["id"], "status": row["status"],
+             "source_project": row["source_project"], "contractor": row["contractor"]}
+            for row in self.db.execute("SELECT * FROM expansions ORDER BY id")
+        ]
+        departments = [
+            dict(row) for row in self.db.execute(
+                "SELECT id,name,initially_active,room_type FROM departments ORDER BY id")
+        ]
+        rooms = floorplan_rooms if floorplan_rooms else expansions
+        room_count = (
+            len(floorplan_rooms) if floorplan_rooms
+            else 1 + sum(1 for room in expansions if room["status"] == "built")
+        )
+        status = self.floorplan_status(floorplans[-1]["id"]) if floorplans else {
+            "floorplan_id": None, "unmet_requirements": [], "compliant": False}
+        return {
+            "floorplans": floorplans,
+            "rooms": rooms,
+            "expansions": expansions,
+            "departments": departments,
+            "room_count": room_count,
+            "unmet_requirements": status["unmet_requirements"],
+            "occupancy_note": "Room occupancy is not running model count.",
+            "source": "persisted_events",
+        }
 
     def room_detail(self, room_id):
+        floor_room = self.db.execute(
+            "SELECT 1 FROM floorplan_rooms WHERE id=?", (room_id,)).fetchone()
+        if floor_room:
+            room = self._room_with_org(room_id)
+            departments = []
+            staff = []
+            if room["department_id"]:
+                department = self.db.execute(
+                    """SELECT id,name,head_title,mission,room_type,initially_active
+                       FROM departments WHERE id=?""",
+                    (room["department_id"],)).fetchone()
+                if department:
+                    departments.append(dict(department))
+                staff = [
+                    dict(row) for row in self.db.execute(
+                        """SELECT id,position_id,display_name,status FROM employees
+                           WHERE position_id LIKE ? ORDER BY id""",
+                        (f"{room['department_id']}:%",))
+                ]
+            return {
+                "room": room,
+                "purpose": room["label"],
+                "tasks": [],
+                "deliverables": [],
+                "queue": [],
+                "departments": departments,
+                "staff": staff,
+                "models": [],
+                "decisions": [],
+                "costs": {"simulated_spend_cents": 0, "reserved_cents": 0},
+                "occupancy_note": "Room occupancy is not running model count.",
+            }
         row = self.db.execute("SELECT * FROM expansions WHERE id=?", (room_id,)).fetchone()
         if not row:
             raise LookupError("Room not found")

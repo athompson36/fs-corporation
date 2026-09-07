@@ -197,6 +197,8 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Art/isometric animation — CEO desk isometric SVG from the same `headquarters()` rooms; rise animation respects `prefers-reduced-motion`; no invented occupancy; cosmic-glass chrome adopted; furnished room art still deferred
 - [x] Room detail — `GET /api/v1/headquarters/rooms/{id}` returns persisted tasks, staff, deliverables, simulated costs and related decisions; desk list/tiles open that panel; missing rooms fail closed
 - [x] Consultant inbox: findings, evidence, approve/reject/revise (API + desk list)
+- [x] Corporate HQ Phase 1 — runtime department/position editing and revision history
+- [x] Corporate HQ Phase 2 — migration `0017_floorplans`, persisted grid rooms, department requirements, authenticated CRUD/default-plan API, overlap enforcement, and Desk warning chips; expansion isometric retained as the no-floorplan fallback
 
 **Acceptance:** one accepted project earns progress; justified expansion is approved and provisioned; a room opens real department data; restart/replay keeps room identity and count. Reduced-motion and list navigation work.
 

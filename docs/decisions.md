@@ -281,4 +281,26 @@ Auto-activating dormant departments was rejected because activation remains an o
 emit transactional audit events. The authenticated API supports create, actor-scoped delivery
 list, and accept; no user-visible UI ships, so the package remains 0.3.51.
 
+### ADR-030 detail
+
+**Context.** Expansion events record earned growth but do not provide a stable editable grid,
+department-room ownership, or an explicit way to report missing operational spaces. Rendering
+requirements as rooms would invent state.
+
+**Decision.** Persist floorplans and grid-positioned rooms separately from the expansion
+ledger. Room types are constrained to the department catalog or requirement catalog; bounds
+and overlap fail closed. Requirements record minimum capacity by department and room type.
+Only the CEO or authenticated admin companion mutates layouts. Expansion-linked rooms cannot
+be removed, preserving their growth provenance.
+
+**Alternatives considered.** Deriving a layout from expansion order was rejected because it
+cannot represent department ownership or edits. Storing the plan only in browser state was
+rejected because restart and auditability are required. Materializing missing requirements as
+placeholder rooms was rejected because the UI must not invent operational state.
+
+**Consequences.** Alembic `0017_floorplans` adds the three tables and seeds catalog
+requirements from `config/room-requirements.json`. The Desk renders persisted rooms on the 2D
+grid and shows unmet requirements as warning chips; expansion isometric rendering remains the
+fallback when no floorplan rooms exist. No package version bump is made for this phase.
+
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

@@ -120,7 +120,8 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <div class="desk-grid">
 <section class="glass" id="hq">
 <h2>Headquarters</h2>
-<p class="muted">Geometric tiles from expansion events only. Empty HQ draws no invented rooms.</p>
+<p class="muted">Persisted department rooms when planned; expansion events remain the fallback.</p>
+<div id="unmet-requirements" class="row" aria-label="Unmet room requirements"></div>
 <div class="row" role="group" aria-label="Headquarters view">
 <button type="button" class="chip active" data-hq-view="iso">Isometric</button>
 <button type="button" class="chip" data-hq-view="plan">Plan</button>
@@ -468,7 +469,8 @@ async function openRoom(roomId) {
   panel.hidden = false;
   document.getElementById('room-purpose').textContent = detail.purpose;
   const lines = [
-    detail.room.id + ' — ' + detail.room.status + ' — ' + detail.room.source_project,
+    detail.room.id + ' — ' + detail.room.status + ' — '
+      + (detail.room.room_type || detail.room.source_project),
     'Tasks: ' + listed(detail.tasks, t => t.id),
     'Staff: ' + listed(detail.staff, s => s.display_name + ' (' + s.position_id + ')'),
     'Deliverables: ' + listed(detail.deliverables, d => d.hash.slice(0,12)),
@@ -532,12 +534,23 @@ async function load() {
   const data = await hq.json();
   const list = document.getElementById('room-list');
   list.innerHTML = '';
+  const hasFloorplan = (data.rooms || []).some(room => !!room.floorplan_id);
+  const requirements = document.getElementById('unmet-requirements');
+  requirements.innerHTML = '';
+  (data.unmet_requirements || []).forEach(gap => {
+    const chip = document.createElement('span');
+    chip.className = 'chip tag-warning';
+    chip.textContent = gap.department_id + ': needs ' + gap.required_room_type
+      + ' (' + gap.actual_capacity + '/' + gap.min_capacity + ')';
+    requirements.appendChild(chip);
+  });
   (data.rooms||[]).forEach(room => {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.className = 'room';
     btn.type = 'button';
-    btn.textContent = room.id + ' — ' + room.status + ' — ' + room.source_project;
+    btn.textContent = room.id + ' — ' + (room.label || room.status)
+      + ' — ' + (room.room_type || room.source_project);
     btn.addEventListener('click', () => openRoom(room.id));
     li.appendChild(btn);
     list.appendChild(li);
@@ -643,22 +656,33 @@ async function load() {
   const iso = document.getElementById('iso');
   iso.innerHTML = '';
   function ns(name) { return document.createElementNS('http://www.w3.org/2000/svg', name); }
-  (data.rooms||[]).forEach((room, i) => {
-    const x = 10 + (i % 4) * 48;
-    const y = 10 + Math.floor(i / 4) * 36;
-    const r = ns('rect');
-    r.setAttribute('x', x); r.setAttribute('y', y);
-    r.setAttribute('width', 40); r.setAttribute('height', 28);
-    r.setAttribute('fill', room.status === 'built' ? '#1d4ed8' : '#1a2233');
-    r.setAttribute('stroke', room.status === 'built' ? '#3b82f6' : '#8b5cf6');
-    r.setAttribute('data-room-id', room.id);
-    r.addEventListener('click', () => openRoom(room.id));
-    svg.appendChild(r);
-    const t = ns('text');
-    t.setAttribute('x', x+4); t.setAttribute('y', y+16); t.setAttribute('fill', '#eee');
-    t.setAttribute('font-size', '6');
-    t.textContent = room.status;
-    svg.appendChild(t);
+  if (hasFloorplan) {
+    const plan = (data.floorplans || []).find(
+      item => item.id === data.rooms[0].floorplan_id) || data.floorplans[0];
+    const inset = 4;
+    const cellW = (200 - inset * 2) / plan.grid_cols;
+    const cellH = (80 - inset * 2) / plan.grid_rows;
+    (data.rooms || []).filter(room => room.floorplan_id === plan.id).forEach(room => {
+      const x = inset + room.grid_x * cellW;
+      const y = inset + room.grid_y * cellH;
+      const r = ns('rect');
+      r.setAttribute('x', x); r.setAttribute('y', y);
+      r.setAttribute('width', room.width * cellW);
+      r.setAttribute('height', room.height * cellH);
+      r.setAttribute('fill', '#1d4ed8'); r.setAttribute('stroke', '#93c5fd');
+      r.setAttribute('data-room-id', room.id);
+      r.addEventListener('click', () => openRoom(room.id));
+      svg.appendChild(r);
+      const t = ns('text');
+      t.setAttribute('x', x + 2); t.setAttribute('y', y + Math.min(9, cellH - 1));
+      t.setAttribute('fill', '#eee'); t.setAttribute('font-size', '5');
+      t.textContent = room.room_type;
+      svg.appendChild(t);
+    });
+    setHqView('plan');
+  }
+  const expansionRooms = hasFloorplan ? (data.expansions || []) : (data.rooms || []);
+  expansionRooms.forEach((room, i) => {
     const col = i % 4, row = Math.floor(i / 4);
     const ix = 100 + (col - row) * 28, iy = 28 + (col + row) * 16;
     const built = room.status === 'built';
@@ -684,6 +708,7 @@ async function load() {
     g.appendChild(left); g.appendChild(right); g.appendChild(top); g.appendChild(label);
     iso.appendChild(g);
   });
+  if (!hasFloorplan) setHqView('iso');
 }
 load().catch(err => { document.getElementById('status-json').textContent = String(err); });
 async function loadDiagnostics() {
@@ -1671,6 +1696,120 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/floorplans")
+    def floorplans(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.list_floorplans()
+
+    @app.get("/api/v1/floorplans/{floorplan_id}")
+    def floorplan_detail(
+            floorplan_id: str,
+            authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.get_floorplan(floorplan_id)
+        except LookupError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/floorplans")
+    def floorplan_create(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.create_floorplan(ident["principal_id"], **payload), 200))
+
+    @app.post("/api/v1/floorplans/{floorplan_id}/rooms")
+    def floorplan_room_create(
+            floorplan_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        command_payload = payload | {"floorplan_id": floorplan_id}
+        return run(
+            ident, idempotency_key, command_payload,
+            lambda: (
+                company.upsert_floorplan_room(
+                    ident["principal_id"], floorplan_id, **payload), 200))
+
+    @app.patch("/api/v1/floorplans/{floorplan_id}/rooms/{room_id}")
+    def floorplan_room_update(
+            floorplan_id: str, room_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        command_payload = payload | {
+            "floorplan_id": floorplan_id, "room_id": room_id}
+
+        def update():
+            room = company._floorplan_room(room_id)
+            if room["floorplan_id"] != floorplan_id:
+                raise ValueError("Room belongs to another floorplan")
+            if set(payload) == {"grid_x", "grid_y"}:
+                result = company.move_room(
+                    ident["principal_id"], room_id,
+                    payload["grid_x"], payload["grid_y"])
+            else:
+                result = company.upsert_floorplan_room(
+                    ident["principal_id"], floorplan_id,
+                    **(payload | {"id": room_id}))
+            return result, 200
+
+        return run(ident, idempotency_key, command_payload, update)
+
+    @app.delete("/api/v1/floorplans/{floorplan_id}/rooms/{room_id}")
+    def floorplan_room_delete(
+            floorplan_id: str, room_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        command_payload = payload | {
+            "floorplan_id": floorplan_id, "room_id": room_id}
+
+        def remove():
+            room = company._floorplan_room(room_id)
+            if room["floorplan_id"] != floorplan_id:
+                raise ValueError("Room belongs to another floorplan")
+            return company.remove_room(ident["principal_id"], room_id), 200
+
+        return run(ident, idempotency_key, command_payload, remove)
+
+    @app.post("/api/v1/floorplans/default")
+    def floorplan_default(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        unknown = set(payload) - {"division_id"}
+        if unknown:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(unknown)}")
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.default_floorplan_for(
+                    ident["principal_id"], payload.get("division_id")), 200))
 
     @app.get("/api/v1/headquarters")
     def hq(authorization: str | None = Header(default=None)):
