@@ -681,6 +681,45 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         rows = [dict(r) for r in company.db.execute("SELECT id,name,head_title,initially_active FROM departments ORDER BY id")]
         return {"departments": rows}
 
+    @app.get("/api/v1/org")
+    def org(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        return company.list_org()
+
+    @app.post("/api/v1/org/heads")
+    def org_heads(body: Command, authorization: str | None = Header(default=None),
+                  idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+
+        def go():
+            if payload.get("vacate"):
+                return company.vacate_head(
+                    ident["principal_id"], payload["department_id"]), 200
+            return company.appoint_head(
+                ident["principal_id"], payload["department_id"], payload["principal_id"]), 200
+
+        return run(ident, idempotency_key, payload, go)
+
+    @app.post("/api/v1/org/assignments")
+    def org_assignments(body: Command, authorization: str | None = Header(default=None),
+                        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+
+        def go():
+            if payload.get("release"):
+                return company.release_position(
+                    ident["principal_id"], payload["assignment_id"]), 200
+            return company.assign_position(
+                ident["principal_id"], payload["position_id"], payload["principal_id"],
+                payload.get("reports_to_seat_id")), 200
+
+        return run(ident, idempotency_key, payload, go)
+
     @app.post("/api/v1/delegations")
     def delegations(body: Command, authorization: str | None = Header(default=None), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
         ident = principal(authorization)

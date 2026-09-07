@@ -198,7 +198,8 @@ KNOWN_ACTIONS = {"draft", "review", "prepare_pr", "provision_room", "inspect_roo
 COMPANION_SCOPES = (
     "company.read", "company.pause", "company.resume",
     "policy.approve", "consultant.decide", "consultant.read",
-    "project.enroll", "audit.read", "organization.read", "owner.escalate",
+    "project.enroll", "audit.read", "organization.read", "organization.write",
+    "owner.escalate",
 )
 PAIRING_READ_ONLY_SCOPES = (
     "company.read", "audit.read", "consultant.read", "organization.read",
