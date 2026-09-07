@@ -157,7 +157,8 @@ class MarketFeedAdapter:
 
 class LearningAdapter:
     def fetch(self, url: str) -> dict:
-        raise NotImplementedError("Live documentation fetch requires an approved source list and the action gateway; see docs/20-hardware-skills.md")
+        from .learning_fetch import fetch_learning_document
+        return fetch_learning_document(url)
 
 class PushNotificationAdapter:
     def send(self, subscription: dict, payload: dict) -> dict:

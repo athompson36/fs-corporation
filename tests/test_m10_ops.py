@@ -103,5 +103,53 @@ class ModelBenchmarkReadTests(unittest.TestCase):
         self.assertGreaterEqual(len(benches.json()["items"]), 2)
 
 
+class LearningFetchTests(unittest.TestCase):
+    def test_allowlisted_fetch_returns_metadata(self):
+        from company.adapters import LearningAdapter
+        from company.learning_fetch import load_url_prefixes
+
+        prefixes = load_url_prefixes()
+        self.assertTrue(any(p.startswith("https://docs.espressif.com/") for p in prefixes))
+
+        class FakeResponse:
+            status_code = 200
+            text = "<html><head><title>ESP-IDF</title></head><body>Build steps here.</body></html>"
+            headers = {"content-type": "text/html"}
+
+            def raise_for_status(self):
+                return None
+
+        class FakeClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def get(self, url, headers=None):
+                self.url = url
+                return FakeResponse()
+
+        with patch("company.learning_fetch.httpx.Client", FakeClient):
+            out = LearningAdapter().fetch("https://docs.espressif.com/projects/esp-idf/en/latest/")
+        self.assertEqual(out["title"], "ESP-IDF")
+        self.assertIn("Build steps", out["summary"])
+        self.assertEqual(out["status_code"], 200)
+
+    def test_non_allowlisted_url_denied(self):
+        from company.adapters import LearningAdapter
+        with self.assertRaises(PermissionError):
+            LearningAdapter().fetch("https://evil.example/docs")
+
+    def test_missing_allowlist_file_fails_closed(self):
+        from company.learning_fetch import load_url_prefixes
+        with patch.dict("os.environ", {"FS_CORP_LEARNING_SOURCES_FILE": "/no/such/learning.json"}, clear=False):
+            with self.assertRaises(NotImplementedError):
+                load_url_prefixes()
+
+
 if __name__ == "__main__":
     unittest.main()

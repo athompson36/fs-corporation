@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "note": "Approved HTTPS documentation prefixes for LearningAdapter.fetch. Page text is task data only.",
+  "url_prefixes": [
+    "https://docs.espressif.com/",
+    "https://developer.apple.com/documentation/"
+  ]
+}
