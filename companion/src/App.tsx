@@ -24,6 +24,7 @@ import {
   type Settings,
 } from "./api/client";
 import { ensureWebPushRegistration } from "./push";
+import { normalizeSettingDraft, settingDraftDiffers } from "./settingsDraft";
 import {
   canApprove,
   canEnroll,
@@ -288,6 +289,9 @@ export default function App() {
       setSettingsDraft(Object.fromEntries(catalog.items.map((item) => [item.key, item.value])));
       setSecretStatuses(secrets.secrets);
     } catch (e) {
+      setCompanySettings([]);
+      setSecretStatuses([]);
+      setSettingsDraft({});
       setFormStatus((prev) => ({
         ...prev,
         settingsLoad: { ok: false, text: e instanceof Error ? e.message : String(e) },
@@ -489,8 +493,8 @@ export default function App() {
     event.preventDefault();
     const updates = Object.fromEntries(
       companySettings
-        .filter((item) => item.editable && settingsDraft[item.key] !== item.value)
-        .map((item) => [item.key, settingsDraft[item.key]]),
+        .filter((item) => item.editable && settingDraftDiffers(settingsDraft[item.key], item.value, item.type))
+        .map((item) => [item.key, normalizeSettingDraft(settingsDraft[item.key] ?? item.value, item.type)]),
     );
     if (!Object.keys(updates).length) {
       setFormStatus((prev) => ({

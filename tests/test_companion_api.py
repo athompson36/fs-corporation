@@ -94,6 +94,8 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("Runtime", app)
         self.assertIn("secrets-status", app.lower() or "Secrets")
         self.assertIn("Takes effect after API restart", app)
+        self.assertIn("settingDraftDiffers", app)
+        self.assertIn("normalizeSettingDraft", app)
 
     def test_companion_replaces_window_prompt_ops_forms(self):
         app = (
