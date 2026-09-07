@@ -1,0 +1,16 @@
+{
+  "executive": {"required_room_type": "boardroom", "min_capacity": 1},
+  "product": {"required_room_type": "product-lab", "min_capacity": 1},
+  "engineering": {"required_room_type": "engineering-studio", "min_capacity": 1},
+  "quality": {"required_room_type": "quality-lab", "min_capacity": 1},
+  "art": {"required_room_type": "design-studio", "min_capacity": 1},
+  "media": {"required_room_type": "media-studio", "min_capacity": 1},
+  "marketing": {"required_room_type": "marketing-suite", "min_capacity": 1},
+  "sales": {"required_room_type": "sales-suite", "min_capacity": 1},
+  "finance": {"required_room_type": "finance-office", "min_capacity": 1},
+  "legal": {"required_room_type": "compliance-office", "min_capacity": 1},
+  "people": {"required_room_type": "training-center", "min_capacity": 1},
+  "it": {"required_room_type": "operations-center", "min_capacity": 1},
+  "facilities": {"required_room_type": "construction-office", "min_capacity": 1},
+  "support": {"required_room_type": "support-center", "min_capacity": 1}
+}

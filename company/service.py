@@ -75,9 +75,12 @@ button.room { background: none; border: 0; color: var(--cosmic); cursor: pointer
 input, textarea { width: 100%; color: var(--soft); background: rgba(8,12,22,0.6); border: 1px solid var(--glass-border); border-radius: 0.5rem; padding: 0.45rem; margin: 0.2rem 0 0.6rem; }
 form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; padding-top: 0.6rem; }
 #iso, #floor { width: 100%; max-height: 16rem; }
-#iso [data-room-id], #floor [data-room-id] { cursor: pointer; }
+#iso [data-room-id], #floor [data-room-id], #floor [data-worker-id] { cursor: pointer; }
 .iso-rise { transform-box: fill-box; transform-origin: center bottom; animation: iso-rise 0.7s ease-out; }
+.activity-badge { fill: var(--warning); stroke: var(--soft); stroke-width: 0.7; pointer-events: none; }
+.activity-pulse { animation: activity-pulse 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes iso-rise { from { transform: translateY(8px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes activity-pulse { 50% { transform: scale(1.35); opacity: 0.7; } }
 @media (max-width: 840px) {
   .shell { grid-template-columns: 1fr; }
   .rail { position: static; height: auto; display: block; }
@@ -95,9 +98,11 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <p class="brand">FS-Corporation</p>
 <nav aria-label="Primary">
 <a href="#desk">CEO desk</a>
+<a href="#scorecard">Scorecard</a>
 <a href="#hq">Headquarters</a>
 <a href="#projects">Projects</a>
 <a href="#departments">Departments</a>
+<a href="#corporate-upgrades">Corporate upgrades</a>
 <a href="#people">People</a>
 <a href="#intelligence">Intelligence</a>
 <a href="#decisions">Decisions</a>
@@ -117,10 +122,27 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass metric" id="metric-decisions-card"><h2>Pending decisions</h2><div class="value" id="metric-decisions">00</div></section>
 <section class="glass metric" id="metric-departments-card"><h2>Departments</h2><div class="value" id="metric-departments">00</div></section>
 </div>
+<section class="glass" id="scorecard">
+<h2>CEO scorecard</h2>
+<p class="muted">Measured from persisted operations — not simulated.</p>
+<pre id="scorecard-metrics">Loading…</pre>
+<h3>Objectives</h3>
+<ul id="objective-list"></ul>
+<form id="objective-create-form" class="compact">
+<h3>Create objective</h3>
+<label for="objective-title">Title</label><input id="objective-title" required/>
+<label for="objective-due-at">Due at</label><input id="objective-due-at" type="datetime-local" required/>
+<label for="objective-division">Division id (optional)</label><input id="objective-division"/>
+<label for="objective-target">Target JSON (optional)</label>
+<textarea id="objective-target" placeholder='{"accepted_artifacts": 5}'></textarea>
+<button type="submit" class="chip">Create objective</button><span class="muted"></span>
+</form>
+</section>
 <div class="desk-grid">
 <section class="glass" id="hq">
 <h2>Headquarters</h2>
-<p class="muted">Geometric tiles from expansion events only. Empty HQ draws no invented rooms.</p>
+<p class="muted">Persisted department rooms when planned; expansion events remain the fallback.</p>
+<div id="unmet-requirements" class="row" aria-label="Unmet room requirements"></div>
 <div class="row" role="group" aria-label="Headquarters view">
 <button type="button" class="chip active" data-hq-view="iso">Isometric</button>
 <button type="button" class="chip" data-hq-view="plan">Plan</button>
@@ -136,6 +158,11 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <h2>Room</h2>
 <p id="room-purpose" class="muted"></p>
 <ul id="room-facts"></ul>
+</section>
+<section class="glass" id="worker-card" hidden>
+<h2 id="worker-name">Worker</h2>
+<p id="worker-headline" class="muted"></p>
+<ul id="worker-facts"></ul>
 </section>
 </div>
 </div>
@@ -159,6 +186,16 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass" id="departments"><h2>Organization</h2>
 <p class="muted">Catalog, persisted seat status, and roster. Vacant and dormant seats are not active workers.</p>
 <ul id="org-list"></ul>
+<form id="create-department-form" class="compact">
+<h3>Create department</h3>
+<label for="desk-dept-id">Id</label><input id="desk-dept-id" required/>
+<label for="desk-dept-name">Name</label><input id="desk-dept-name" required/>
+<label for="desk-dept-head">Head title</label><input id="desk-dept-head" required/>
+<label for="desk-dept-mission">Mission</label><input id="desk-dept-mission" required/>
+<label for="desk-dept-room">Room type</label><input id="desk-dept-room" value="boardroom" required/>
+<label for="desk-dept-active"><input type="checkbox" id="desk-dept-active"/> Initially active</label>
+<button type="submit" class="chip">Create department</button><span class="muted"></span>
+</form>
 <form id="appoint-head-form" class="compact">
 <h3>Appoint department head</h3>
 <label for="desk-appoint-department">Department id</label><input id="desk-appoint-department" required/>
@@ -184,11 +221,29 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <button type="submit" class="chip">Release assignment</button><span class="muted"></span>
 </form>
 </section>
+<section class="glass" id="corporate-upgrades">
+<h2>Corporate upgrades</h2>
+<p class="muted">Industry packs are templates. Divisions remain proposals until the CEO activates them.</p>
+<h3>Industry packs</h3><ul id="industry-pack-list"></ul>
+<h3>Divisions</h3><ul id="division-list"></ul>
+<form id="division-proposal-form" class="compact">
+<h3>Propose division</h3>
+<label for="division-pack-id">Industry pack id</label><input id="division-pack-id" required/>
+<label for="division-name">Division name</label><input id="division-name" required/>
+<label for="division-mode">Mode</label>
+<select id="division-mode"><option value="minimal">Minimal</option><option value="full">Full</option></select>
+<button type="submit" class="chip">Propose</button><span class="muted"></span>
+</form>
+</section>
 <section class="glass" id="head-inbox"><h2>Head inbox</h2>
 <p class="muted">Open dispatches returned for this authenticated principal.</p>
 <ul id="head-inbox-list"></ul>
 </section>
-<section class="glass" id="people"><h2>People</h2><ul id="people-list"></ul></section>
+<section class="glass" id="people">
+<h2>People</h2><ul id="people-list"></ul>
+<h3>Pending promotions</h3><ul id="promotion-list"></ul>
+<h3>Pending staffing proposals</h3><ul id="staffing-proposal-list"></ul>
+</section>
 <section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="budget"><h2>Budget</h2>
 <p class="muted">Simulated credits, billed cost, and revenue are separate totals.</p>
@@ -254,6 +309,44 @@ function listed(items, fn) {
   return arr.length ? arr.map(fn).join(', ') : 'none';
 }
 function pad(n) { return String(n).padStart(2, '0'); }
+let headquartersRooms = [];
+function renderActivityBadges(items) {
+  document.querySelectorAll('.activity-badge').forEach(node => node.remove());
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const byRoom = new Map();
+  (items || []).forEach(item => {
+    const fallback = headquartersRooms.find(
+      room => room.department_id && room.department_id === item.department_id);
+    const roomId = item.room_id || (fallback && fallback.id);
+    if (!roomId) return;
+    if (!byRoom.has(roomId)) byRoom.set(roomId, []);
+    byRoom.get(roomId).push(item);
+  });
+  byRoom.forEach((sessions, roomId) => {
+    const target = Array.from(document.querySelectorAll('#floor [data-room-id]')).find(
+      node => node.getAttribute('data-room-id') === roomId);
+    if (!target || typeof target.getBBox !== 'function') return;
+    const box = target.getBBox();
+    const badge = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    badge.setAttribute('cx', box.x + box.width - 4);
+    badge.setAttribute('cy', box.y + 4);
+    badge.setAttribute('r', Math.min(3.5, 2 + sessions.length * 0.4));
+    badge.setAttribute('class', 'activity-badge' + (reduced ? '' : ' activity-pulse'));
+    badge.setAttribute(
+      'aria-label', sessions.length + ' active session' + (sessions.length === 1 ? '' : 's'));
+    document.getElementById('floor').appendChild(badge);
+  });
+}
+async function loadActivity() {
+  const response = await fetch('/api/v1/activity', {headers});
+  if (!response.ok) return;
+  const body = await response.json();
+  const items = body.items || [];
+  fill(
+    'activity-list', items,
+    item => item.kind + ' — ' + (item.department_id || 'unassigned') + ' @ ' + item.started_at);
+  renderActivityBadges(items);
+}
 function parseDepartmentBudgets(raw) {
   const departmentBudgets = {};
   raw.split(/\\n/).forEach(line => {
@@ -295,6 +388,21 @@ async function submitOrgCommand(form, path, payload, success) {
   status.textContent = res.ok ? ' ' + success : ' ' + await res.text();
   if (res.ok) { form.reset(); load(); }
 }
+document.getElementById('create-department-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  await submitOrgCommand(event.target, '/api/v1/org/departments', {
+    id: document.getElementById('desk-dept-id').value.trim(),
+    name: document.getElementById('desk-dept-name').value.trim(),
+    head_title: document.getElementById('desk-dept-head').value.trim(),
+    mission: document.getElementById('desk-dept-mission').value.trim(),
+    measures: [],
+    room_type: document.getElementById('desk-dept-room').value.trim(),
+    initially_active: document.getElementById('desk-dept-active').checked,
+    default_model_profile: 'mock-text',
+  }, 'Department created.');
+  event.target.reset();
+  load();
+});
 document.getElementById('appoint-head-form').addEventListener('submit', async event => {
   event.preventDefault();
   await submitOrgCommand(event.target, '/api/v1/org/heads', {
@@ -325,6 +433,35 @@ document.getElementById('release-assignment-form').addEventListener('submit', as
     assignment_id: document.getElementById('desk-release-assignment').value.trim(),
     release: true
   }, 'Assignment released.');
+});
+document.getElementById('division-proposal-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  await submitOrgCommand(event.target, '/api/v1/divisions/proposals', {
+    pack_id: document.getElementById('division-pack-id').value.trim(),
+    name: document.getElementById('division-name').value.trim(),
+    mode: document.getElementById('division-mode').value
+  }, 'Division proposed.');
+});
+document.getElementById('objective-create-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const rawTarget = document.getElementById('objective-target').value.trim();
+  let target = {};
+  try {
+    if (rawTarget) target = JSON.parse(rawTarget);
+  } catch (error) {
+    event.target.querySelector('span').textContent = ' Target must be valid JSON.';
+    return;
+  }
+  const dueValue = document.getElementById('objective-due-at').value;
+  const payload = {
+    title: document.getElementById('objective-title').value.trim(),
+    due_at: new Date(dueValue).toISOString(),
+    target
+  };
+  const divisionId = document.getElementById('objective-division').value.trim();
+  if (divisionId) payload.division_id = divisionId;
+  await submitOrgCommand(
+    event.target, '/api/v1/objectives', payload, 'Objective created.');
 });
 function setHqView(mode) {
   document.getElementById('iso').hidden = mode !== 'iso';
@@ -443,7 +580,8 @@ async function openRoom(roomId) {
   panel.hidden = false;
   document.getElementById('room-purpose').textContent = detail.purpose;
   const lines = [
-    detail.room.id + ' — ' + detail.room.status + ' — ' + detail.room.source_project,
+    detail.room.id + ' — ' + detail.room.status + ' — '
+      + (detail.room.room_type || detail.room.source_project),
     'Tasks: ' + listed(detail.tasks, t => t.id),
     'Staff: ' + listed(detail.staff, s => s.display_name + ' (' + s.position_id + ')'),
     'Deliverables: ' + listed(detail.deliverables, d => d.hash.slice(0,12)),
@@ -454,6 +592,46 @@ async function openRoom(roomId) {
   facts.innerHTML = '';
   lines.forEach(line => { const li = document.createElement('li'); li.textContent = line; facts.appendChild(li); });
   location.hash = 'room-detail';
+}
+async function openWorkerCard(employeeId) {
+  const panel = document.getElementById('worker-card');
+  const facts = document.getElementById('worker-facts');
+  const [res, ladderRes] = await Promise.all([
+    fetch('/api/v1/workers/' + encodeURIComponent(employeeId) + '/card', {headers}),
+    fetch('/api/v1/employees/' + encodeURIComponent(employeeId) + '/ladder', {headers})
+  ]);
+  const card = await res.json();
+  const ladder = ladderRes.ok ? await ladderRes.json() : null;
+  panel.hidden = false;
+  facts.innerHTML = '';
+  if (!res.ok) {
+    document.getElementById('worker-name').textContent = 'Worker';
+    document.getElementById('worker-headline').textContent =
+      card.detail || 'Worker not found';
+    return;
+  }
+  document.getElementById('worker-name').textContent =
+    card.identity.display_name;
+  document.getElementById('worker-headline').textContent =
+    card.identity.headline || card.identity.position_id;
+  const lines = [
+    'Viewpoint: ' + (card.viewpoint || 'not set'),
+    'Strengths: ' + listed(card.strengths, value => value),
+    'Skills: ' + listed(card.skills, skill => skill.name),
+    'Positions: ' + listed(
+      card.position_assignments, assignment => assignment.title),
+    'Career level: ' + (
+      ladder && ladder.current_level
+        ? ladder.current_level.title + ' (L' + ladder.current_level.level_index + ')'
+        : 'not assigned'),
+    'Sprite: ' + (card.sprite ? card.sprite.sprite_set : 'neutral placeholder')
+  ];
+  lines.forEach(line => {
+    const li = document.createElement('li');
+    li.textContent = line;
+    facts.appendChild(li);
+  });
+  location.hash = 'worker-card';
 }
 function renderHeadInbox(items) {
   const list = document.getElementById('head-inbox-list');
@@ -500,19 +678,140 @@ function renderHeadInbox(items) {
     list.appendChild(li);
   });
 }
+function renderStaffingProposals(items) {
+  const list = document.getElementById('staffing-proposal-list');
+  list.innerHTML = '';
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No pending staffing proposals.';
+    list.appendChild(li);
+    return;
+  }
+  items.forEach(proposal => {
+    const li = document.createElement('li');
+    li.appendChild(document.createTextNode(
+      proposal.kind + ' · ' + proposal.position_id + ' · '
+      + proposal.cost_estimate_cents + '¢ · ' + proposal.rationale + ' '));
+    ['approved', 'rejected'].forEach(decision => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip';
+      button.textContent = decision === 'approved' ? 'Approve' : 'Reject';
+      button.addEventListener('click', async () => {
+        const res = await fetch(
+          '/api/v1/staffing-proposals/' + proposal.id + '/decision',
+          {
+            method: 'POST',
+            headers: {...headers, 'Content-Type': 'application/json',
+              'Idempotency-Key': 'desk-staffing-' + proposal.id + '-' + decision},
+            body: JSON.stringify({payload: {decision}})
+          }
+        );
+        if (!res.ok) { alert(await res.text()); return; }
+        load();
+      });
+      li.appendChild(button);
+    });
+    list.appendChild(li);
+  });
+}
+function renderDivisions(items) {
+  const list = document.getElementById('division-list');
+  list.innerHTML = '';
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No division proposals.';
+    list.appendChild(li);
+    return;
+  }
+  items.forEach(division => {
+    const li = document.createElement('li');
+    const label = document.createElement('span');
+    label.textContent = division.name + ' — ' + division.industry_pack_id +
+      ' — ' + division.mode + ' — ' + division.status;
+    li.appendChild(label);
+    if (division.status === 'proposed') {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip';
+      button.textContent = 'Activate (CEO)';
+      button.style.marginLeft = '0.5rem';
+      button.addEventListener('click', async () => {
+        const res = await fetch('/api/v1/divisions/' + division.id + '/activate', {
+          method: 'POST',
+          headers: {...headers, 'Content-Type': 'application/json',
+            'Idempotency-Key': 'desk-division-activate-' + division.id},
+          body: JSON.stringify({payload: {}})
+        });
+        if (!res.ok) { alert(await res.text()); return; }
+        load();
+      });
+      li.appendChild(button);
+    }
+    list.appendChild(li);
+  });
+}
+function renderObjectives(items) {
+  const list = document.getElementById('objective-list');
+  list.innerHTML = '';
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No objectives.';
+    list.appendChild(li);
+    return;
+  }
+  items.forEach(objective => {
+    const li = document.createElement('li');
+    li.appendChild(document.createTextNode(
+      objective.title + ' — due ' + objective.due_at + ' — ' + objective.status + ' '));
+    if (objective.status === 'open') {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip';
+      button.textContent = 'Close';
+      button.addEventListener('click', async () => {
+        const res = await fetch('/api/v1/objectives/' + objective.id + '/close', {
+          method: 'POST',
+          headers: {...headers, 'Content-Type': 'application/json',
+            'Idempotency-Key': 'desk-objective-close-' + objective.id},
+          body: JSON.stringify({payload: {}})
+        });
+        if (!res.ok) { alert(await res.text()); return; }
+        load();
+      });
+      li.appendChild(button);
+    }
+    list.appendChild(li);
+  });
+}
 async function load() {
   const status = await fetch('/api/v1/company', {headers});
   document.getElementById('status-json').textContent = await status.text();
   const hq = await fetch('/api/v1/headquarters', {headers});
   const data = await hq.json();
+  headquartersRooms = data.rooms || [];
   const list = document.getElementById('room-list');
   list.innerHTML = '';
+  const hasFloorplan = (data.rooms || []).some(room => !!room.floorplan_id);
+  const requirements = document.getElementById('unmet-requirements');
+  requirements.innerHTML = '';
+  (data.unmet_requirements || []).forEach(gap => {
+    const chip = document.createElement('span');
+    chip.className = 'chip tag-warning';
+    chip.textContent = gap.department_id + ': needs ' + gap.required_room_type
+      + ' (' + gap.actual_capacity + '/' + gap.min_capacity + ')';
+    requirements.appendChild(chip);
+  });
   (data.rooms||[]).forEach(room => {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.className = 'room';
     btn.type = 'button';
-    btn.textContent = room.id + ' — ' + room.status + ' — ' + room.source_project;
+    btn.textContent = room.id + ' — ' + (room.label || room.status)
+      + ' — ' + (room.room_type || room.source_project);
     btn.addEventListener('click', () => openRoom(room.id));
     li.appendChild(btn);
     list.appendChild(li);
@@ -523,9 +822,6 @@ async function load() {
   const inbox = await fetch('/api/v1/decisions/inbox', {headers});
   const ij = await inbox.json();
   fill('proposal-list', ij.items||[], item => item.kind + ' — ' + item.title);
-  const ev = await fetch('/api/v1/events?limit=20', {headers});
-  const ej = await ev.json();
-  fill('activity-list', ej.items||[], item => item.kind + ' @ ' + item.at);
   const projects = await fetch('/api/v1/projects', {headers});
   const pj = await projects.json();
   fill('project-list', pj.projects||[], p => p.id + ' — ' + (p.brief || p.status || ''));
@@ -580,15 +876,43 @@ async function load() {
   const oj = await org.json();
   fill('org-list', oj.departments||[], d => {
     const seat = d.seat || {};
+    const origin = d.origin || 'seed';
+    const status = d.status || (d.initially_active ? 'active' : 'dormant');
     const roster = listed(d.assignments, a => a.principal_id + ' (' + a.position_id + ')');
-    return d.id + ' — ' + seat.status + ' — ' + (seat.principal_id || 'vacant') + ' — roster: ' + roster;
+    return d.id + ' — ' + d.name + ' — ' + status + ' (' + origin + ') — seat ' +
+      (seat.status || 'vacant') + ' — ' + (seat.principal_id || 'vacant') +
+      ' — order ' + (d.display_order ?? 0) + ' — roster: ' + roster;
   });
+  const packs = await fetch('/api/v1/industry-packs', {headers});
+  const packsj = await packs.json();
+  fill('industry-pack-list', packsj.industry_packs || [], pack =>
+    pack.id + ' — ' + pack.industry + ' — minimal ' +
+    pack.minimal_departments.length + ' / full ' + pack.full_departments.length);
+  const divisions = await fetch('/api/v1/divisions', {headers});
+  const divisionsj = await divisions.json();
+  renderDivisions(divisionsj.divisions || []);
+  const scorecard = await fetch('/api/v1/scorecard', {headers});
+  const scorecardj = await scorecard.json();
+  document.getElementById('scorecard-metrics').textContent =
+    JSON.stringify(scorecardj.metrics || {}, null, 2);
+  const objectives = await fetch('/api/v1/objectives', {headers});
+  const objectivesj = await objectives.json();
+  renderObjectives(objectivesj.items || []);
   const headInbox = await fetch('/api/v1/inbox/head', {headers});
   const hij = await headInbox.json();
   renderHeadInbox(hij.items || []);
   const people = await fetch('/api/v1/hr/development', {headers});
   const peoplej = await people.json();
   fill('people-list', peoplej.employees || peoplej.assignments || [], p => (p.display_name || p.employee_id || p.id) + ' — ' + (p.position_id || p.status || ''));
+  const promotions = await fetch('/api/v1/promotions?status=pending', {headers});
+  const promotionsj = await promotions.json();
+  fill('promotion-list', promotionsj.items || [], promotion =>
+    promotion.employee_id + ' — ' + promotion.from_level + ' → ' +
+      promotion.to_level + ' — ' + promotion.status);
+  const staffing = await fetch(
+    '/api/v1/staffing-proposals?status=pending', {headers});
+  const staffingj = await staffing.json();
+  renderStaffingProposals(staffingj.items || []);
   const briefs = await fetch('/api/v1/impact-briefs', {headers});
   const bj = await briefs.json();
   fill('intelligence-list', bj.briefs||[], b => {
@@ -614,22 +938,49 @@ async function load() {
   const iso = document.getElementById('iso');
   iso.innerHTML = '';
   function ns(name) { return document.createElementNS('http://www.w3.org/2000/svg', name); }
-  (data.rooms||[]).forEach((room, i) => {
-    const x = 10 + (i % 4) * 48;
-    const y = 10 + Math.floor(i / 4) * 36;
-    const r = ns('rect');
-    r.setAttribute('x', x); r.setAttribute('y', y);
-    r.setAttribute('width', 40); r.setAttribute('height', 28);
-    r.setAttribute('fill', room.status === 'built' ? '#1d4ed8' : '#1a2233');
-    r.setAttribute('stroke', room.status === 'built' ? '#3b82f6' : '#8b5cf6');
-    r.setAttribute('data-room-id', room.id);
-    r.addEventListener('click', () => openRoom(room.id));
-    svg.appendChild(r);
-    const t = ns('text');
-    t.setAttribute('x', x+4); t.setAttribute('y', y+16); t.setAttribute('fill', '#eee');
-    t.setAttribute('font-size', '6');
-    t.textContent = room.status;
-    svg.appendChild(t);
+  if (hasFloorplan) {
+    const plan = (data.floorplans || []).find(
+      item => item.id === data.rooms[0].floorplan_id) || data.floorplans[0];
+    const inset = 4;
+    const cellW = (200 - inset * 2) / plan.grid_cols;
+    const cellH = (80 - inset * 2) / plan.grid_rows;
+    (data.rooms || []).filter(room => room.floorplan_id === plan.id).forEach(room => {
+      const x = inset + room.grid_x * cellW;
+      const y = inset + room.grid_y * cellH;
+      const r = ns('rect');
+      r.setAttribute('x', x); r.setAttribute('y', y);
+      r.setAttribute('width', room.width * cellW);
+      r.setAttribute('height', room.height * cellH);
+      r.setAttribute('fill', '#1d4ed8'); r.setAttribute('stroke', '#93c5fd');
+      r.setAttribute('data-room-id', room.id);
+      r.addEventListener('click', () => openRoom(room.id));
+      svg.appendChild(r);
+      const t = ns('text');
+      t.setAttribute('x', x + 2); t.setAttribute('y', y + Math.min(9, cellH - 1));
+      t.setAttribute('fill', '#eee'); t.setAttribute('font-size', '5');
+      t.textContent = room.room_type;
+      svg.appendChild(t);
+      (room.workers || []).forEach((worker, index) => {
+        const marker = ns('circle');
+        marker.setAttribute('cx', x + 6 + index * 7);
+        marker.setAttribute('cy', y + room.height * cellH - 6);
+        marker.setAttribute('r', '3');
+        marker.setAttribute(
+          'fill', worker.sprite ? '#34d399' : '#9aa8c0');
+        marker.setAttribute('stroke', '#e8eef8');
+        marker.setAttribute('data-worker-id', worker.employee_id);
+        marker.setAttribute('aria-label', worker.display_name);
+        marker.addEventListener('click', event => {
+          event.stopPropagation();
+          openWorkerCard(worker.employee_id);
+        });
+        svg.appendChild(marker);
+      });
+    });
+    setHqView('plan');
+  }
+  const expansionRooms = hasFloorplan ? (data.expansions || []) : (data.rooms || []);
+  expansionRooms.forEach((room, i) => {
     const col = i % 4, row = Math.floor(i / 4);
     const ix = 100 + (col - row) * 28, iy = 28 + (col + row) * 16;
     const built = room.status === 'built';
@@ -655,8 +1006,11 @@ async function load() {
     g.appendChild(left); g.appendChild(right); g.appendChild(top); g.appendChild(label);
     iso.appendChild(g);
   });
+  if (!hasFloorplan) setHqView('iso');
+  await loadActivity();
 }
 load().catch(err => { document.getElementById('status-json').textContent = String(err); });
+setInterval(loadActivity, 10000);
 async function loadDiagnostics() {
   const host = document.getElementById('diag-blocks');
   host.innerHTML = 'Loading…';
@@ -827,6 +1181,67 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "company.read")
         return company.status() | {"paused": company.db.execute("SELECT value FROM settings WHERE key='paused'").fetchone()[0]}
 
+    @app.get("/api/v1/activity")
+    def activity(status: str = "open",
+                 authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.list_activity(status)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/scorecard")
+    def scorecard(period_start: str | None = None, period_end: str | None = None,
+                  authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.compute_scorecard(period_start, period_end)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/objectives")
+    def objectives(status: str | None = None,
+                   authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.list_objectives(status)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/objectives")
+    def create_objective(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.set_objective(ident["principal_id"], **payload), 200))
+
+    @app.post("/api/v1/objectives/{objective_id}/close")
+    def close_objective(
+            objective_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        if payload:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(payload)}")
+        return run(
+            ident, idempotency_key, {"objective_id": objective_id},
+            lambda: (
+                company.close_objective(ident["principal_id"], objective_id), 200))
+
     @app.post("/api/v1/company/pause")
     def pause(body: Command, authorization: str | None = Header(default=None), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
         ident = principal(authorization)
@@ -847,6 +1262,66 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "organization.read")
         rows = [dict(r) for r in company.db.execute("SELECT id,name,head_title,initially_active FROM departments ORDER BY id")]
         return {"departments": rows}
+
+    @app.get("/api/v1/industry-packs")
+    def industry_packs(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        return company.list_industry_packs()
+
+    @app.get("/api/v1/divisions")
+    def divisions(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        return company.list_divisions()
+
+    @app.post("/api/v1/divisions/proposals")
+    def propose_division(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.propose_division(ident["principal_id"], **payload), 200))
+
+    @app.post("/api/v1/divisions/{division_id}/activate")
+    def activate_division(
+            division_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        if payload:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(payload)}")
+        return run(
+            ident, idempotency_key, {"division_id": division_id},
+            lambda: (
+                company.activate_division(ident["principal_id"], division_id), 200))
+
+    @app.post("/api/v1/divisions/{division_id}/deactivate")
+    def deactivate_division(
+            division_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        if payload:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(payload)}")
+        return run(
+            ident, idempotency_key, {"division_id": division_id},
+            lambda: (
+                company.deactivate_division(ident["principal_id"], division_id), 200))
 
     @app.get("/api/v1/org")
     def org(authorization: str | None = Header(default=None)):
@@ -965,6 +1440,85 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 payload.get("reports_to_seat_id")), 200
 
         return run(ident, idempotency_key, payload, go)
+
+    @app.post("/api/v1/org/departments")
+    def org_departments_create(body: Command, authorization: str | None = Header(default=None),
+                               idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_department(
+                ident["principal_id"],
+                department_id=payload.get("id") or payload.get("department_id"),
+                name=payload["name"],
+                head_title=payload["head_title"],
+                mission=payload["mission"],
+                measures=payload.get("measures") or [],
+                room_type=payload["room_type"],
+                initially_active=bool(payload.get("initially_active", False)),
+                default_model_profile=payload.get("default_model_profile", "mock-text"),
+                parent_department_id=payload.get("parent_department_id"),
+                display_order=payload.get("display_order"),
+            ), 200))
+
+    @app.patch("/api/v1/org/departments/{department_id}")
+    def org_departments_update(department_id: str, body: Command,
+                               authorization: str | None = Header(default=None),
+                               idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        reason = payload.pop("reason", "update")
+        payload.pop("id", None)
+        payload.pop("department_id", None)
+        return run(ident, idempotency_key, payload | {"department_id": department_id}, lambda: (
+            company.update_department(
+                ident["principal_id"], department_id, reason=reason, **payload), 200))
+
+    @app.post("/api/v1/org/departments/{department_id}/retire")
+    def org_departments_retire(department_id: str, body: Command,
+                               authorization: str | None = Header(default=None),
+                               idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"department_id": department_id}, lambda: (
+            company.retire_department(ident["principal_id"], department_id), 200))
+
+    @app.post("/api/v1/org/departments/reorder")
+    def org_departments_reorder(body: Command, authorization: str | None = Header(default=None),
+                                idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.reorder_departments(ident["principal_id"], payload["items"]), 200))
+
+    @app.post("/api/v1/org/positions")
+    def org_positions_create(body: Command, authorization: str | None = Header(default=None),
+                             idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_position(
+                ident["principal_id"],
+                department_id=payload["department_id"],
+                title=payload["title"],
+                display_order=payload.get("display_order"),
+            ), 200))
+
+    @app.patch("/api/v1/org/positions/{position_id:path}")
+    def org_positions_update(position_id: str, body: Command,
+                             authorization: str | None = Header(default=None),
+                             idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        fields = {k: payload[k] for k in ("title", "display_order", "status") if k in payload}
+        return run(ident, idempotency_key, payload | {"position_id": position_id}, lambda: (
+            company.update_position(ident["principal_id"], position_id, **fields), 200))
 
     @app.post("/api/v1/projects/{project_id}/departments/{department_id}/activate")
     def activate_project_department(
@@ -1166,7 +1720,12 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 page = company.events_page(pos, 20)
                 for item in page["items"]:
                     pos = item["seq"]
-                    yield f"data: {json.dumps({'seq': item['seq'], 'kind': item['kind'], 'at': item['at']})}\n\n"
+                    frame = {
+                        "seq": item["seq"], "kind": item["kind"], "at": item["at"]}
+                    activity = company.activity_for_event(item["seq"])
+                    if activity and activity.get("room_id"):
+                        frame["room_id"] = activity["room_id"]
+                    yield f"data: {json.dumps(frame)}\n\n"
                 if idle <= 0:
                     return
                 if not page["items"]:
@@ -1262,6 +1821,119 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/employees/{employee_id}/ladder")
+    def employee_ladder(employee_id: str,
+                        authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        try:
+            return company.employee_ladder(employee_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/promotions")
+    def promotions(status: str | None = None,
+                   authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        try:
+            return company.list_promotions(status)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/staffing-proposals")
+    def staffing_proposals(
+            status: str | None = None,
+            authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        try:
+            return company.list_staffing_proposals(status)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/staffing-proposals")
+    def create_staffing_proposal(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident,idempotency_key,payload,
+            lambda: (
+                company.create_staffing_proposal(
+                    ident["principal_id"],**payload),200))
+
+    @app.post("/api/v1/staffing-proposals/scan")
+    def scan_staffing_proposals(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        if payload:
+            raise HTTPException(
+                status_code=422,detail=f"Unknown fields: {sorted(payload)}")
+        return run(
+            ident,idempotency_key,payload,
+            lambda: (company.scan_staffing_gaps(ident["principal_id"]),200))
+
+    @app.post("/api/v1/staffing-proposals/{proposal_id}/decision")
+    def decide_staffing_proposal(
+            proposal_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident,idempotency_key,payload | {"proposal_id":proposal_id},
+            lambda: (
+                company.decide_staffing_proposal(
+                    ident["principal_id"],proposal_id,payload["decision"]),200))
+
+    @app.post("/api/v1/employees/{employee_id}/promotions")
+    def propose_promotion(
+            employee_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload | {"employee_id":employee_id},
+            lambda: (
+                company.propose_promotion(
+                    ident["principal_id"],employee_id,payload.get("to_level_id")),
+                200,
+            ),
+        )
+
+    @app.post("/api/v1/promotions/{promotion_id}/decision")
+    def decide_promotion(
+            promotion_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload | {"promotion_id":promotion_id},
+            lambda: (
+                company.decide_promotion(
+                    ident["principal_id"],promotion_id,payload["decision"]),
+                200,
+            ),
+        )
 
     @app.get("/api/v1/employees/{employee_id}/training")
     def employee_training(employee_id: str, authorization: str | None = Header(default=None)):
@@ -1564,6 +2236,161 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.get("/api/v1/floorplans")
+    def floorplans(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.list_floorplans()
+
+    @app.get("/api/v1/workers/{employee_id}/card")
+    def worker_card(
+            employee_id: str,
+            authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "organization.read")
+        try:
+            return company.worker_card(employee_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/workers/{employee_id}/sprite")
+    def worker_sprite(
+            employee_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload | {"employee_id": employee_id},
+            lambda: (
+                company.set_worker_sprite(
+                    ident["principal_id"], employee_id, **payload), 200))
+
+    @app.patch("/api/v1/workers/{employee_id}/profile")
+    def worker_profile(
+            employee_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload | {"employee_id": employee_id},
+            lambda: (
+                company.update_worker_profile(
+                    ident["principal_id"], employee_id, **payload), 200))
+
+    @app.get("/api/v1/floorplans/{floorplan_id}")
+    def floorplan_detail(
+            floorplan_id: str,
+            authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.get_floorplan(floorplan_id)
+        except LookupError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/floorplans")
+    def floorplan_create(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.create_floorplan(ident["principal_id"], **payload), 200))
+
+    @app.post("/api/v1/floorplans/{floorplan_id}/rooms")
+    def floorplan_room_create(
+            floorplan_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        command_payload = payload | {"floorplan_id": floorplan_id}
+        return run(
+            ident, idempotency_key, command_payload,
+            lambda: (
+                company.upsert_floorplan_room(
+                    ident["principal_id"], floorplan_id, **payload), 200))
+
+    @app.patch("/api/v1/floorplans/{floorplan_id}/rooms/{room_id}")
+    def floorplan_room_update(
+            floorplan_id: str, room_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        command_payload = payload | {
+            "floorplan_id": floorplan_id, "room_id": room_id}
+
+        def update():
+            room = company._floorplan_room(room_id)
+            if room["floorplan_id"] != floorplan_id:
+                raise ValueError("Room belongs to another floorplan")
+            if set(payload) == {"grid_x", "grid_y"}:
+                result = company.move_room(
+                    ident["principal_id"], room_id,
+                    payload["grid_x"], payload["grid_y"])
+            else:
+                result = company.upsert_floorplan_room(
+                    ident["principal_id"], floorplan_id,
+                    **(payload | {"id": room_id}))
+            return result, 200
+
+        return run(ident, idempotency_key, command_payload, update)
+
+    @app.delete("/api/v1/floorplans/{floorplan_id}/rooms/{room_id}")
+    def floorplan_room_delete(
+            floorplan_id: str, room_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        command_payload = payload | {
+            "floorplan_id": floorplan_id, "room_id": room_id}
+
+        def remove():
+            room = company._floorplan_room(room_id)
+            if room["floorplan_id"] != floorplan_id:
+                raise ValueError("Room belongs to another floorplan")
+            return company.remove_room(ident["principal_id"], room_id), 200
+
+        return run(ident, idempotency_key, command_payload, remove)
+
+    @app.post("/api/v1/floorplans/default")
+    def floorplan_default(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        unknown = set(payload) - {"division_id"}
+        if unknown:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(unknown)}")
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.default_floorplan_for(
+                    ident["principal_id"], payload.get("division_id")), 200))
+
     @app.get("/api/v1/headquarters")
     def hq(authorization: str | None = Header(default=None)):
         ident = principal(authorization)
@@ -1700,6 +2527,7 @@ def main():
               file=sys.stderr)
     company = Company(str(db_path))
     bootstrap_owner(company, token_path)
+    company.seed_industry_packs()
     import uvicorn
     uvicorn.run(create_app(company), host=args.host, port=args.port, log_level="info")
 

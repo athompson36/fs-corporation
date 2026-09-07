@@ -30,6 +30,11 @@
 | ADR-026 | 2026-09-07 | Billed cost and revenue tables separate from simulated ledger | Live invoke writes `billed_costs` with honest cents + usage_tokens; revenue via CEO `record_revenue`; status exposes separate sums (ADR-007). |
 | ADR-027 | 2026-09-07 | Phone GitHub assign by address with same-owner -corp write repo | Companion pastes upstream URL; API creates/reuses `{repo}-corp`; enrolls both ids; companion-admin may act as CEO mobile for enroll/dispatch. |
 | ADR-028 | 2026-09-07 | Department heads assign only through seat, grant, roster, and queue gates | Inbox reads persisted dispatches; assignment requires `work.assign` scope and queues work under the specialist's own grant; head vacancy blocks open work and cancels linked queues. |
+| ADR-029 | 2026-09-07 | HQ live activity is a transactional event projection | `_event` applies a deterministic reducer after persisting each event; `started_event_id` is unique and references the audit sequence, so replay cannot invent duplicate occupancy. Sessions use persisted department rooms when available, while the Desk polls the authenticated read API and suppresses pulse animation for reduced-motion users. |
+| ADR-030 | 2026-09-07 | Promotions require persisted evidence and separate HR/CEO authority | Department ladders define skills, accepted-artifact/QC thresholds, review score, and quality standards. HR or CEO captures an immutable evaluation in a pending proposal; only CEO/admin companion decides. Approval updates the employee level and missing training targets in one transaction. |
+| ADR-031 | 2026-09-07 | Staffing automation stops at an approval-gated proposal | HR/CEO scans use persisted dispatch, floorplan, assignment, and training evidence with a durable cooldown and pending-key deduplication. Scans never hire. Only CEO/admin companion decisions execute a hire, and proposal approval plus employee/training creation commit or roll back together. Promotion staffing approvals remain advisory to the separate Phase 5 promotion API. |
+| ADR-032 | 2026-09-07 | Industry packs instantiate divisions through a separate CEO activation gate | Packs persist complete templates. Consultant/CEO/seated heads may propose minimal or full divisions, but only CEO/admin companions activate. Department, position, skill, learning, link, floorplan, status and event writes share one transaction; deactivation rejects open linked work. |
+| ADR-033 | 2026-09-07 | Event-projected HQ and governed industry packs remain persisted operational views | Headquarters activity and scorecards derive from persisted events/rows; industry packs are inert templates until CEO activation. UI projections never create operational or financial facts. |
 
 ### ADR-010 detail
 
@@ -280,5 +285,73 @@ Auto-activating dormant departments was rejected because activation remains an o
 **Consequences.** Alembic `0015_cross_dept_work_orders` adds the table. Create and accept
 emit transactional audit events. The authenticated API supports create, actor-scoped delivery
 list, and accept; no user-visible UI ships, so the package remains 0.3.51.
+
+### ADR-030 detail
+
+**Context.** Expansion events record earned growth but do not provide a stable editable grid,
+department-room ownership, or an explicit way to report missing operational spaces. Rendering
+requirements as rooms would invent state.
+
+**Decision.** Persist floorplans and grid-positioned rooms separately from the expansion
+ledger. Room types are constrained to the department catalog or requirement catalog; bounds
+and overlap fail closed. Requirements record minimum capacity by department and room type.
+Only the CEO or authenticated admin companion mutates layouts. Expansion-linked rooms cannot
+be removed, preserving their growth provenance.
+
+**Alternatives considered.** Deriving a layout from expansion order was rejected because it
+cannot represent department ownership or edits. Storing the plan only in browser state was
+rejected because restart and auditability are required. Materializing missing requirements as
+placeholder rooms was rejected because the UI must not invent operational state.
+
+**Consequences.** Alembic `0017_floorplans` adds the three tables and seeds catalog
+requirements from `config/room-requirements.json`. The Desk renders persisted rooms on the 2D
+grid and shows unmet requirements as warning chips; expansion isometric rendering remains the
+fallback when no floorplan rooms exist. No package version bump is made for this phase.
+
+### ADR-031 detail
+
+**Context.** Persisted employees and room ownership identify who belongs in a department, but
+the headquarters had no validated visual identity or concise, joined worker view. Inventing
+sprites or capabilities in the browser would violate the building projection rules.
+
+**Decision.** Store sprite-set catalogs separately from each employee's selected sprite.
+Catalog-defined bodies, palettes, layers, and accessories are validated in the core. Human
+Resources or the CEO may edit sprite and profile fields. Worker cards join only persisted
+employee identity, acquired skills, active position assignments, and an optional sprite.
+Missing sprites remain null and are rendered with an explicitly neutral placeholder.
+
+**Alternatives considered.** Browser-only sprite choices were rejected because they would not
+survive restart or support consistent validation. Generating a random sprite for every worker
+was rejected because it would invent identity. Reusing model profiles as worker identity was
+rejected because employees, positions, and model routing are intentionally separate.
+
+**Consequences.** Alembic `0018_worker_identity` adds profile columns, `sprite_sets`, and
+`worker_sprites`, seeded from `config/sprite-sets.json`. Organization-scoped APIs expose cards
+and mutations, while core HR/CEO checks remain authoritative. Department rooms include
+persisted staff with optional sprites; Desk markers fetch the corresponding card. No package
+version bump is made for this phase.
+
+### ADR-033 detail
+
+**Context.** Corporate HQ phases added editable organization state, rooms, worker identity,
+activity, staffing, divisions, and executive measures. A rich headquarters UI could otherwise
+drift into invented occupancy, performance, revenue, or active business units.
+
+**Decision.** Keep headquarters activity event-projected and compute the CEO scorecard only
+from persisted operational rows. Accepted artifacts come from persisted acceptance events;
+QC, dispatch, reservation/ledger, billed-cost, and revenue measures come from their dedicated
+tables. Missing revenue remains zero and missing QC remains unmeasured. Industry packs remain
+persisted templates whose departments, skills, learning assignments, and floorplans become
+operational only through the existing CEO activation transaction. Objectives are separate
+CEO/admin-authored records and do not rewrite measured results.
+
+**Alternatives considered.** Client-side counters and demo revenue were rejected because they
+would fabricate company performance. Treating an installed industry pack as an active division
+was rejected because templates are not authority. Recomputing HQ occupancy from running model
+processes was rejected because process presence is not a durable business event.
+
+**Consequences.** Alembic `0023_ceo_scorecard` adds objectives and optional immutable scorecard
+snapshots. The Desk labels the scorecard as measured from persisted operations, and all HQ
+projections remain reproducible from durable company state.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

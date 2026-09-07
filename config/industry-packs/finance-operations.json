@@ -1,0 +1,19 @@
+{
+  "id": "finance-operations",
+  "industry": "Finance operations",
+  "compliance_notes": "Financial controls are simulated until qualified human review and configured systems are present.",
+  "minimal_departments": [
+    {"id":"fin-ops","name":"Finance Operations","head":"Finance Operations Director","mission":"Operate reconciliations, payables workflows and financial controls.","measures":["Close timeliness","Reconciliation quality"],"room_type":"finance-operations-center","positions":["Operations Analyst","Reconciliation Specialist"],"default_model_profile":"mock-text","initially_active":true}
+  ],
+  "full_departments": [
+    {"id":"fin-ops","name":"Finance Operations","head":"Finance Operations Director","mission":"Operate reconciliations, payables workflows and financial controls.","measures":["Close timeliness","Reconciliation quality"],"room_type":"finance-operations-center","positions":["Operations Analyst","Reconciliation Specialist"],"default_model_profile":"mock-text","initially_active":true},
+    {"id":"treasury","name":"Treasury","head":"Treasury Director","mission":"Plan liquidity, cash controls and funding scenarios.","measures":["Liquidity coverage","Forecast variance"],"room_type":"treasury-office","positions":["Treasury Analyst","Cash Manager"],"default_model_profile":"mock-text","initially_active":true},
+    {"id":"controllership","name":"Controllership","head":"Controller","mission":"Maintain accounting policy, close evidence and control review.","measures":["Control exceptions","Close accuracy"],"room_type":"controls-office","positions":["Accounting Analyst","Controls Reviewer"],"default_model_profile":"mock-text","initially_active":true}
+  ],
+  "required_skills": [
+    {"id":"finance-reconciliation","name":"Financial reconciliation","department_id":"fin-ops","platform":"hr"},
+    {"id":"finance-liquidity","name":"Liquidity planning","department_id":"treasury","platform":"hr"},
+    {"id":"finance-controls","name":"Financial controls","department_id":"controllership","platform":"hr"}
+  ],
+  "default_floorplan": {"grid_cols":8,"grid_rows":6}
+}

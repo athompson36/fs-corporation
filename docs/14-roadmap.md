@@ -197,8 +197,27 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Art/isometric animation — CEO desk isometric SVG from the same `headquarters()` rooms; rise animation respects `prefers-reduced-motion`; no invented occupancy; cosmic-glass chrome adopted; furnished room art still deferred
 - [x] Room detail — `GET /api/v1/headquarters/rooms/{id}` returns persisted tasks, staff, deliverables, simulated costs and related decisions; desk list/tiles open that panel; missing rooms fail closed
 - [x] Consultant inbox: findings, evidence, approve/reject/revise (API + desk list)
+- [x] Corporate HQ Phase 1 — runtime department/position editing and revision history
+- [x] Corporate HQ Phase 2 — migration `0017_floorplans`, persisted grid rooms, department requirements, authenticated CRUD/default-plan API, overlap enforcement, and Desk warning chips; expansion isometric retained as the no-floorplan fallback
+- [x] Corporate HQ Phase 3 — migration `0018_worker_identity`, validated sprite catalogs and HR/CEO-managed identity fields, joined worker cards, authenticated APIs, and honest clickable Desk markers
+- [x] Corporate HQ Phase 4 — migration `0019_activity_projection`, idempotent event-derived work/review/meeting/context sessions, stale-session closure, company-read API, room-aware SSE frames, and reduced-motion-safe Desk badges
+- [x] Corporate HQ Phase 5 — migration `0020_career_ladder`, seeded Engineering L1–L3 standards, evidence-backed promotion evaluation, HR proposals, CEO decisions, training targets, authenticated APIs, and minimal Desk ladder/pending-promotion views
+- [x] Corporate HQ Phase 6 — migration `0021_staffing_proposals`, cooldown-limited evidence scans, pending-proposal deduplication, HR/CEO proposal authority, CEO/admin decisions, atomic approval-gated hires, authenticated APIs, and Desk approve/reject controls
+- [x] Corporate HQ Phase 7 — migration `0022_divisions`, four persisted industry packs, consultant/CEO/seated-head proposals, CEO/admin atomic activation, division departments/skills/floorplans, open-work deactivation gates, authenticated APIs, and Desk controls
+- [x] Corporate HQ Phase 8 — migration `0023_ceo_scorecard`, persisted-data-only CEO scorecard, optional snapshots, CEO/admin objective lifecycle, authenticated APIs, and Desk create/close controls
 
 **Acceptance:** one accepted project earns progress; justified expansion is approved and provisioned; a room opens real department data; restart/replay keeps room identity and count. Reduced-motion and list navigation work.
+
+### M-HQ — Corporate headquarters phases
+
+- [x] Phase 1: runtime departments and positions
+- [x] Phase 2: persisted floorplans and requirements
+- [x] Phase 3: worker identity and sprites
+- [x] Phase 4: event-projected live activity
+- [x] Phase 5: career ladders and promotions
+- [x] Phase 6: approval-gated staffing proposals
+- [x] Phase 7: divisions and industry packs
+- [x] Phase 8: CEO scorecard and objectives
 
 ## M7 — Portfolio operations and release readiness
 
@@ -383,8 +402,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Cross-department request API shipped additively at 0.3.51.** Next: remaining M10-03
-(benchmark read path or removal; role fixtures), or **M10-04** UI items (version display,
+**Corporate HQ Phases 1–8 are complete at 0.3.53.** Next: resume remaining M10-03
+(benchmark read path or removal; role fixtures) or **M10-04** UI items (version display,
 desk keyboard access, `window.prompt` replacement for remaining flows).
 
 Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev

@@ -21,10 +21,18 @@
 | Signal | Canonical source, source/observed time, fingerprint | Deduped and explicitly untrusted |
 | Expansion | Source milestone, plan, budget, contractor, inspection | Completion cannot be counted twice |
 | Event | Sequence, actor, correlation ID, payload, timestamp | Persist with state transaction |
+| ActivitySession | Kind, project/department/room, participants, start/end events | Must originate from a persisted event; replay is idempotent by start event |
+| CareerLevel | Department/division scope, index, title, required skills, evidence thresholds, quality standard | Indices are ordered within one ladder scope |
+| PromotionRecord | Employee, from/to levels, evidence snapshot, proposer, decision | HR/CEO proposes; only CEO/admin companion decides; approval updates level transactionally |
+| StaffingProposal | Kind, department/position/optional level, rationale, evidence, estimated cost, proposer, decision | HR/CEO proposes; only CEO/admin companion decides; approved hires execute transactionally when complete hire evidence is present |
+| IndustryPack | Industry, complete JSON template, enabled state | Persisted seed template; disabled or malformed packs fail closed |
+| Division | Pack, mode, proposer, activation status and departments | Consultant/CEO/seated heads propose; only CEO/admin companion activates or deactivates |
+| Objective | Title, optional division, due date, JSON target, creator, lifecycle | CEO/admin companion creates and closes; targets do not replace measured results |
+| ScorecardSnapshot | Period, persisted metrics, creation time | Optional immutable capture; revenue is never inferred |
 
 ## Reference tables
 
-`company/schema.py` and Alembic revisions `0001_initial` through `0015_cross_dept_work_orders`
+`company/schema.py` and Alembic revisions `0001_initial` through `0023_ceo_scorecard`
 create settings, policies, proposals, approvals, tasks, ledger, completions, signals,
 expansions, events (with envelope columns that do not change the audit hash),
 consultant_proposals, identities, departments, positions, **department_seats**,
@@ -35,8 +43,14 @@ enrollment/effects/webhook deliveries, impact
 briefs, budget periods, memories, command idempotency, benchmark results, consultant
 review cooldowns, skills, acquired_skills, project_capabilities, learning_assignments,
 qc_inspections, employees, training_records, performance_goals and performance_reviews,
-**billed_costs**, and **revenue**. JSON configurations remain seed templates via
-`seed_catalog` / `seed_models` / `seed_hardware_skills` / `seed_development_skills`.
+**billed_costs**, **revenue**, floorplans/rooms, worker sprites, and
+**activity_sessions**, **career_levels**, **employee_levels**, and
+**promotion_records**, **staffing_proposals**, **staffing_scan_cooldown**,
+**industry_packs**, **divisions**, **division_departments**, and
+**division_activations**, **objectives**, and **scorecard_snapshots**.
+JSON configurations remain seed templates via
+`seed_catalog` / `seed_models` / `seed_hardware_skills` /
+`seed_development_skills` / `seed_career_ladders` / `seed_industry_packs`.
 
 The ledger records synthetic integer costs for mock actions. `billed_costs` records live provider usage in integer USD cents (`amount_cents`, often 0 until a pricing rate is set) plus `usage_tokens`. `revenue` records real income separately. Policy changes never reset simulated ledger totals. Refunds and period rollover of billed amounts remain future work.
 

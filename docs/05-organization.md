@@ -12,6 +12,18 @@ a project. Dispatch requires an explicit budget for each department; occupied he
 persisted inbox items and can assign rostered or project-granted specialists through the
 grant-checked queue path.
 
+Corporate HQ Phase 7 adds persisted industry-pack templates and approval-gated divisions.
+The Master Consultant, CEO, or a currently seated department head may propose a minimal or
+full division. Only the CEO/admin companion may activate it. Activation atomically creates
+missing departments and positions, links the division roster, seeds pack skills and company
+learning assignments, and creates a division-tagged floorplan. Deactivation fails closed while
+any linked department has an open dispatch or cross-department request.
+
+Corporate HQ Phase 8 adds CEO/admin-authored objectives and a CEO scorecard derived only
+from persisted acceptance events, QC inspections, dispatches, reservations/ledger entries,
+billed costs, and revenue. Objectives express direction but do not alter measured metrics;
+the Desk explicitly labels the scorecard as operational measurement, not simulation.
+
 ## Department head responsibilities
 
 Maintain the department queue, translate CEO objectives into deliverables, estimate resources, assign capable workers, review evidence, coordinate dependencies, report outcomes and propose process/staffing changes. Heads own results within their mandate; they do not invent project goals or create permissions by consensus.

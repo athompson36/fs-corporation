@@ -1,0 +1,19 @@
+{
+  "default": {
+    "layers": {
+      "eyewear": ["glasses"],
+      "headwear": ["headset", "cap"]
+    },
+    "allowed_palettes": ["aurora", "cosmic", "neutral"],
+    "body": ["round", "square"]
+  },
+  "executive": {
+    "layers": {
+      "eyewear": ["glasses"],
+      "headwear": ["headset"],
+      "badge": ["executive"]
+    },
+    "allowed_palettes": ["cosmic", "ultraviolet", "neutral"],
+    "body": ["round", "tailored"]
+  }
+}

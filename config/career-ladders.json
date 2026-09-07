@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "levels": [
+    {
+      "id": "engineering-l1",
+      "division_id": null,
+      "department_id": "engineering",
+      "level_index": 1,
+      "title": "Developer",
+      "required_skills": [
+        "secure-coding",
+        "code-review-basics"
+      ],
+      "min_accepted_artifacts": 0,
+      "min_review_score": 0,
+      "quality_standard": {
+        "review_expectation": "Independent review before acceptance",
+        "delivery": "Produces scoped work with reproducible evidence"
+      }
+    },
+    {
+      "id": "engineering-l2",
+      "division_id": null,
+      "department_id": "engineering",
+      "level_index": 2,
+      "title": "Senior Developer",
+      "required_skills": [
+        "secure-coding",
+        "code-review-basics",
+        "system-design"
+      ],
+      "min_accepted_artifacts": 2,
+      "min_review_score": 80,
+      "quality_standard": {
+        "review_expectation": "Leads independent review and resolves material findings",
+        "delivery": "Ships reliable cross-component work with exact artifact evidence"
+      }
+    },
+    {
+      "id": "engineering-l3",
+      "division_id": null,
+      "department_id": "engineering",
+      "level_index": 3,
+      "title": "Staff",
+      "required_skills": [
+        "secure-coding",
+        "code-review-basics",
+        "system-design",
+        "technical-strategy"
+      ],
+      "min_accepted_artifacts": 5,
+      "min_review_score": 90,
+      "quality_standard": {
+        "review_expectation": "Defines standards and validates organization-wide technical risk",
+        "delivery": "Owns durable architecture and raises engineering quality across teams"
+      }
+    }
+  ]
+}

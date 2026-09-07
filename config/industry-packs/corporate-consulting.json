@@ -1,0 +1,19 @@
+{
+  "id": "corporate-consulting",
+  "industry": "Corporate consulting",
+  "compliance_notes": "Client recommendations remain proposals and require scoped human approval before external use.",
+  "minimal_departments": [
+    {"id":"strategy","name":"Strategy","head":"Strategy Director","mission":"Frame client problems, options and evidence-backed recommendations.","measures":["Recommendation acceptance","Evidence quality"],"room_type":"strategy-room","positions":["Strategy Consultant","Business Analyst"],"default_model_profile":"mock-text","initially_active":true}
+  ],
+  "full_departments": [
+    {"id":"strategy","name":"Strategy","head":"Strategy Director","mission":"Frame client problems, options and evidence-backed recommendations.","measures":["Recommendation acceptance","Evidence quality"],"room_type":"strategy-room","positions":["Strategy Consultant","Business Analyst"],"default_model_profile":"mock-text","initially_active":true},
+    {"id":"client-delivery","name":"Client Delivery","head":"Client Delivery Director","mission":"Plan scoped engagements and deliver accepted client work.","measures":["Milestone acceptance","Delivery predictability"],"room_type":"client-studio","positions":["Engagement Manager","Delivery Consultant"],"default_model_profile":"mock-text","initially_active":true},
+    {"id":"knowledge","name":"Knowledge Management","head":"Knowledge Director","mission":"Curate reusable, sourced methods without leaking client data.","measures":["Reuse quality","Classification compliance"],"room_type":"knowledge-library","positions":["Knowledge Curator","Methods Analyst"],"default_model_profile":"mock-text","initially_active":true}
+  ],
+  "required_skills": [
+    {"id":"consulting-problem-framing","name":"Consulting problem framing","department_id":"strategy","platform":"hr"},
+    {"id":"consulting-delivery","name":"Engagement delivery","department_id":"client-delivery","platform":"hr"},
+    {"id":"consulting-knowledge","name":"Knowledge curation","department_id":"knowledge","platform":"hr"}
+  ],
+  "default_floorplan": {"grid_cols":8,"grid_rows":6}
+}

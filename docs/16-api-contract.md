@@ -51,6 +51,19 @@ listed scope can still receive 403 from those routes.
 | POST /employees/{id}/goals | Set a performance goal | organization.read |
 | POST /employees/{id}/reviews | Record an independent performance review | organization.read |
 | GET /employees/{id}/performance | Score trend and goals | organization.read |
+| GET /employees/{id}/ladder | Current/next career level, standards, and pending promotion records | organization.read |
+| GET /promotions | Promotion records, optionally filtered by `status` | organization.read |
+| POST /employees/{id}/promotions | Propose a promotion with a captured evidence evaluation | organization.write |
+| POST /promotions/{id}/decision | Approve/reject a pending promotion | organization.write |
+| GET /staffing-proposals | Staffing proposals, optionally filtered by `status` | organization.read |
+| POST /staffing-proposals | Create an evidence-backed staffing proposal | organization.write + HR/CEO |
+| POST /staffing-proposals/scan | Run the cooldown-limited staffing-gap scan | organization.write + HR/CEO |
+| POST /staffing-proposals/{id}/decision | Approve/reject; approved hires require evidence fields and execute atomically | organization.write + CEO/admin companion |
+| GET /industry-packs | List persisted industry-pack templates | organization.read |
+| GET /divisions | List divisions, modes, linked departments and activation history | organization.read |
+| POST /divisions/proposals | Propose a minimal/full division | organization.write + consultant/CEO/seated head |
+| POST /divisions/{id}/activate | Atomically activate a proposed division | organization.write + CEO/admin companion |
+| POST /divisions/{id}/deactivate | Deactivate when linked departments have no open work | organization.write + CEO/admin companion |
 | POST /model-assignments | Propose role/provider assignment | model.assign |
 | POST /signals | Record source evidence | intelligence.ingest |
 | GET /impact-briefs | List impact briefs (no auto-publish) | company.read |
@@ -61,6 +74,8 @@ listed scope can still receive 403 from those routes.
 | POST /expansions | Cost facilities work | facilities.propose |
 | POST /expansions/{id}/decision | Approve exact plan | facilities.approve |
 | GET /events | Cursor-paginated audit/activity (`limit`, default 50; optional `project_id`) | audit.read |
+| GET /activity | Open event-projected HQ activity sessions by default (`status=open|closed`) | company.read |
+| GET /events/stream | SSE cursor frames (`seq`, `kind`, `at`, optional projected `room_id`) | audit.read |
 | GET /headquarters | Event-projected rooms and departments | company.read |
 | GET /headquarters/rooms/{id} | Persisted tasks, staff, deliverables, costs and decisions for one expansion room | company.read |
 | POST /projects/{id}/github-enrollment | Enroll upstream/fork repo IDs and branch policy | project.enroll (CEO or admin companion) |
@@ -131,6 +146,10 @@ These routes pass the scope check above and then apply a further identity check 
 | `POST /projects/{id}/dispatch-brief` | project.enroll | CEO or `companion-admin-*` |
 | `POST /remote-access/pairing`, `POST /remote-access/revoke/{principal_id}` | company.pause | CEO principal (`_ceo`). The route table says "owner only" because the owner *is* the CEO principal by default; the code compares against the CEO id, not an `owner` kind. `paired_devices` on `GET /remote-access` is likewise CEO-only and returns `[]` for others |
 | `GET /employees/{id}/training`, `GET /employees/{id}/performance`, `GET /hr/development`, `POST /employees`, `POST /training/schedule`, `POST /employees/{id}/goals`, `POST /employees/{id}/reviews` | organization.read | `_hr_or_ceo`: the CEO, or an actor `people:<title>` where title is `HR Director`, `People Director`, or `Training Specialist`. `GET /employees/{id}` additionally allows the employee reading their own record |
+| `POST /employees/{id}/promotions` | organization.write | `_hr_or_ceo`; an employee cannot propose their own promotion |
+| `POST /promotions/{id}/decision` | organization.write | `_ceo_or_admin_companion`; the proposal must still be pending and its from-level must match current state |
+| `POST /divisions/proposals` | organization.write | Consultant principal, CEO, or principal occupying an active department-head seat |
+| `POST /divisions/{id}/activate`, `POST /divisions/{id}/deactivate` | organization.write | `_ceo_or_admin_companion`; deactivation also rejects open linked work |
 
 ## Status endpoint responses
 

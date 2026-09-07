@@ -26,7 +26,7 @@ These are virtual/software contractors. A networking contractor configures an ap
 4. Specialized spaces: media studio, training center and research lab.
 5. Additional wings/buildings: justified by the portfolio and capacity.
 
-The chrome uses the cosmic-restraint system. The CEO desk shows a readable top-down 2D floor plan, a list equivalent, and an isometric projection of the same persisted expansion rooms. Furnished custom room art can still be layered later. Animation respects `prefers-reduced-motion`.
+The chrome uses the cosmic-restraint system. The CEO desk shows persisted department rooms on a readable top-down 2D grid and warning chips for unmet requirements. Persisted department staff appear as small validated sprite markers, or explicitly neutral markers when no sprite is set; selecting one opens its persisted worker card. When no floorplan rooms exist, the isometric expansion ledger remains the fallback. Furnished custom room art can still be layered later. Animation respects `prefers-reduced-motion`.
 
 ## Projection rules
 
@@ -36,4 +36,6 @@ Clicking a room reveals its purpose, staff/model assignments, queue, artifacts, 
 
 ## Current core
 
-One initial room. CEO acceptance of one synthetic draft per project creates one expansion proposal. CEO approval plus a contractor grant for `provision_room` allows `build_mock` to add a room. No automatic staffing, rendering, resource provisioning or real costs occur. Multi-stage inspection and capacity assessment are future M6 features.
+Floorplans, grid-positioned rooms, per-department minimum room requirements, worker sprite selections, and editable identity fields persist in SQLite. CEO or authenticated admin-companion layout mutations fail closed on unknown room types, grid bounds, overlap, and removal of expansion-bound rooms. Sprite and identity mutations additionally require HR or CEO authority and reject values outside the seeded sprite catalog. A default plan places one room for every non-retired department; requirement gaps and missing sprites remain warnings/placeholders, never invented operational state.
+
+The separate growth ledger remains: CEO acceptance of one synthetic draft per project creates one expansion proposal, and approved contractor work can build it. Floorplan layout does not imply staffing, running models, real resource provisioning, or real cost.

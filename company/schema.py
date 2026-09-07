@@ -32,9 +32,17 @@ CREATE TABLE IF NOT EXISTS identities(
 CREATE TABLE IF NOT EXISTS departments(
   id TEXT PRIMARY KEY, name TEXT NOT NULL, head_title TEXT NOT NULL, mission TEXT NOT NULL,
   measures TEXT NOT NULL, room_type TEXT NOT NULL, initially_active INTEGER NOT NULL,
-  default_model_profile TEXT NOT NULL, body TEXT NOT NULL);
+  default_model_profile TEXT NOT NULL, body TEXT NOT NULL,
+  origin TEXT NOT NULL DEFAULT 'seed', status TEXT NOT NULL DEFAULT 'active',
+  display_order INTEGER NOT NULL DEFAULT 0, parent_department_id TEXT,
+  updated_at TEXT, updated_by TEXT);
 CREATE TABLE IF NOT EXISTS positions(
-  id TEXT PRIMARY KEY, department_id TEXT NOT NULL REFERENCES departments(id), title TEXT NOT NULL);
+  id TEXT PRIMARY KEY, department_id TEXT NOT NULL REFERENCES departments(id), title TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active', display_order INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT);
+CREATE TABLE IF NOT EXISTS department_revisions(
+  id TEXT PRIMARY KEY, department_id TEXT NOT NULL, version INTEGER NOT NULL,
+  body TEXT NOT NULL, changed_by TEXT NOT NULL, changed_at TEXT NOT NULL, reason TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS projects(
   id TEXT PRIMARY KEY, brief TEXT NOT NULL, classification TEXT NOT NULL,
   github_upstream_id TEXT, github_fork_id TEXT, allowed_branches TEXT NOT NULL,
@@ -108,7 +116,8 @@ CREATE TABLE IF NOT EXISTS qc_inspections(
   inspector TEXT NOT NULL, verdict TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS employees(
   id TEXT PRIMARY KEY, position_id TEXT NOT NULL, display_name TEXT NOT NULL,
-  attributes TEXT NOT NULL, background TEXT NOT NULL, hired_at TEXT NOT NULL, status TEXT NOT NULL);
+  attributes TEXT NOT NULL, background TEXT NOT NULL, hired_at TEXT NOT NULL, status TEXT NOT NULL,
+  headline TEXT, viewpoint TEXT, strengths TEXT, growth_focus TEXT);
 CREATE TABLE IF NOT EXISTS training_records(
   id TEXT PRIMARY KEY, employee_id TEXT NOT NULL, assignment_id TEXT NOT NULL,
   skill_id TEXT NOT NULL, source TEXT, summary TEXT, studied_at TEXT, certified_at TEXT,
@@ -191,6 +200,98 @@ CREATE TABLE IF NOT EXISTS cross_department_requests(
   created_by TEXT NOT NULL, created_at TEXT NOT NULL,
   accepted_by TEXT, accepted_at TEXT,
   subject TEXT NOT NULL, brief TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS floorplans(
+  id TEXT PRIMARY KEY, division_id TEXT, name TEXT NOT NULL,
+  grid_cols INTEGER NOT NULL, grid_rows INTEGER NOT NULL, status TEXT NOT NULL,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS floorplan_rooms(
+  id TEXT PRIMARY KEY, floorplan_id TEXT NOT NULL REFERENCES floorplans(id),
+  department_id TEXT REFERENCES departments(id), room_type TEXT NOT NULL,
+  label TEXT NOT NULL, grid_x INTEGER NOT NULL, grid_y INTEGER NOT NULL,
+  width INTEGER NOT NULL, height INTEGER NOT NULL, capacity INTEGER NOT NULL,
+  status TEXT NOT NULL, source_expansion_id TEXT REFERENCES expansions(id),
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS room_requirements(
+  department_id TEXT NOT NULL REFERENCES departments(id),
+  required_room_type TEXT NOT NULL, min_capacity INTEGER NOT NULL,
+  PRIMARY KEY(department_id, required_room_type));
+CREATE TABLE IF NOT EXISTS sprite_sets(
+  id TEXT PRIMARY KEY, layers TEXT NOT NULL,
+  allowed_palettes TEXT NOT NULL, body TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS worker_sprites(
+  employee_id TEXT PRIMARY KEY REFERENCES employees(id),
+  sprite_set TEXT NOT NULL REFERENCES sprite_sets(id),
+  body TEXT, palette TEXT, accessories TEXT NOT NULL,
+  updated_by TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS activity_sessions(
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK(kind IN (
+    'work','review','meeting','cross_department','context_request')),
+  project_id TEXT, department_id TEXT, room_id TEXT REFERENCES floorplan_rooms(id),
+  participants TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('open','closed')),
+  started_event_id INTEGER NOT NULL UNIQUE REFERENCES events(seq),
+  ended_event_id INTEGER REFERENCES events(seq),
+  started_at TEXT NOT NULL, ended_at TEXT);
+CREATE TABLE IF NOT EXISTS career_levels(
+  id TEXT PRIMARY KEY, division_id TEXT, department_id TEXT,
+  level_index INTEGER NOT NULL, title TEXT NOT NULL,
+  required_skills TEXT NOT NULL, min_accepted_artifacts INTEGER NOT NULL,
+  min_review_score INTEGER NOT NULL, quality_standard TEXT NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_career_level_scope_index
+  ON career_levels(
+    COALESCE(division_id, ''), COALESCE(department_id, ''), level_index);
+CREATE TABLE IF NOT EXISTS employee_levels(
+  employee_id TEXT PRIMARY KEY REFERENCES employees(id),
+  level_id TEXT NOT NULL REFERENCES career_levels(id),
+  effective_at TEXT NOT NULL, set_by TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS promotion_records(
+  id TEXT PRIMARY KEY, employee_id TEXT NOT NULL REFERENCES employees(id),
+  from_level TEXT NOT NULL REFERENCES career_levels(id),
+  to_level TEXT NOT NULL REFERENCES career_levels(id),
+  evidence TEXT NOT NULL, proposed_by TEXT NOT NULL, approved_by TEXT,
+  status TEXT NOT NULL CHECK(status IN ('pending','approved','rejected')),
+  created_at TEXT NOT NULL, decided_at TEXT);
+CREATE TABLE IF NOT EXISTS staffing_proposals(
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK(kind IN ('hire','reassign','promote','retire_role')),
+  department_id TEXT NOT NULL REFERENCES departments(id),
+  position_id TEXT NOT NULL, level_id TEXT REFERENCES career_levels(id),
+  rationale TEXT NOT NULL, evidence TEXT NOT NULL,
+  cost_estimate_cents INTEGER NOT NULL, proposed_by TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('pending','approved','rejected')),
+  approver TEXT, decided_at TEXT, created_at TEXT NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_pending_staffing_proposal
+  ON staffing_proposals(kind, department_id, position_id)
+  WHERE status='pending';
+CREATE TABLE IF NOT EXISTS staffing_scan_cooldown(
+  id TEXT PRIMARY KEY CHECK(id='default'),
+  last_run TEXT NOT NULL, cooldown_until TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS industry_packs(
+  id TEXT PRIMARY KEY, industry TEXT NOT NULL, body TEXT NOT NULL,
+  enabled INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS divisions(
+  id TEXT PRIMARY KEY, name TEXT NOT NULL,
+  industry_pack_id TEXT NOT NULL REFERENCES industry_packs(id),
+  status TEXT NOT NULL CHECK(status IN ('proposed','active','inactive')),
+  activated_by TEXT, activated_at TEXT, proposed_by TEXT NOT NULL,
+  created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS division_departments(
+  division_id TEXT NOT NULL REFERENCES divisions(id),
+  department_id TEXT NOT NULL REFERENCES departments(id),
+  PRIMARY KEY(division_id,department_id));
+CREATE TABLE IF NOT EXISTS division_activations(
+  id TEXT PRIMARY KEY, division_id TEXT NOT NULL REFERENCES divisions(id),
+  action TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL, note TEXT);
+CREATE TABLE IF NOT EXISTS objectives(
+  id TEXT PRIMARY KEY, title TEXT NOT NULL,
+  division_id TEXT REFERENCES divisions(id), due_at TEXT NOT NULL,
+  target TEXT NOT NULL, created_by TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('open','closed')),
+  created_at TEXT NOT NULL, closed_at TEXT);
+CREATE TABLE IF NOT EXISTS scorecard_snapshots(
+  id TEXT PRIMARY KEY, period_start TEXT, period_end TEXT,
+  metrics TEXT NOT NULL, created_at TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (
