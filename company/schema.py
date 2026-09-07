@@ -283,6 +283,15 @@ CREATE TABLE IF NOT EXISTS division_departments(
 CREATE TABLE IF NOT EXISTS division_activations(
   id TEXT PRIMARY KEY, division_id TEXT NOT NULL REFERENCES divisions(id),
   action TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL, note TEXT);
+CREATE TABLE IF NOT EXISTS objectives(
+  id TEXT PRIMARY KEY, title TEXT NOT NULL,
+  division_id TEXT REFERENCES divisions(id), due_at TEXT NOT NULL,
+  target TEXT NOT NULL, created_by TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('open','closed')),
+  created_at TEXT NOT NULL, closed_at TEXT);
+CREATE TABLE IF NOT EXISTS scorecard_snapshots(
+  id TEXT PRIMARY KEY, period_start TEXT, period_end TEXT,
+  metrics TEXT NOT NULL, created_at TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (

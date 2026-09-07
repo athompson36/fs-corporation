@@ -27,10 +27,12 @@
 | StaffingProposal | Kind, department/position/optional level, rationale, evidence, estimated cost, proposer, decision | HR/CEO proposes; only CEO/admin companion decides; approved hires execute transactionally when complete hire evidence is present |
 | IndustryPack | Industry, complete JSON template, enabled state | Persisted seed template; disabled or malformed packs fail closed |
 | Division | Pack, mode, proposer, activation status and departments | Consultant/CEO/seated heads propose; only CEO/admin companion activates or deactivates |
+| Objective | Title, optional division, due date, JSON target, creator, lifecycle | CEO/admin companion creates and closes; targets do not replace measured results |
+| ScorecardSnapshot | Period, persisted metrics, creation time | Optional immutable capture; revenue is never inferred |
 
 ## Reference tables
 
-`company/schema.py` and Alembic revisions `0001_initial` through `0022_divisions`
+`company/schema.py` and Alembic revisions `0001_initial` through `0023_ceo_scorecard`
 create settings, policies, proposals, approvals, tasks, ledger, completions, signals,
 expansions, events (with envelope columns that do not change the audit hash),
 consultant_proposals, identities, departments, positions, **department_seats**,
@@ -45,7 +47,7 @@ qc_inspections, employees, training_records, performance_goals and performance_r
 **activity_sessions**, **career_levels**, **employee_levels**, and
 **promotion_records**, **staffing_proposals**, **staffing_scan_cooldown**,
 **industry_packs**, **divisions**, **division_departments**, and
-**division_activations**.
+**division_activations**, **objectives**, and **scorecard_snapshots**.
 JSON configurations remain seed templates via
 `seed_catalog` / `seed_models` / `seed_hardware_skills` /
 `seed_development_skills` / `seed_career_ladders` / `seed_industry_packs`.

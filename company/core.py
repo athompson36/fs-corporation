@@ -4032,6 +4032,186 @@ class Company:
             "SELECT * FROM performance_goals WHERE employee_id=? ORDER BY created_at",(employee_id,))]
         return {"employee_id":employee_id,"points":points,"direction":direction,"goals":goals}
 
+    @staticmethod
+    def _scorecard_timestamp(value, name):
+        if isinstance(value, datetime):
+            parsed = value
+        else:
+            try:
+                parsed = datetime.fromisoformat(str(value))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"{name} must be an ISO-8601 timestamp") from exc
+        if parsed.tzinfo is None:
+            raise ValueError(f"{name} must include a timezone")
+        return parsed
+
+    def _objective_row(self, row):
+        result = dict(row)
+        result["target"] = json.loads(result["target"])
+        return result
+
+    def set_objective(self, actor, title, due_at, target=None, division_id=None):
+        self._ceo_or_admin_companion(actor)
+        if not title or not str(title).strip():
+            raise ValueError("Objective title required")
+        due = self._scorecard_timestamp(due_at, "due_at")
+        if division_id and not self.db.execute(
+                "SELECT 1 FROM divisions WHERE id=?", (division_id,)).fetchone():
+            raise ValueError("Division not found")
+        if target is None:
+            target = {}
+        try:
+            target_json = canonical(target)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Objective target must be JSON serializable") from exc
+        objective_id = str(uuid.uuid4())
+        created_at = now().isoformat()
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO objectives(
+                     id,title,division_id,due_at,target,created_by,status,created_at,closed_at)
+                   VALUES(?,?,?,?,?,?,?, ?,NULL)""",
+                (objective_id, str(title).strip(), division_id, due.isoformat(),
+                 target_json, actor, "open", created_at),
+            )
+            self._event(
+                "objective.created",
+                {"id": objective_id, "division_id": division_id, "due_at": due.isoformat()},
+                actor_id=actor,
+            )
+        return self._objective_row(self.db.execute(
+            "SELECT * FROM objectives WHERE id=?", (objective_id,)).fetchone())
+
+    def close_objective(self, actor, objective_id):
+        self._ceo_or_admin_companion(actor)
+        row = self.db.execute(
+            "SELECT * FROM objectives WHERE id=?", (objective_id,)).fetchone()
+        if not row:
+            raise ValueError("Objective not found")
+        if row["status"] == "closed":
+            raise ValueError("Objective already closed")
+        closed_at = now().isoformat()
+        with self.tx():
+            self.db.execute(
+                "UPDATE objectives SET status='closed',closed_at=? WHERE id=?",
+                (closed_at, objective_id),
+            )
+            self._event(
+                "objective.closed", {"id": objective_id}, actor_id=actor)
+        return self._objective_row(self.db.execute(
+            "SELECT * FROM objectives WHERE id=?", (objective_id,)).fetchone())
+
+    def list_objectives(self, status=None):
+        if status is not None and status not in {"open", "closed"}:
+            raise ValueError("Objective status must be open or closed")
+        if status is None:
+            rows = self.db.execute(
+                "SELECT * FROM objectives ORDER BY due_at,created_at,id")
+        else:
+            rows = self.db.execute(
+                "SELECT * FROM objectives WHERE status=? ORDER BY due_at,created_at,id",
+                (status,),
+            )
+        return {"items": [self._objective_row(row) for row in rows]}
+
+    def compute_scorecard(self, period_start=None, period_end=None):
+        start = (
+            self._scorecard_timestamp(period_start, "period_start")
+            if period_start is not None else None)
+        end = (
+            self._scorecard_timestamp(period_end, "period_end")
+            if period_end is not None else None)
+        if start and end and start >= end:
+            raise ValueError("period_start must be before period_end")
+
+        def in_period(value):
+            stamp = self._scorecard_timestamp(value, "persisted timestamp")
+            return (start is None or stamp >= start) and (end is None or stamp < end)
+
+        accepted_task_ids = set()
+        for event in self.db.execute(
+                "SELECT at,body FROM events WHERE kind='project.accepted' ORDER BY seq"):
+            if not in_period(event["at"]):
+                continue
+            body = json.loads(event["body"])
+            task_id = body.get("task_id")
+            if task_id and self.db.execute(
+                    "SELECT 1 FROM tasks WHERE id=? AND status='accepted'",
+                    (task_id,)).fetchone():
+                accepted_task_ids.add(task_id)
+
+        verdicts = [
+            row["verdict"] for row in self.db.execute(
+                "SELECT verdict,created_at FROM qc_inspections ORDER BY created_at,rowid")
+            if in_period(row["created_at"]) and row["verdict"] in {"pass", "fail"}
+        ]
+        qc_pass_rate = (
+            round(verdicts.count("pass") / len(verdicts), 4) if verdicts else None)
+
+        terminal_dispatch_statuses = {
+            "accepted", "cancelled", "canceled", "closed", "completed", "failed", "rejected",
+        }
+        instant = now()
+        overdue_dispatches = 0
+        for row in self.db.execute(
+                "SELECT due_at,status FROM project_dispatches WHERE due_at IS NOT NULL"):
+            due = self._scorecard_timestamp(row["due_at"], "persisted due_at")
+            if due < instant and row["status"] not in terminal_dispatch_statuses:
+                overdue_dispatches += 1
+
+        spent = self.db.execute(
+            "SELECT COALESCE(SUM(cost),0) FROM ledger").fetchone()[0]
+        reserved = self.db.execute(
+            """SELECT COALESCE(SUM(amount_cents),0) FROM reservations
+               WHERE status='reserved'""").fetchone()[0]
+        committed = spent + reserved
+        budget_adherence = round(spent / committed, 4) if committed else 1.0
+
+        billed_cost_cents = sum(
+            row["amount_cents"] for row in self.db.execute(
+                "SELECT recorded_at,amount_cents FROM billed_costs")
+            if in_period(row["recorded_at"]))
+        revenue_cents = sum(
+            row["amount_cents"] for row in self.db.execute(
+                "SELECT recorded_at,amount_cents FROM revenue")
+            if in_period(row["recorded_at"]))
+        metrics = {
+            "accepted_artifacts": len(accepted_task_ids),
+            "qc_pass_rate": qc_pass_rate,
+            "overdue_dispatches": overdue_dispatches,
+            "budget_adherence": budget_adherence,
+            "billed_cost_cents": billed_cost_cents,
+            "revenue_cents": revenue_cents,
+        }
+        return {
+            "period_start": start.isoformat() if start else None,
+            "period_end": end.isoformat() if end else None,
+            "metrics": metrics,
+        }
+
+    def record_scorecard_snapshot(self, period_start=None, period_end=None):
+        scorecard = self.compute_scorecard(period_start, period_end)
+        snapshot_id = str(uuid.uuid4())
+        created_at = now().isoformat()
+        with self.tx():
+            self.db.execute(
+                """INSERT INTO scorecard_snapshots(
+                     id,period_start,period_end,metrics,created_at)
+                   VALUES(?,?,?,?,?)""",
+                (snapshot_id, scorecard["period_start"], scorecard["period_end"],
+                 canonical(scorecard["metrics"]), created_at),
+            )
+            self._event(
+                "scorecard.snapshot_recorded",
+                {"id": snapshot_id, "period_start": scorecard["period_start"],
+                 "period_end": scorecard["period_end"]},
+            )
+        return {
+            "id": snapshot_id,
+            **scorecard,
+            "created_at": created_at,
+        }
+
     def _is_paused(self):
         return self.db.execute("SELECT value FROM settings WHERE key='paused'").fetchone()[0] == "true"
 

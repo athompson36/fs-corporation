@@ -19,6 +19,11 @@ missing departments and positions, links the division roster, seeds pack skills 
 learning assignments, and creates a division-tagged floorplan. Deactivation fails closed while
 any linked department has an open dispatch or cross-department request.
 
+Corporate HQ Phase 8 adds CEO/admin-authored objectives and a CEO scorecard derived only
+from persisted acceptance events, QC inspections, dispatches, reservations/ledger entries,
+billed costs, and revenue. Objectives express direction but do not alter measured metrics;
+the Desk explicitly labels the scorecard as operational measurement, not simulation.
+
 ## Department head responsibilities
 
 Maintain the department queue, translate CEO objectives into deliverables, estimate resources, assign capable workers, review evidence, coordinate dependencies, report outcomes and propose process/staffing changes. Heads own results within their mandate; they do not invent project goals or create permissions by consensus.

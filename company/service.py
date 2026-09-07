@@ -98,6 +98,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <p class="brand">FS-Corporation</p>
 <nav aria-label="Primary">
 <a href="#desk">CEO desk</a>
+<a href="#scorecard">Scorecard</a>
 <a href="#hq">Headquarters</a>
 <a href="#projects">Projects</a>
 <a href="#departments">Departments</a>
@@ -121,6 +122,22 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass metric" id="metric-decisions-card"><h2>Pending decisions</h2><div class="value" id="metric-decisions">00</div></section>
 <section class="glass metric" id="metric-departments-card"><h2>Departments</h2><div class="value" id="metric-departments">00</div></section>
 </div>
+<section class="glass" id="scorecard">
+<h2>CEO scorecard</h2>
+<p class="muted">Measured from persisted operations — not simulated.</p>
+<pre id="scorecard-metrics">Loading…</pre>
+<h3>Objectives</h3>
+<ul id="objective-list"></ul>
+<form id="objective-create-form" class="compact">
+<h3>Create objective</h3>
+<label for="objective-title">Title</label><input id="objective-title" required/>
+<label for="objective-due-at">Due at</label><input id="objective-due-at" type="datetime-local" required/>
+<label for="objective-division">Division id (optional)</label><input id="objective-division"/>
+<label for="objective-target">Target JSON (optional)</label>
+<textarea id="objective-target" placeholder='{"accepted_artifacts": 5}'></textarea>
+<button type="submit" class="chip">Create objective</button><span class="muted"></span>
+</form>
+</section>
 <div class="desk-grid">
 <section class="glass" id="hq">
 <h2>Headquarters</h2>
@@ -425,6 +442,27 @@ document.getElementById('division-proposal-form').addEventListener('submit', asy
     mode: document.getElementById('division-mode').value
   }, 'Division proposed.');
 });
+document.getElementById('objective-create-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const rawTarget = document.getElementById('objective-target').value.trim();
+  let target = {};
+  try {
+    if (rawTarget) target = JSON.parse(rawTarget);
+  } catch (error) {
+    event.target.querySelector('span').textContent = ' Target must be valid JSON.';
+    return;
+  }
+  const dueValue = document.getElementById('objective-due-at').value;
+  const payload = {
+    title: document.getElementById('objective-title').value.trim(),
+    due_at: new Date(dueValue).toISOString(),
+    target
+  };
+  const divisionId = document.getElementById('objective-division').value.trim();
+  if (divisionId) payload.division_id = divisionId;
+  await submitOrgCommand(
+    event.target, '/api/v1/objectives', payload, 'Objective created.');
+});
 function setHqView(mode) {
   document.getElementById('iso').hidden = mode !== 'iso';
   document.getElementById('floor').hidden = mode !== 'plan';
@@ -715,6 +753,40 @@ function renderDivisions(items) {
     list.appendChild(li);
   });
 }
+function renderObjectives(items) {
+  const list = document.getElementById('objective-list');
+  list.innerHTML = '';
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No objectives.';
+    list.appendChild(li);
+    return;
+  }
+  items.forEach(objective => {
+    const li = document.createElement('li');
+    li.appendChild(document.createTextNode(
+      objective.title + ' — due ' + objective.due_at + ' — ' + objective.status + ' '));
+    if (objective.status === 'open') {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip';
+      button.textContent = 'Close';
+      button.addEventListener('click', async () => {
+        const res = await fetch('/api/v1/objectives/' + objective.id + '/close', {
+          method: 'POST',
+          headers: {...headers, 'Content-Type': 'application/json',
+            'Idempotency-Key': 'desk-objective-close-' + objective.id},
+          body: JSON.stringify({payload: {}})
+        });
+        if (!res.ok) { alert(await res.text()); return; }
+        load();
+      });
+      li.appendChild(button);
+    }
+    list.appendChild(li);
+  });
+}
 async function load() {
   const status = await fetch('/api/v1/company', {headers});
   document.getElementById('status-json').textContent = await status.text();
@@ -819,6 +891,13 @@ async function load() {
   const divisions = await fetch('/api/v1/divisions', {headers});
   const divisionsj = await divisions.json();
   renderDivisions(divisionsj.divisions || []);
+  const scorecard = await fetch('/api/v1/scorecard', {headers});
+  const scorecardj = await scorecard.json();
+  document.getElementById('scorecard-metrics').textContent =
+    JSON.stringify(scorecardj.metrics || {}, null, 2);
+  const objectives = await fetch('/api/v1/objectives', {headers});
+  const objectivesj = await objectives.json();
+  renderObjectives(objectivesj.items || []);
   const headInbox = await fetch('/api/v1/inbox/head', {headers});
   const hij = await headInbox.json();
   renderHeadInbox(hij.items || []);
@@ -1111,6 +1190,57 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
             return company.list_activity(status)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/scorecard")
+    def scorecard(period_start: str | None = None, period_end: str | None = None,
+                  authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.compute_scorecard(period_start, period_end)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/v1/objectives")
+    def objectives(status: str | None = None,
+                   authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        try:
+            return company.list_objectives(status)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/objectives")
+    def create_objective(
+            body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        return run(
+            ident, idempotency_key, payload,
+            lambda: (
+                company.set_objective(ident["principal_id"], **payload), 200))
+
+    @app.post("/api/v1/objectives/{objective_id}/close")
+    def close_objective(
+            objective_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(
+                default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "organization.write")
+        payload = envelope(ident, body)
+        if payload:
+            raise HTTPException(
+                status_code=422, detail=f"Unknown fields: {sorted(payload)}")
+        return run(
+            ident, idempotency_key, {"objective_id": objective_id},
+            lambda: (
+                company.close_objective(ident["principal_id"], objective_id), 200))
 
     @app.post("/api/v1/company/pause")
     def pause(body: Command, authorization: str | None = Header(default=None), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
