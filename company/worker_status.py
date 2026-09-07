@@ -45,6 +45,35 @@ def gateway_egress_mode() -> str:
     return value
 
 
+def worker_plane_summary() -> dict:
+    """Same-host worker plane identity on FS_CORP_WORKER_NIC_IP (soft health only)."""
+    worker_nic = (os.environ.get("FS_CORP_WORKER_NIC_IP") or "").strip()
+    if not worker_nic:
+        return {
+            "mode": "same_host_nic",
+            "ip": None,
+            "present": False,
+            "state": "unset",
+            "reasons": ["FS_CORP_WORKER_NIC_IP unset"],
+        }
+    present = host_has_ipv4(worker_nic)
+    if present:
+        return {
+            "mode": "same_host_nic",
+            "ip": worker_nic,
+            "present": True,
+            "state": "healthy",
+            "reasons": [],
+        }
+    return {
+        "mode": "same_host_nic",
+        "ip": worker_nic,
+        "present": False,
+        "state": "degraded",
+        "reasons": ["worker NIC IP not on host"],
+    }
+
+
 def _service_uid(user: str = "fs-corp") -> int | None:
     try:
         proc = subprocess.run(
@@ -174,6 +203,7 @@ def status_summary() -> dict:
         "container_dispatch_ready": False,
         "default_runtime": default_worker_runtime(),
         "gateway_egress": gateway_egress_summary(),
+        "worker_plane": worker_plane_summary(),
     }
     if scratch:
         path = Path(scratch)

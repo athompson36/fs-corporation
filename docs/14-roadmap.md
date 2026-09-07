@@ -246,6 +246,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Phase 1 acceptance on physical fs-dev (`192.168.4.100`): install, API, Caddy, companion, pairing, Apple Web Push `applied`
 - [x] Phase 2 (same-host): `FS_CORP_DEFAULT_WORKER_RUNTIME=container`, worker NIC `.101` presence in status, container labels; workers remain `--network none`
 - [x] Phase 2 (follow-on): host gateway egress via `.101` (`FS_CORP_GATEWAY_EGRESS=worker_nic`, policy routing for `fs-corp`); dedicated second worker host still optional
+- [x] Same-host worker plane: `worker_plane` on `/api/v1/workers/status` (healthy/degraded/unset, soft); verify script `--require-plane`
 
 **Acceptance:** on a Debian host with static `192.168.4.100`, `install.sh` completes; `fs-corporation-api` is active; `curl` to loopback `/api/v1/health` returns 200; phone opens `https://192.168.4.100`, companion loads with same-origin API and owner token; port 8000 is not reachable from LAN; denial tests still pass. Container worker image builds locally; live adapter dispatch remains fail-closed.
 
@@ -278,4 +279,4 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Live github.com webhooks via Funnel** (ping + push + pull_request on `fs-corp-comp`). ChatDev adapter slice 3 delivered (optional ChatDev in worker image; label probe on `/chatdev/status`). Next optional: TailscaleKit; dedicated worker host; full ChatDev deps in worker image for egress; furnished HQ room art deferred.
+**Same-host worker plane on `.101`** (`worker_plane` on `/workers/status`). ChatDev adapter slice 3 delivered. Next optional: TailscaleKit; dedicated second worker host; full ChatDev deps in worker image for egress; furnished HQ room art deferred.

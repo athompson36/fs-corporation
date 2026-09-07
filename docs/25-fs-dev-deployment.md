@@ -195,13 +195,14 @@ Configure the companion PWA Settings screen. Rotate via `register_identity` if a
 
 Same-host phase 2 enables **`runtime=container` by default** when Docker, the worker image, and `FS_CORP_WORKER_SCRATCH` are ready (`FS_CORP_DEFAULT_WORKER_RUNTIME=container`). Omit `runtime` on `POST /api/v1/tasks/{id}/dispatch-worker` to use that default; it **fails closed** with 422 if container dispatch is not ready.
 
-Workers still run with **`--network none`** and a scratch-directory gateway — they do not bind sockets on `.101`. The reserved NIC is verified in `/api/v1/workers/status` as `worker_nic_present`, and container labels record `fs.corp.worker_nic` for operators.
+Workers still run with **`--network none`** and a scratch-directory gateway — they do not bind sockets on `.101`. The same-host **worker plane** is `FS_CORP_WORKER_NIC_IP` (typically `192.168.4.101` on `eno2`): `/api/v1/workers/status` exposes `worker_plane` (`state`: `healthy` | `degraded` | `unset`) plus flat `worker_nic_present`, and container labels record `fs.corp.worker_nic` for operators. Plane health is informational; missing NIC does not refuse container dispatch.
 
 With **`FS_CORP_GATEWAY_EGRESS=worker_nic`**, install applies policy routing so the **`fs-corp` API** (gateway outbound) uses source `192.168.4.101` on `eno2` (table 101). See `deploy/fs-dev/gateway-egress.sh`. Status field: `gateway_egress.egress_active`.
 
 ```bash
 curl -sS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8000/api/v1/workers/status
-# expect: container_dispatch_ready=true, default_runtime=container, worker_nic_present=true,
+# expect: container_dispatch_ready=true, default_runtime=container,
+#         worker_plane.state=healthy, worker_nic_present=true,
 #         gateway_egress.mode=worker_nic, gateway_egress.egress_active=true
 sudo -u fs-corp ip -4 route get 1.1.1.1
 # expect: dev eno2 ... src 192.168.4.101
@@ -211,7 +212,7 @@ sudo -u fs-corp ip -4 route get 1.1.1.1
 |------|---------|
 | `deploy/fs-dev/Dockerfile.worker` | Python 3.12 worker image (`fs-corporation-worker:local`) |
 | `deploy/fs-dev/docker-compose.workers.yml` | Local compose smoke test (`network_mode: none`) |
-| `scripts/verify_fs_dev_workers.py` | Readiness check (Docker, image, scratch) |
+| `scripts/verify_fs_dev_workers.py` | Readiness check (Docker, image, scratch); warns on plane; `--require-plane` exits 3 |
 | `scripts/exercise_container_dispatch.py` | End-to-end pilot (`--db` for native loopback API) |
 
 Build on the host when skipping `install.sh` image step:
@@ -229,7 +230,7 @@ Or set **`FS_CORP_WORKER_CHATDEV=1`** before `install.sh` / `run-install.sh` to 
 
 `ContainerWorkerRuntime` pumps a scratch-directory gateway (`gw-request.json` / `gw-response.json`) so the image can complete mock work without a control-plane database. Live model/GitHub adapters inside that gateway remain fail-closed until the owner supplies credentials in `/etc/fs-corporation/secrets.env`. See [23-isolated-workers.md](23-isolated-workers.md).
 
-The reserved NIC **`192.168.4.101`** is for a future dedicated worker host or internal traffic; same-host dispatch on `.100` does not require binding Docker to that address.
+The reserved NIC **`192.168.4.101`** is the **same-host worker plane** (identity + optional API egress). Same-host dispatch does not bind Docker to that address. A dedicated **second physical host** for workers remains optional and is not required by this plane.
 
 ## Upgrades
 
@@ -243,7 +244,7 @@ Companion assets are rebuilt; systemd restarts the API. Reload Caddy if the Cadd
 
 ## Phase 2 follow-on (optional)
 
-Same-host container default and `.101` **API egress** are implemented. Still optional:
+Same-host container default, `.101` **worker plane** status (`worker_plane`), and `.101` **API egress** are implemented. Still optional:
 
 - Dedicated **second host** for workers (separate from this control plane)
 - Further owner live credential hardening beyond `/etc/fs-corporation/secrets.env`

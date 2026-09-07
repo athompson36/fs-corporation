@@ -9,6 +9,7 @@ from company.worker_status import (
     host_has_ipv4,
     resolve_worker_runtime,
     status_summary,
+    worker_plane_summary,
 )
 
 
@@ -24,6 +25,58 @@ class WorkerStatusTests(unittest.TestCase):
         self.assertEqual(summary["default_runtime"], "subprocess")
         self.assertEqual(summary["gateway_egress"]["mode"], "default")
         self.assertFalse(summary["gateway_egress"]["egress_active"])
+        self.assertEqual(summary["worker_plane"]["state"], "unset")
+        self.assertIsNone(summary["worker_plane"]["ip"])
+
+    def test_worker_plane_healthy(self):
+        with patch.dict(os.environ, {"FS_CORP_WORKER_NIC_IP": "192.168.4.101"}, clear=False):
+            with patch("company.worker_status.host_has_ipv4", return_value=True):
+                plane = worker_plane_summary()
+        self.assertEqual(plane["mode"], "same_host_nic")
+        self.assertEqual(plane["ip"], "192.168.4.101")
+        self.assertTrue(plane["present"])
+        self.assertEqual(plane["state"], "healthy")
+        self.assertEqual(plane["reasons"], [])
+
+    def test_worker_plane_degraded(self):
+        with patch.dict(os.environ, {"FS_CORP_WORKER_NIC_IP": "192.168.4.101"}, clear=False):
+            with patch("company.worker_status.host_has_ipv4", return_value=False):
+                plane = worker_plane_summary()
+        self.assertEqual(plane["mode"], "same_host_nic")
+        self.assertEqual(plane["ip"], "192.168.4.101")
+        self.assertFalse(plane["present"])
+        self.assertEqual(plane["state"], "degraded")
+        self.assertIn("worker NIC IP not on host", plane["reasons"])
+
+    def test_worker_plane_unset(self):
+        env = {k: v for k, v in os.environ.items() if k != "FS_CORP_WORKER_NIC_IP"}
+        with patch.dict(os.environ, env, clear=True):
+            plane = worker_plane_summary()
+        self.assertEqual(plane["state"], "unset")
+        self.assertIsNone(plane["ip"])
+        self.assertFalse(plane["present"])
+        self.assertIn("FS_CORP_WORKER_NIC_IP unset", plane["reasons"])
+
+    def test_degraded_plane_does_not_block_container_ready(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            with patch.dict(os.environ, {
+                "FS_CORP_WORKER_SCRATCH": scratch,
+                "FS_CORP_WORKER_NIC_IP": "192.168.4.101",
+            }, clear=False):
+                with patch("company.worker_status.shutil.which", return_value="/usr/bin/docker"):
+                    with patch("company.worker_status.host_has_ipv4", return_value=False):
+                        with patch("company.worker_status._service_uid", return_value=None):
+                            with patch("company.worker_status.subprocess.run") as run:
+                                class Result:
+                                    returncode = 0
+                                    stdout = ""
+                                    stderr = ""
+                                run.return_value = Result()
+                                summary = status_summary()
+        self.assertTrue(summary["container_dispatch_ready"])
+        self.assertEqual(summary["worker_plane"]["state"], "degraded")
+        self.assertEqual(summary["worker_nic_ip"], "192.168.4.101")
+        self.assertFalse(summary["worker_nic_present"])
 
     def test_ready_when_docker_image_and_scratch_ok(self):
         with tempfile.TemporaryDirectory() as scratch:
@@ -47,6 +100,8 @@ class WorkerStatusTests(unittest.TestCase):
         self.assertTrue(summary["container_dispatch_ready"])
         self.assertEqual(summary["worker_nic_ip"], "192.168.4.101")
         self.assertTrue(summary["worker_nic_present"])
+        self.assertEqual(summary["worker_plane"]["state"], "healthy")
+        self.assertEqual(summary["worker_plane"]["ip"], "192.168.4.101")
 
     def test_host_has_ipv4_parses_ip_output(self):
         with patch("company.worker_status.subprocess.run") as run:
@@ -143,6 +198,25 @@ class WorkerStatusTests(unittest.TestCase):
         self.assertIn("container_dispatch_ready", body)
         self.assertIn("default_runtime", body)
         self.assertIn("gateway_egress", body)
+        self.assertIn("worker_plane", body)
+        self.assertEqual(body["worker_plane"]["mode"], "same_host_nic")
+
+    def test_verify_script_require_plane_exit(self):
+        from scripts.verify_fs_dev_workers import main as verify_main
+
+        summary = {
+            "container_dispatch_ready": True,
+            "worker_plane": {
+                "mode": "same_host_nic",
+                "ip": "192.168.4.101",
+                "present": False,
+                "state": "degraded",
+                "reasons": ["worker NIC IP not on host"],
+            },
+        }
+        with patch("scripts.verify_fs_dev_workers.status_summary", return_value=summary):
+            self.assertEqual(verify_main([]), 0)
+            self.assertEqual(verify_main(["--require-plane"]), 3)
 
 
 if __name__ == "__main__":
