@@ -424,6 +424,20 @@ export class ApiClient {
     }, `dispatch-${projectId}`);
   }
 
+  dispatchOptions(projectId: string) {
+    return this.get<DispatchOptions>(`/api/v1/projects/${projectId}/dispatch-options`);
+  }
+
+  dispatchRecommend(projectId: string, useLive = true) {
+    return this.post<{
+      result?: DispatchRecommendResult;
+    } & DispatchRecommendResult>(
+      `/api/v1/projects/${projectId}/dispatch-recommend`,
+      { use_live: useLive },
+      `dispatch-rec-${projectId}-${Date.now()}`,
+    );
+  }
+
   pushSubscriptions() {
     return this.get<{ subscriptions: { id: string; endpoint: string; created_at: string; status: string }[] }>(
       "/api/v1/push/subscriptions",
@@ -455,6 +469,39 @@ export type SessionInfo = {
   kind: string;
   access_level: string | null;
   scopes: string[];
+};
+
+export type DispatchTemplate = { id: string; label: string; body: string };
+
+export type DispatchOptions = {
+  project_id: string;
+  brief_default: string;
+  fields: {
+    brief: { templates: DispatchTemplate[] };
+    acceptance_criteria: { templates: DispatchTemplate[] };
+    department_budgets: {
+      min_cents: number;
+      max_cents: number;
+      presets_cents: number[];
+    };
+  };
+  departments: {
+    id: string;
+    name: string;
+    status: string;
+    dispatchable: boolean;
+    seat_status: string;
+    principal_id?: string | null;
+  }[];
+};
+
+export type DispatchRecommendResult = {
+  source: string;
+  live_attempted: boolean;
+  brief: string;
+  acceptance_criteria: string;
+  departments: { id: string; budget_cents: number; recommended: boolean }[];
+  notes: string[];
 };
 
 export type PairingRedeem = {

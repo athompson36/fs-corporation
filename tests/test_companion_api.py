@@ -73,6 +73,17 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("department_budgets: departmentBudgets", client_source)
         self.assertNotIn("brief, departments, acceptance_criteria, budget_cents", client_source)
 
+    def test_companion_wires_dispatch_recommend(self):
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        client = (root / "api" / "client.ts").read_text()
+        app = (root / "App.tsx").read_text()
+        self.assertIn("/dispatch-options", client)
+        self.assertIn("/dispatch-recommend", client)
+        self.assertIn("dispatchRecommend", client)
+        self.assertIn("Recommend for this project", app)
+        self.assertIn("dispatch-brief-template", app)
+        self.assertIn("Valid values", app)
+
     def test_desk_surfaces_org_head_inbox_assignment_and_budget_map(self):
         desk_source = (
             Path(__file__).resolve().parents[1] / "company" / "service.py"

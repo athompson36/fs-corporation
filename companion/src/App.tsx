@@ -4,6 +4,7 @@ import {
   ActivityItem,
   CrossDeptRequest,
   DecisionItem,
+  DispatchOptions,
   DivisionItem,
   HeadDispatch,
   IndustryPack,
@@ -119,6 +120,13 @@ export default function App() {
   const [dispatchBrief, setDispatchBrief] = useState("");
   const [dispatchCriteria, setDispatchCriteria] = useState("");
   const [dispatchBudgets, setDispatchBudgets] = useState("");
+  const [dispatchOptions, setDispatchOptions] = useState<DispatchOptions | null>(null);
+  const [dispatchBriefTemplate, setDispatchBriefTemplate] = useState("");
+  const [dispatchCriteriaTemplate, setDispatchCriteriaTemplate] = useState("");
+  const [dispatchDeptSelection, setDispatchDeptSelection] = useState<
+    Record<string, { checked: boolean; budget: number }>
+  >({});
+  const [dispatchRecommendSource, setDispatchRecommendSource] = useState<string | null>(null);
   const [scorecardMetrics, setScorecardMetrics] = useState<Record<string, unknown> | null>(null);
   const [objectives, setObjectives] = useState<ObjectiveItem[]>([]);
   const [industryPacks, setIndustryPacks] = useState<IndustryPack[]>([]);
@@ -322,10 +330,25 @@ export default function App() {
   useEffect(() => {
     if (!selectedProject || !settings.token) {
       setProjectDetail(null);
+      setDispatchOptions(null);
+      setDispatchDeptSelection({});
+      setDispatchRecommendSource(null);
       return;
     }
     api.project(selectedProject).then(setProjectDetail).catch((e) => setError(String(e)));
-  }, [api, selectedProject, settings.token]);
+    if (!canEnroll(scopes)) return;
+    api.dispatchOptions(selectedProject)
+      .then((opts) => {
+        setDispatchOptions(opts);
+        setDispatchBrief((prev) => prev || opts.brief_default || "");
+        const next: Record<string, { checked: boolean; budget: number }> = {};
+        for (const dept of opts.departments) {
+          next[dept.id] = { checked: false, budget: 0 };
+        }
+        setDispatchDeptSelection(next);
+      })
+      .catch((e) => setError(String(e)));
+  }, [api, selectedProject, settings.token, scopes]);
 
   /** Run a write and report the outcome next to the control that triggered it. */
   const runAction = useCallback(
@@ -406,6 +429,14 @@ export default function App() {
   const isMoreTab = MORE_TABS.some(([t]) => t === tab);
   const moreCount = decisions.length + inbox.length;
 
+  function departmentBudgetsFromSelection(): Record<string, number> {
+    return Object.fromEntries(
+      Object.entries(dispatchDeptSelection)
+        .filter(([, row]) => row.checked && Number.isInteger(row.budget) && row.budget >= 0)
+        .map(([id, row]) => [id, row.budget]),
+    );
+  }
+
   function departmentBudgetsFromLines(raw: string): Record<string, number> {
     return Object.fromEntries(
       raw.split(/\n/)
@@ -416,6 +447,12 @@ export default function App() {
         .filter(([id, amount]) => Boolean(id) && Number.isInteger(amount) && amount >= 0),
     );
   }
+
+  const dispatchBlockedByDormant = Object.entries(dispatchDeptSelection).some(([id, row]) => {
+    if (!row.checked) return false;
+    const dept = dispatchOptions?.departments.find((item) => item.id === id);
+    return Boolean(dept && !dept.dispatchable);
+  });
 
   if (!settings.token) {
     return (
@@ -648,11 +685,21 @@ export default function App() {
               {canEnroll(scopes) && (
                 <form onSubmit={async (event) => {
                   event.preventDefault();
-                  const departmentBudgets = departmentBudgetsFromLines(dispatchBudgets);
+                  const fromSelection = departmentBudgetsFromSelection();
+                  const departmentBudgets = Object.keys(fromSelection).length
+                    ? fromSelection
+                    : departmentBudgetsFromLines(dispatchBudgets);
                   if (!Object.keys(departmentBudgets).length) {
                     setFormStatus((prev) => ({
                       ...prev,
-                      dispatch: { ok: false, text: "Enter at least one valid department=budget line." },
+                      dispatch: { ok: false, text: "Select at least one department with a budget." },
+                    }));
+                    return;
+                  }
+                  if (dispatchBlockedByDormant) {
+                    setFormStatus((prev) => ({
+                      ...prev,
+                      dispatch: { ok: false, text: "Activate dormant departments before dispatch." },
                     }));
                     return;
                   }
@@ -667,23 +714,201 @@ export default function App() {
                   setDispatchBrief("");
                   setDispatchCriteria("");
                   setDispatchBudgets("");
+                  setDispatchBriefTemplate("");
+                  setDispatchCriteriaTemplate("");
+                  setDispatchRecommendSource(null);
                   setSelectedProject(null);
                 }}>
                   <h3>Dispatch to heads</h3>
+                  <div className="actions">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const ok = await runAction(
+                          "dispatch-recommend",
+                          "Recommendation applied.",
+                          async () => {
+                            const wrapped = await api.dispatchRecommend(selectedProject, true);
+                            const body = wrapped.result ?? wrapped;
+                            setDispatchBrief(body.brief || "");
+                            setDispatchCriteria(body.acceptance_criteria || "");
+                            setDispatchRecommendSource(
+                              `${body.source}${body.notes?.length ? ` (${body.notes.join(", ")})` : ""}`,
+                            );
+                            setDispatchDeptSelection((prev) => {
+                              const next = { ...prev };
+                              for (const id of Object.keys(next)) {
+                                next[id] = { ...next[id], checked: false };
+                              }
+                              for (const dept of body.departments || []) {
+                                next[dept.id] = {
+                                  checked: Boolean(dept.recommended),
+                                  budget: dept.budget_cents,
+                                };
+                              }
+                              return next;
+                            });
+                            const lines = (body.departments || [])
+                              .filter((d) => d.recommended)
+                              .map((d) => `${d.id}=${d.budget_cents}`);
+                            setDispatchBudgets(lines.join("\n"));
+                          },
+                        );
+                        if (ok) {
+                          /* status line from runAction */
+                        }
+                      }}
+                    >
+                      Recommend for this project
+                    </button>
+                  </div>
+                  {status("dispatch-recommend")}
+                  {dispatchRecommendSource && (
+                    <p className="muted">Recommendation source: {dispatchRecommendSource}</p>
+                  )}
+                  <label htmlFor="dispatch-brief-template">Brief template</label>
+                  <select
+                    id="dispatch-brief-template"
+                    value={dispatchBriefTemplate}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setDispatchBriefTemplate(id);
+                      const template = dispatchOptions?.fields.brief.templates.find((t) => t.id === id);
+                      if (template) setDispatchBrief(template.body);
+                    }}
+                  >
+                    <option value="">Custom / free text</option>
+                    {(dispatchOptions?.fields.brief.templates || []).map((template) => (
+                      <option key={template.id} value={template.id}>{template.label}</option>
+                    ))}
+                  </select>
                   <label htmlFor="dispatch-brief">Brief for heads</label>
                   <textarea id="dispatch-brief" value={dispatchBrief}
                     placeholder={String(projectDetail.brief)}
                     onChange={(e) => setDispatchBrief(e.target.value)} />
+                  <label htmlFor="dispatch-criteria-template">Acceptance criteria template</label>
+                  <select
+                    id="dispatch-criteria-template"
+                    value={dispatchCriteriaTemplate}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setDispatchCriteriaTemplate(id);
+                      const template = dispatchOptions?.fields.acceptance_criteria.templates
+                        .find((t) => t.id === id);
+                      if (template) setDispatchCriteria(template.body);
+                    }}
+                  >
+                    <option value="">Custom / free text</option>
+                    {(dispatchOptions?.fields.acceptance_criteria.templates || []).map((template) => (
+                      <option key={template.id} value={template.id}>{template.label}</option>
+                    ))}
+                  </select>
                   <label htmlFor="dispatch-criteria">Acceptance criteria</label>
                   <textarea id="dispatch-criteria" required value={dispatchCriteria}
                     onChange={(e) => setDispatchCriteria(e.target.value)} />
-                  <label htmlFor="dispatch-budgets">Department budget (¢), one department=amount per line</label>
-                  <textarea id="dispatch-budgets" required value={dispatchBudgets}
+                  <div className="dispatch-dept-list">
+                    {(dispatchOptions?.departments || []).map((dept) => {
+                      const row = dispatchDeptSelection[dept.id] || { checked: false, budget: 0 };
+                      const maxCents = dispatchOptions?.fields.department_budgets.max_cents ?? 0;
+                      const presets = (dispatchOptions?.fields.department_budgets.presets_cents || [])
+                        .filter((preset) => preset <= maxCents);
+                      return (
+                        <div key={dept.id} className="dispatch-dept-row">
+                          <label htmlFor={`dispatch-dept-${dept.id}`}>
+                            <input
+                              id={`dispatch-dept-${dept.id}`}
+                              type="checkbox"
+                              checked={row.checked}
+                              onChange={(e) => setDispatchDeptSelection((prev) => ({
+                                ...prev,
+                                [dept.id]: { ...row, checked: e.target.checked },
+                              }))}
+                            />
+                            {" "}{dept.name}
+                            <span className={dept.dispatchable ? "badge-active" : "badge-dormant"}>
+                              {dept.status}{dept.dispatchable ? "" : " — Activate first"}
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={maxCents}
+                            value={row.budget}
+                            aria-label={`${dept.name} budget cents`}
+                            onChange={(e) => {
+                              const budget = Number(e.target.value);
+                              setDispatchDeptSelection((prev) => ({
+                                ...prev,
+                                [dept.id]: {
+                                  checked: true,
+                                  budget: Number.isFinite(budget) ? Math.max(0, Math.min(maxCents, Math.trunc(budget))) : 0,
+                                },
+                              }));
+                            }}
+                          />
+                          <div className="chip-row">
+                            {presets.map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                className="chip"
+                                onClick={() => setDispatchDeptSelection((prev) => ({
+                                  ...prev,
+                                  [dept.id]: { checked: true, budget: preset },
+                                }))}
+                              >
+                                {preset}
+                              </button>
+                            ))}
+                          </div>
+                          {!dept.dispatchable && row.checked && (
+                            <button
+                              type="button"
+                              onClick={() => runAction(
+                                `activate-${dept.id}`,
+                                "Department activated.",
+                                () => api.activateDepartment(selectedProject, dept.id),
+                              ).then((ok) => {
+                                if (ok) {
+                                  return api.dispatchOptions(selectedProject).then(setDispatchOptions);
+                                }
+                                return undefined;
+                              })}
+                            >
+                              Activate {dept.id}
+                            </button>
+                          )}
+                          {status(`activate-${dept.id}`)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <label htmlFor="dispatch-budgets">Department budget (¢), advanced fallback</label>
+                  <textarea id="dispatch-budgets" value={dispatchBudgets}
                     placeholder={"engineering=500\nproduct=300"}
                     onChange={(e) => setDispatchBudgets(e.target.value)} />
+                  <details>
+                    <summary>Valid values</summary>
+                    <pre className="muted">
+                      {dispatchOptions
+                        ? [
+                          `max_cents=${dispatchOptions.fields.department_budgets.max_cents}`,
+                          `presets_cents=${JSON.stringify(dispatchOptions.fields.department_budgets.presets_cents)}`,
+                          `departments=${dispatchOptions.departments.map(
+                            (d) => `${d.id}:${d.status}${d.dispatchable ? ":ok" : ":dormant"}`,
+                          ).join(", ")}`,
+                        ].join("\n")
+                        : "Loading options…"}
+                    </pre>
+                  </details>
                   <div className="actions">
-                    <button className="primary" type="submit">Dispatch to heads</button>
+                    <button className="primary" type="submit" disabled={dispatchBlockedByDormant}>
+                      Dispatch to heads
+                    </button>
                   </div>
+                  {dispatchBlockedByDormant && (
+                    <p className="error">Activate dormant departments before dispatch.</p>
+                  )}
                   {status("dispatch")}
                 </form>
               )}
