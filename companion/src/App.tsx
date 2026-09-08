@@ -43,6 +43,7 @@ type Tab =
   | "decisions"
   | "inbox"
   | "diagnostics"
+  | "finance"
   | "settings";
 
 /** Four primary tabs fit an iPhone width; the rest live behind "More". */
@@ -57,6 +58,7 @@ const MORE_TABS: [Tab, string][] = [
   ["decisions", "Decisions"],
   ["inbox", "Inbox"],
   ["diagnostics", "Diagnostics"],
+  ["finance", "Finance"],
   ["settings", "Settings"],
 ];
 
@@ -157,6 +159,19 @@ export default function App() {
   const [feedApproveId, setFeedApproveId] = useState("");
   const [feedApproveUrl, setFeedApproveUrl] = useState("https://");
   const [modelProfiles, setModelProfiles] = useState<Record<string, unknown>[]>([]);
+  const [financeSummary, setFinanceSummary] = useState<Record<string, unknown> | null>(null);
+  const [financeInvoices, setFinanceInvoices] = useState<Record<string, unknown>[]>([]);
+  const [financeAdjustments, setFinanceAdjustments] = useState<Record<string, unknown>[]>([]);
+  const [financePeriods, setFinancePeriods] = useState<Record<string, unknown>[]>([]);
+  const [invoiceStart, setInvoiceStart] = useState("");
+  const [invoiceEnd, setInvoiceEnd] = useState("");
+  const [adjKind, setAdjKind] = useState<"void" | "partial_credit">("partial_credit");
+  const [adjBilledId, setAdjBilledId] = useState("");
+  const [adjAmount, setAdjAmount] = useState("");
+  const [adjReason, setAdjReason] = useState("");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  const [periodLimit, setPeriodLimit] = useState("500000");
   const [lastMoreTab, setLastMoreTab] = useState<Tab>("decisions");
   const [formStatus, setFormStatus] = useState<Record<string, FormStatus>>({});
 
@@ -311,6 +326,31 @@ export default function App() {
     }
   }, [api, settings.token]);
 
+  const loadFinance = useCallback(async () => {
+    if (!settings.token) return;
+    try {
+      const [summary, invoices, adjustments, periods] = await Promise.all([
+        api.financeSummary(),
+        api.financeInvoices(),
+        api.financeAdjustments(),
+        api.financeBudgetPeriods(),
+      ]);
+      setFinanceSummary(summary as unknown as Record<string, unknown>);
+      setFinanceInvoices(invoices.invoices || []);
+      setFinanceAdjustments(adjustments.adjustments || []);
+      setFinancePeriods(periods.periods || []);
+    } catch (e) {
+      setFinanceSummary(null);
+      setFinanceInvoices([]);
+      setFinanceAdjustments([]);
+      setFinancePeriods([]);
+      setFormStatus((prev) => ({
+        ...prev,
+        financeLoad: { ok: false, text: e instanceof Error ? e.message : String(e) },
+      }));
+    }
+  }, [api, settings.token]);
+
   // Scopes come from the server, never from whatever a shell wrote into storage.
   // The native WebView injects a session without them, which would otherwise
   // hide every control behind canManage* checks.
@@ -358,6 +398,12 @@ export default function App() {
       loadCompanySettings();
     }
   }, [tab, settings.token, loadCompanySettings]);
+
+  useEffect(() => {
+    if (tab === "finance" && settings.token) {
+      loadFinance();
+    }
+  }, [tab, settings.token, loadFinance]);
 
   useEffect(() => {
     if (MORE_TABS.some(([t]) => t === tab)) setLastMoreTab(tab);
@@ -552,6 +598,53 @@ export default function App() {
     await runAction(key, message, async () => {
       await run();
       await loadCompanySettings();
+    });
+  }
+
+  async function createInvoiceForm(event: FormEvent) {
+    event.preventDefault();
+    if (!canPause(scopes)) return;
+    await runAction("financeInvoice", "Invoice created.", async () => {
+      await api.createFinanceInvoice(invoiceStart.trim(), invoiceEnd.trim());
+      setInvoiceStart("");
+      setInvoiceEnd("");
+      await loadFinance();
+    });
+  }
+
+  async function postAdjustmentForm(event: FormEvent) {
+    event.preventDefault();
+    if (!canPause(scopes)) return;
+    const payload: Record<string, unknown> = {
+      kind: adjKind,
+      billed_cost_id: adjBilledId.trim(),
+      reason: adjReason.trim(),
+    };
+    if (adjKind === "partial_credit") {
+      payload.amount_cents = Number(adjAmount);
+    }
+    await runAction("financeAdjustment", "Adjustment recorded.", async () => {
+      await api.postFinanceAdjustment(payload);
+      setAdjBilledId("");
+      setAdjAmount("");
+      setAdjReason("");
+      await loadFinance();
+    });
+  }
+
+  async function setBudgetPeriodForm(event: FormEvent) {
+    event.preventDefault();
+    if (!canPause(scopes)) return;
+    await runAction("financePeriod", "Budget period set.", async () => {
+      await api.setFinanceBudgetPeriod({
+        scope: "company",
+        period_start: periodStart.trim(),
+        period_end: periodEnd.trim(),
+        limit_cents: Number(periodLimit),
+      });
+      setPeriodStart("");
+      setPeriodEnd("");
+      await loadFinance();
     });
   }
 
@@ -1767,6 +1860,131 @@ export default function App() {
             </div>
           ))}
           {!diagBlocks.length && <p className="muted">No diagnostics loaded yet.</p>}
+        </section>
+      )}
+
+      {tab === "finance" && (
+        <section>
+          <div className="card">
+            <h2>Summary</h2>
+            <p className="muted">Integer USD cents. Billed net = gross − refunds. Not simulated spend.</p>
+            {financeSummary ? (
+              <>
+                <div>Gross billed: {String(financeSummary.billed_cost_gross_cents ?? 0)}</div>
+                <div>Adjustments: {String(financeSummary.billed_adjustment_cents ?? 0)}</div>
+                <div>Net billed: {String(financeSummary.billed_cost_cents ?? 0)}</div>
+                <div>Revenue: {String(financeSummary.revenue_cents ?? 0)}</div>
+              </>
+            ) : (
+              <p className="muted">No finance summary loaded.</p>
+            )}
+            {status("financeLoad")}
+          </div>
+
+          <div className="card">
+            <h2>Invoices</h2>
+            {financeInvoices.map((inv) => (
+              <div key={String(inv.id)} style={{ marginBottom: "0.65rem" }}>
+                <strong>{String(inv.id).slice(0, 8)}…</strong>
+                <div className="muted">
+                  {String(inv.period_start)} → {String(inv.period_end)} · {String(inv.total_cents)}¢ · {String(inv.line_count)} lines
+                </div>
+              </div>
+            ))}
+            {!financeInvoices.length && <p className="muted">No invoices yet.</p>}
+            {canPause(scopes) ? (
+              <form onSubmit={createInvoiceForm}>
+                <label htmlFor="invoice-start">Period start (ISO)</label>
+                <input id="invoice-start" value={invoiceStart} onChange={(e) => setInvoiceStart(e.target.value)} required />
+                <label htmlFor="invoice-end">Period end (ISO)</label>
+                <input id="invoice-end" value={invoiceEnd} onChange={(e) => setInvoiceEnd(e.target.value)} required />
+                <div className="actions">
+                  <button className="primary" type="submit">Create invoice</button>
+                </div>
+                {status("financeInvoice")}
+              </form>
+            ) : scopeNotice("create invoices", "company.pause")}
+          </div>
+
+          <div className="card">
+            <h2>Refunds</h2>
+            {financeAdjustments.map((adj) => (
+              <div key={String(adj.id)} style={{ marginBottom: "0.55rem" }}>
+                <strong>{String(adj.kind)}</strong>
+                <div className="muted">
+                  {String(adj.billed_cost_id)} · {String(adj.amount_cents)}¢ · {String(adj.reason)}
+                </div>
+              </div>
+            ))}
+            {!financeAdjustments.length && <p className="muted">No adjustments yet.</p>}
+            {canPause(scopes) ? (
+              <form onSubmit={postAdjustmentForm}>
+                <label htmlFor="adj-kind">Kind</label>
+                <select id="adj-kind" value={adjKind} onChange={(e) => setAdjKind(e.target.value as "void" | "partial_credit")}>
+                  <option value="partial_credit">partial_credit</option>
+                  <option value="void">void</option>
+                </select>
+                <label htmlFor="adj-billed">Billed cost id</label>
+                <input id="adj-billed" value={adjBilledId} onChange={(e) => setAdjBilledId(e.target.value)} required />
+                {adjKind === "partial_credit" && (
+                  <>
+                    <label htmlFor="adj-amount">Amount cents</label>
+                    <input id="adj-amount" type="number" min={1} value={adjAmount} onChange={(e) => setAdjAmount(e.target.value)} required />
+                  </>
+                )}
+                <label htmlFor="adj-reason">Reason</label>
+                <input id="adj-reason" value={adjReason} onChange={(e) => setAdjReason(e.target.value)} required />
+                <div className="actions">
+                  <button className="primary" type="submit">Post adjustment</button>
+                </div>
+                {status("financeAdjustment")}
+              </form>
+            ) : scopeNotice("post refunds", "company.pause")}
+          </div>
+
+          <div className="card">
+            <h2>Budget periods</h2>
+            {financePeriods.map((period) => (
+              <div key={String(period.id)} style={{ marginBottom: "0.65rem" }}>
+                <strong>{String(period.scope)}</strong>
+                <div className="muted">
+                  {String(period.period_start)} → {String(period.period_end)} · limit {String(period.limit_cents)}¢
+                  · {period.closed ? "closed" : "open"}
+                </div>
+                {canPause(scopes) && !period.closed && (
+                  <button
+                    type="button"
+                    onClick={() => runAction(
+                      `finance-close-${String(period.id)}`,
+                      "Period closed.",
+                      async () => {
+                        await api.closeFinanceBudgetPeriod(String(period.id));
+                        await loadFinance();
+                      },
+                    )}
+                  >
+                    Close period
+                  </button>
+                )}
+                {status(`finance-close-${String(period.id)}`)}
+              </div>
+            ))}
+            {!financePeriods.length && <p className="muted">No budget periods.</p>}
+            {canPause(scopes) ? (
+              <form onSubmit={setBudgetPeriodForm}>
+                <label htmlFor="period-start">Start (ISO)</label>
+                <input id="period-start" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} required />
+                <label htmlFor="period-end">End (ISO)</label>
+                <input id="period-end" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} required />
+                <label htmlFor="period-limit">Limit cents</label>
+                <input id="period-limit" type="number" min={0} value={periodLimit} onChange={(e) => setPeriodLimit(e.target.value)} required />
+                <div className="actions">
+                  <button className="primary" type="submit">Set period</button>
+                </div>
+                {status("financePeriod")}
+              </form>
+            ) : scopeNotice("set budget periods", "company.pause")}
+          </div>
         </section>
       )}
 

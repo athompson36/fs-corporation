@@ -1,29 +1,25 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.53**. State: **P2 live ops merged to `main`, pushing, and deploying to fs-dev.**
+Date: 2026-09-08. Version: **0.3.53**. State: **P3 durable finance on `feature/p3-durable-finance`.**
 
-## P2 Live ops (on main)
+## P3 Durable finance (this branch)
 
-- Feed pause/revoke + companion Settings → Feeds (watchlists remain template-only).
-- Companion Settings → Models (read-only profiles; global cents via Runtime).
-- `FS_CORP_CHATDEV_WORKER_EGRESS` + host allowlist file; workers stay `--network none`
-  unless mode=allowlist, file valid, and `FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK` set (ADR-037).
-- Secrets-status treats VAPID `*_FILE` as configured.
-- `GET /api/v1/consultant/reviews` for cooldown rows (no fake before/after metrics).
+- Alembic `0025_durable_finance`: `invoices`, `finance_adjustments`, `budget_period_closures`.
+- APIs under `/api/v1/finance/*`; `status().billed_cost_cents` is **net** (ADR-038).
+- Companion More → **Finance**: summary, invoices, refunds, budget periods.
+- Deferred: choose_model benchmarks + work-order replay ledger.
 
 ## Also on main
 
-- P1 Settings platform (ADR-036).
-- P0.2 M10 ops; dispatch recommend (ADR-035); companion scopes (ADR-034).
+- P2 live ops; P1 Settings; P0 M10 / dispatch recommend.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **396 passed**
-- `cd companion && npm run build`: passed
+- Run full unittest + companion build before merge.
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Smoke companion Settings → Feeds / Models / Secrets on https://192.168.4.100.
-2. ChatDev egress on fs-dev only after restricted Docker network + allowlist file exist.
-3. **P3 Durable finance** (invoice/refunds/period rollover).
+1. Merge/push/deploy when owner requests.
+2. Smoke Finance tab on fs-dev.
+3. **P4 Scale and presence** or thin P3 follow-on (benchmarks / work-order replay).

@@ -98,6 +98,15 @@ listed scope can still receive 403 from those routes.
 | POST /feeds/{id}/pause | Pause an enrolled feed (poll denied until re-approved) | company.pause (CEO) |
 | POST /feeds/{id}/revoke | Revoke an enrolled feed (poll denied until re-approved) | company.pause (CEO) |
 | POST /feeds/{id}/poll | Poll an **approved** feed and ingest signals | company.pause (CEO) |
+| GET /finance/summary | Gross/net billed, adjustments, revenue, open budget period | company.read |
+| GET /finance/invoices | List internal invoices | company.read |
+| GET /finance/invoices/{id} | Invoice detail with lines | company.read |
+| POST /finance/invoices | Create invoice for `[period_start, period_end)` | company.pause (CEO) |
+| GET /finance/adjustments | List void/partial_credit adjustments | company.read |
+| POST /finance/adjustments | Post void or partial_credit (`billed_cost_id`, `reason`, …) | company.pause (CEO) |
+| GET /finance/budget-periods | List periods with closed flag/snapshot | company.read |
+| POST /finance/budget-periods | Set budget period | company.pause (CEO) |
+| POST /finance/budget-periods/{id}/close | Close period with auditable snapshot | company.pause (CEO) |
 | GET /remote-access | VPN/pairing status and `pairing_levels` catalog | company.read |
 | POST /remote-access/pairing | Issue one-time pairing QR (`payload.access_level`: `read_only`, `user`, `admin`) | company.pause (owner only) |
 | POST /remote-access/redeem | Redeem ticket for scoped companion token (no auth) | — |
@@ -198,7 +207,8 @@ of them.
   `scopes` and `summary`), and `paired_devices`. `paired_devices` is populated for the CEO and
   an empty list otherwise.
 - **`GET /company`** — the `company.status()` fields (`mode`, `policy_version`, counts,
-  `simulated_spend_cents`, `billed_cost_cents`, `revenue_cents`, `rooms`, `audit_valid`)
+  `simulated_spend_cents`, `billed_cost_gross_cents`, `billed_adjustment_cents`,
+  `billed_cost_cents` (net of refunds), `revenue_cents`, `rooms`, `audit_valid`)
   merged with `paused`. Simulated, billed, and revenue totals are never summed together.
 - **`GET /settings`** — `items[]` with `key`, effective `value`, catalog `default`, `source`
   (`overlay` \| `env` \| `default`), `type`, `editable`, `restart_required`, and `description`.

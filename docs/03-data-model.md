@@ -52,7 +52,7 @@ JSON configurations remain seed templates via
 `seed_catalog` / `seed_models` / `seed_hardware_skills` /
 `seed_development_skills` / `seed_career_ladders` / `seed_industry_packs`.
 
-The ledger records synthetic integer costs for mock actions. `billed_costs` records live provider usage in integer USD cents (`amount_cents`, often 0 until a pricing rate is set) plus `usage_tokens`. `revenue` records real income separately. Policy changes never reset simulated ledger totals. Refunds and period rollover of billed amounts remain future work.
+The ledger records synthetic integer costs for mock actions. `billed_costs` records live provider usage in integer USD cents (`amount_cents`, often 0 until a pricing rate is set) plus `usage_tokens`. `finance_adjustments` records append-only voids and partial credits against billed rows (never deletes them). `invoices` store owner window snapshots of billable lines. `budget_period_closures` freeze period totals. `revenue` records real income separately. Policy changes never reset simulated ledger totals. `status().billed_cost_cents` is **net** of adjustments (ADR-038).
 
 ## Proposed state machines
 

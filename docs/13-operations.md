@@ -24,7 +24,7 @@ Owner bootstrap writes `.local/owner.token` (mode 600) in dev; production uses `
 
 ## Budgets
 
-Reference costs are nonnegative integer USD cents in a synthetic lifetime ledger. Do not display them as actual billed API spend. Production tracks estimate, reservation, actual reconciliation and credits/refunds separately. Enforce company, department, project and task caps transactionally. Period rollover is explicit and auditable, never achieved by amending policy.
+Reference costs are nonnegative integer USD cents in a synthetic lifetime ledger. Do not display them as actual billed API spend. Production tracks estimate, reservation, actual reconciliation and credits/refunds separately (`billed_costs`, `finance_adjustments`, `invoices`, `revenue`). Enforce company, department, project and task caps transactionally. Period rollover is explicit via `POST /finance/budget-periods/{id}/close` and auditable snapshots, never achieved by amending policy.
 
 Use maximum output tokens, request limits and timeouts to bound model calls. Actual provider bills can arrive late; retain a reconciliation margin and stop dispatch if unreconciled exposure reaches the limit. A failed call may still be billed.
 

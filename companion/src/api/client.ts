@@ -167,6 +167,52 @@ export class ApiClient {
     return this.get<{ profiles: Record<string, unknown>[] }>("/api/v1/model-profiles");
   }
 
+  financeSummary() {
+    return this.get<{
+      billed_cost_gross_cents: number;
+      billed_adjustment_cents: number;
+      billed_cost_cents: number;
+      revenue_cents: number;
+      open_budget_period: Record<string, unknown> | null;
+    }>("/api/v1/finance/summary");
+  }
+
+  financeInvoices() {
+    return this.get<{ invoices: Record<string, unknown>[] }>("/api/v1/finance/invoices");
+  }
+
+  createFinanceInvoice(periodStart: string, periodEnd: string) {
+    return this.post(
+      "/api/v1/finance/invoices",
+      { period_start: periodStart, period_end: periodEnd },
+      `finance-inv-${Date.now()}`,
+    );
+  }
+
+  financeAdjustments() {
+    return this.get<{ adjustments: Record<string, unknown>[] }>("/api/v1/finance/adjustments");
+  }
+
+  postFinanceAdjustment(payload: Record<string, unknown>) {
+    return this.post("/api/v1/finance/adjustments", payload, `finance-adj-${Date.now()}`);
+  }
+
+  financeBudgetPeriods() {
+    return this.get<{ periods: Record<string, unknown>[] }>("/api/v1/finance/budget-periods");
+  }
+
+  setFinanceBudgetPeriod(payload: Record<string, unknown>) {
+    return this.post("/api/v1/finance/budget-periods", payload, `finance-period-${Date.now()}`);
+  }
+
+  closeFinanceBudgetPeriod(periodId: string) {
+    return this.post(
+      `/api/v1/finance/budget-periods/${encodeURIComponent(periodId)}/close`,
+      {},
+      `finance-close-${periodId}-${Date.now()}`,
+    );
+  }
+
   slos() {
     return this.get<Record<string, unknown>>("/api/v1/slos");
   }

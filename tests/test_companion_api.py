@@ -111,6 +111,19 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("feed-approve-id", app)
         self.assertIn("Watchlist templates stay non-live", app)
 
+    def test_companion_wires_finance(self):
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        client = (root / "api" / "client.ts").read_text()
+        app = (root / "App.tsx").read_text()
+        self.assertIn("/api/v1/finance/summary", client)
+        self.assertIn("createFinanceInvoice", client)
+        self.assertIn("postFinanceAdjustment", client)
+        self.assertIn("closeFinanceBudgetPeriod", client)
+        self.assertIn('["finance", "Finance"]', app)
+        self.assertIn("tab === \"finance\"", app)
+        self.assertIn("invoice-start", app)
+        self.assertIn("adj-billed", app)
+
     def test_companion_replaces_window_prompt_ops_forms(self):
         app = (
             Path(__file__).resolve().parents[1] / "companion" / "src" / "App.tsx"

@@ -39,6 +39,7 @@
 | ADR-035 | 2026-09-07 | Dispatch recommend/autofill is advisory; mock always, live when configured | `GET …/dispatch-options` is the server parameter key. `POST …/dispatch-recommend` returns editable suggestions (`source` mock|live) and never calls `dispatch_project_brief`. Live uses `invoke_model` + validation; unusable/unavailable falls back to mock with notes. |
 | ADR-036 | 2026-09-07 | Settings platform uses SQLite overlay; secrets status only; honest restart_required | Allowlisted non-secret knobs persist in `company_settings`; effective resolution is overlay → env → catalog default. PATCH/reset require `company.pause` + CEO/admin companion. Secrets API returns configured/missing only. Rate-limit keys store overlay but apply only after API restart; UI states that honestly. Host-bound IPs are read-only in GET. |
 | ADR-037 | 2026-09-07 | ChatDev worker egress is opt-in allowlist + explicit Docker network | Default remains `--network none`. Mode `allowlist` requires host allowlist file, non-empty `https_hosts`, and `FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK`; never bare `bridge`/`host`. Status reports mode/count/ready without listing hosts. |
+| ADR-038 | 2026-09-08 | Append-only finance adjustments; invoices are window snapshots | `billed_costs` stay immutable. Voids/partial credits live in `finance_adjustments`. `billed_cost_cents` means net. Internal invoices snapshot billable lines; period close writes `budget_period_closures`. |
 
 ### ADR-010 detail
 
@@ -449,5 +450,21 @@ rejected (host file only). Shipping unrestricted bridge behind a boolean was rej
 
 **Consequences.** Operators must create the restricted Docker network and allowlist on the host
 before ChatDev containers can egress. Misconfiguration fails closed to network-none.
+
+### ADR-038 detail
+
+**Context.** ADR-026 separated billed cost from simulated spend but deferred refunds, invoices,
+and period rollover. Operators need auditable adjustments without rewriting live invoke rows.
+
+**Decision.** Keep `billed_costs` immutable. Add `finance_adjustments` (void / partial_credit),
+`invoices` (window snapshots of still-creditable lines), and `budget_period_closures`.
+`status().billed_cost_cents` is net of adjustments; expose gross and adjustment totals too.
+Finance mutations remain CEO-gated.
+
+**Alternatives considered.** Mutating billed rows in place was rejected (weaker audit).
+Provider invoice import / Stripe was rejected for P3.
+
+**Consequences.** Companion Finance tab manages invoices, refunds, and period close. Benchmarks
+and work-order replay remain a follow-on.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
