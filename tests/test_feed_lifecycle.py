@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from company.core import Company
+from tests.test_api import owner_client
 from tests.test_core import install, policy
 
 
@@ -48,6 +49,45 @@ class FeedLifecycleTests(unittest.TestCase):
         self.c.revoke_feed_source("human-ceo", "f4")
         with self.assertRaises(ValueError):
             self.c.pause_feed_source("human-ceo", "f4")
+
+
+class FeedApiTests(unittest.TestCase):
+    def setUp(self):
+        self.c, self.client = owner_client()
+        self.addCleanup(self.c.close)
+        self.h = {"Authorization": "Bearer owner-token"}
+
+    def test_pause_revoke_via_http(self):
+        approve = self.client.post(
+            "/api/v1/feeds",
+            json={"payload": {"id": "http-f1", "url": "https://example.com/http-feed"}},
+            headers={**self.h, "Idempotency-Key": "feed-approve-1"},
+        )
+        self.assertEqual(approve.status_code, 200, approve.text)
+        paused = self.client.post(
+            "/api/v1/feeds/http-f1/pause",
+            json={"payload": {}},
+            headers={**self.h, "Idempotency-Key": "feed-pause-1"},
+        )
+        self.assertEqual(paused.status_code, 200, paused.text)
+        self.assertEqual(paused.json()["result"]["status"], "paused")
+        listed = self.client.get("/api/v1/feeds", headers=self.h)
+        self.assertEqual(listed.status_code, 200)
+        row = next(f for f in listed.json()["feeds"] if f["id"] == "http-f1")
+        self.assertEqual(row["status"], "paused")
+        poll = self.client.post(
+            "/api/v1/feeds/http-f1/poll",
+            json={"payload": {}},
+            headers={**self.h, "Idempotency-Key": "feed-poll-paused"},
+        )
+        self.assertIn(poll.status_code, {400, 403, 409}, poll.text)
+        revoked = self.client.post(
+            "/api/v1/feeds/http-f1/revoke",
+            json={"payload": {}},
+            headers={**self.h, "Idempotency-Key": "feed-revoke-1"},
+        )
+        self.assertEqual(revoked.status_code, 200, revoked.text)
+        self.assertEqual(revoked.json()["result"]["status"], "revoked")
 
 
 if __name__ == "__main__":

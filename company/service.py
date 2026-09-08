@@ -2655,6 +2655,24 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         return run(ident, idempotency_key, payload, lambda: (
             company.approve_feed_source(ident["principal_id"], payload["id"], payload["url"]), 200))
 
+    @app.post("/api/v1/feeds/{source_id}/pause")
+    def pause_feed(source_id: str, body: Command, authorization: str | None = Header(default=None),
+                   idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"source_id": source_id}, lambda: (
+            company.pause_feed_source(ident["principal_id"], source_id), 200))
+
+    @app.post("/api/v1/feeds/{source_id}/revoke")
+    def revoke_feed(source_id: str, body: Command, authorization: str | None = Header(default=None),
+                    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"source_id": source_id}, lambda: (
+            company.revoke_feed_source(ident["principal_id"], source_id), 200))
+
     @app.post("/api/v1/feeds/{source_id}/poll")
     def poll_feed(source_id: str, body: Command, authorization: str | None = Header(default=None),
                   idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
