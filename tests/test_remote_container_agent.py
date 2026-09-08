@@ -8,6 +8,7 @@ from unittest.mock import patch
 from company.core import Company, now
 from company.remote_jobs import (
     claim_job,
+    complete_job,
     enqueue_remote_job,
     relay_gateway,
     renew_job_lease,
@@ -266,3 +267,125 @@ class GatewayRelayHttpTests(unittest.TestCase):
                 headers=self.host_headers,
             )
         self.assertEqual(invalid.status_code, 422, invalid.text)
+
+
+class CompleteRuntimeTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.addCleanup(self.c.close)
+        created = create_worker_host(
+            self.c, "human-ceo", label="lab", base_url="https://lab.example.com"
+        )
+        self.host_id = created["id"]
+        self.token = created["token"]
+        record_worker_host_heartbeat(self.c, self.host_id, self.token)
+        self.c.queue_task("head", "app", "draft", 10, "rt-t1")
+
+    def _claimed_job(self, task_id="rt-t1"):
+        job = enqueue_remote_job(
+            self.c,
+            "human-ceo",
+            host_id=self.host_id,
+            task_id=task_id,
+            worker_id="worker-r",
+        )
+        return claim_job(self.c, self.host_id, self.token, job["id"])
+
+    def test_complete_with_remote_container_updates_runtime(self):
+        claimed = self._claimed_job()
+        complete_job(
+            self.c,
+            self.host_id,
+            self.token,
+            claimed["id"],
+            status="completed",
+            result={"ok": True},
+            runtime="remote_container",
+        )
+        run = self.c.db.execute(
+            "SELECT runtime FROM worker_runs WHERE task_id=?", ("rt-t1",)
+        ).fetchone()
+        self.assertEqual(run["runtime"], "remote_container")
+
+    def test_complete_failed_with_remote_container_updates_runtime(self):
+        claimed = self._claimed_job()
+        complete_job(
+            self.c,
+            self.host_id,
+            self.token,
+            claimed["id"],
+            status="failed",
+            result={"error": "container exit 1"},
+            runtime="remote_container",
+        )
+        run = self.c.db.execute(
+            "SELECT status, runtime FROM worker_runs WHERE task_id=?", ("rt-t1",)
+        ).fetchone()
+        self.assertEqual(run["status"], "failed")
+        self.assertEqual(run["runtime"], "remote_container")
+
+    def test_complete_rejects_invalid_runtime(self):
+        claimed = self._claimed_job()
+        with self.assertRaises(ValueError):
+            complete_job(
+                self.c,
+                self.host_id,
+                self.token,
+                claimed["id"],
+                status="completed",
+                runtime="local_subprocess",
+            )
+
+    def test_complete_default_runtime_stays_remote_agent(self):
+        claimed = self._claimed_job()
+        complete_job(
+            self.c,
+            self.host_id,
+            self.token,
+            claimed["id"],
+            status="completed",
+        )
+        run = self.c.db.execute(
+            "SELECT runtime FROM worker_runs WHERE task_id=?", ("rt-t1",)
+        ).fetchone()
+        self.assertEqual(run["runtime"], "remote_agent")
+
+
+class CompleteRuntimeHttpTests(unittest.TestCase):
+    def setUp(self):
+        self.c, self.client = owner_client()
+        self.addCleanup(self.c.close)
+        created = create_worker_host(
+            self.c, "human-ceo", label="lab", base_url="https://lab.example.com"
+        )
+        self.host_id = created["id"]
+        self.token = created["token"]
+        self.host_headers = {"Authorization": f"Bearer {self.token}"}
+        record_worker_host_heartbeat(self.c, self.host_id, self.token)
+        self.c.queue_task("head", "app", "draft", 10, "rt-http-t1")
+        job = enqueue_remote_job(
+            self.c,
+            "human-ceo",
+            host_id=self.host_id,
+            task_id="rt-http-t1",
+            worker_id="worker-r",
+        )
+        claimed = claim_job(self.c, self.host_id, self.token, job["id"])
+        self.job_id = claimed["id"]
+
+    def test_http_complete_passes_remote_container_runtime(self):
+        done = self.client.post(
+            f"/api/v1/worker-hosts/{self.host_id}/jobs/{self.job_id}/complete",
+            json={
+                "status": "completed",
+                "result": {"ok": True},
+                "runtime": "remote_container",
+            },
+            headers=self.host_headers,
+        )
+        self.assertEqual(done.status_code, 200, done.text)
+        run = self.c.db.execute(
+            "SELECT runtime FROM worker_runs WHERE task_id=?", ("rt-http-t1",)
+        ).fetchone()
+        self.assertEqual(run["runtime"], "remote_container")

@@ -2991,9 +2991,10 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         payload = body if isinstance(body, dict) else {}
         status = payload.get("status") or "completed"
         result = payload.get("result")
+        runtime = payload.get("runtime")
         try:
             return company.complete_remote_job(
-                host_id, token, job_id, status=status, result=result)
+                host_id, token, job_id, status=status, result=result, runtime=runtime)
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:

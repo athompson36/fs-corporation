@@ -294,10 +294,13 @@ def complete_job(
     *,
     status: str,
     result: dict | None = None,
+    runtime: str | None = None,
 ) -> dict:
     require_host_token(company, host_id, token)
     if status not in {"completed", "failed"}:
         raise ValueError("status must be completed or failed")
+    if runtime is not None and runtime not in {"remote_agent", "remote_container"}:
+        raise ValueError("runtime must be remote_agent or remote_container")
     stamp = now().isoformat()
     with company.tx():
         row = company.db.execute(
@@ -318,11 +321,18 @@ def complete_job(
         )
         run_id = row["worker_run_id"]
         task_id = row["task_id"]
+        recorded_runtime = "remote_container" if runtime == "remote_container" else "remote_agent"
         if status == "completed" and run_id:
-            company.db.execute(
-                "UPDATE worker_runs SET status=?, finished_at=? WHERE id=?",
-                ("completed", stamp, run_id),
-            )
+            if runtime == "remote_container":
+                company.db.execute(
+                    "UPDATE worker_runs SET status=?, finished_at=?, runtime=? WHERE id=?",
+                    ("completed", stamp, "remote_container", run_id),
+                )
+            else:
+                company.db.execute(
+                    "UPDATE worker_runs SET status=?, finished_at=? WHERE id=?",
+                    ("completed", stamp, run_id),
+                )
             company._event("worker.finished", {"run_id": run_id, "status": "completed"})
             company.db.execute("UPDATE queue SET status='done' WHERE task_id=?", (task_id,))
             company._event(
@@ -330,14 +340,20 @@ def complete_job(
                 {
                     "task_id": task_id,
                     "worker": f"remote-host:{host_id}",
-                    "runtime": "remote_agent",
+                    "runtime": recorded_runtime,
                 },
             )
         elif run_id:
-            company.db.execute(
-                "UPDATE worker_runs SET status=?, finished_at=? WHERE id=?",
-                ("failed", stamp, run_id),
-            )
+            if runtime == "remote_container":
+                company.db.execute(
+                    "UPDATE worker_runs SET status=?, finished_at=?, runtime=? WHERE id=?",
+                    ("failed", stamp, "remote_container", run_id),
+                )
+            else:
+                company.db.execute(
+                    "UPDATE worker_runs SET status=?, finished_at=? WHERE id=?",
+                    ("failed", stamp, run_id),
+                )
             company._event("worker.finished", {"run_id": run_id, "status": "failed"})
         company._event(
             "remote_job.completed" if status == "completed" else "remote_job.failed",

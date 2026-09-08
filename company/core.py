@@ -1073,9 +1073,11 @@ class Company:
         from company.remote_jobs import renew_job_lease
         return renew_job_lease(self, host_id, token, job_id)
 
-    def complete_remote_job(self, host_id, token, job_id, *, status, result=None):
+    def complete_remote_job(self, host_id, token, job_id, *, status, result=None, runtime=None):
         from company.remote_jobs import complete_job
-        return complete_job(self, host_id, token, job_id, status=status, result=result)
+        return complete_job(
+            self, host_id, token, job_id, status=status, result=result, runtime=runtime
+        )
 
     def _start_worker_run(self,worker_id,task_id,runtime,scratch_root):
         rid=str(uuid.uuid4())
