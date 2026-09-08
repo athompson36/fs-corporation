@@ -61,6 +61,70 @@ class RemoteContainerAgentTests(unittest.TestCase):
         self.assertNotIn("bridge", cmd)
         self.assertIn("fs.corp.runtime=remote_container", cmd)
 
+    def test_build_docker_cmd_uses_allowlist_network(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            cmd = remote_worker_agent.build_docker_cmd(
+                "/usr/bin/docker",
+                "worker:local",
+                Path(scratch),
+                network="fs-corp-chatdev",
+            )
+        network_index = cmd.index("--network")
+        self.assertEqual(cmd[network_index + 1], "fs-corp-chatdev")
+        self.assertIn("fs.corp.network=fs-corp-chatdev", cmd)
+
+    def test_build_docker_cmd_never_uses_bridge_or_host(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            for forbidden in ("bridge", "HOST"):
+                cmd = remote_worker_agent.build_docker_cmd(
+                    "/usr/bin/docker",
+                    "worker:local",
+                    Path(scratch),
+                    network=forbidden,
+                )
+                self.assertEqual(cmd[cmd.index("--network") + 1], "none")
+
+    def test_agent_egress_ready_false_without_allowlist_file(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("FS_CORP_CHATDEV_EGRESS_ALLOWLIST_FILE", None)
+            ready, reason = remote_worker_agent.agent_egress_ready(
+                {"mode": "allowlist", "docker_network": "fs-corp-chatdev"}
+            )
+        self.assertFalse(ready)
+        self.assertIn("allowlist", reason.lower())
+
+    def test_agent_egress_ready_inspects_named_network(self):
+        inspected = MagicMock(return_value=MagicMock(returncode=0))
+        with tempfile.TemporaryDirectory() as scratch:
+            allowlist = Path(scratch) / "allowlist.json"
+            allowlist.write_text(
+                json.dumps({"https_hosts": ["api.example.com"]}), encoding="utf-8"
+            )
+            with patch.dict(
+                os.environ,
+                {"FS_CORP_CHATDEV_EGRESS_ALLOWLIST_FILE": str(allowlist)},
+            ):
+                with patch.object(
+                    remote_worker_agent.shutil,
+                    "which",
+                    return_value="/usr/bin/docker",
+                ):
+                    with patch.object(remote_worker_agent.subprocess, "run", inspected):
+                        ready, reason = remote_worker_agent.agent_egress_ready(
+                            {
+                                "mode": "allowlist",
+                                "docker_network": "fs-corp-chatdev",
+                            }
+                        )
+        self.assertTrue(ready, reason)
+        inspected.assert_called_once_with(
+            ["/usr/bin/docker", "network", "inspect", "fs-corp-chatdev"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
     def test_pump_remote_gateway_relays_request_and_renews(self):
         with tempfile.TemporaryDirectory() as scratch_name:
             scratch = Path(scratch_name)
@@ -109,7 +173,14 @@ class RemoteContainerAgentTests(unittest.TestCase):
             proc.communicate.assert_called_once_with()
 
     def test_once_default_path_still_mock_completes(self):
-        claimed = {"id": "job-1", "task_id": "agent-t1"}
+        claimed = {
+            "id": "job-1",
+            "task_id": "agent-t1",
+            "egress": {
+                "mode": "allowlist",
+                "docker_network": "fs-corp-chatdev",
+            },
+        }
         responses = [
             {},
             {"jobs": [{"id": "job-1", "task_id": "agent-t1"}]},
@@ -117,10 +188,14 @@ class RemoteContainerAgentTests(unittest.TestCase):
             {},
         ]
         with patch.object(remote_worker_agent, "request", side_effect=responses) as http:
-            with patch.dict(os.environ, {}, clear=False):
-                os.environ.pop("FS_CORP_REMOTE_WORKER_RUNTIME", None)
-                handled = remote_worker_agent.once("https://control", "host-1", "token")
+            with patch.object(remote_worker_agent, "agent_egress_ready") as egress_ready:
+                with patch.dict(os.environ, {}, clear=False):
+                    os.environ.pop("FS_CORP_REMOTE_WORKER_RUNTIME", None)
+                    handled = remote_worker_agent.once(
+                        "https://control", "host-1", "token"
+                    )
         self.assertEqual(handled, 1)
+        egress_ready.assert_not_called()
         self.assertEqual(
             http.call_args_list[-1],
             call(
@@ -133,6 +208,59 @@ class RemoteContainerAgentTests(unittest.TestCase):
                         "type": "remote_mock",
                         "task_id": "agent-t1",
                         "artifact_hint": "remote-mock-agent-t1",
+                    },
+                },
+            ),
+        )
+
+    def test_once_allowlist_unready_fails_without_mock(self):
+        claimed = {
+            "id": "job-1",
+            "task_id": "agent-t1",
+            "envelope": {},
+            "egress": {
+                "mode": "allowlist",
+                "docker_network": "fs-corp-chatdev",
+            },
+        }
+        responses = [
+            {},
+            {"jobs": [{"id": "job-1", "task_id": "agent-t1"}]},
+            claimed,
+            {},
+        ]
+        with patch.object(remote_worker_agent, "request", side_effect=responses) as http:
+            with patch.object(
+                remote_worker_agent,
+                "docker_ready",
+                return_value=(True, ""),
+            ):
+                with patch.object(
+                    remote_worker_agent,
+                    "agent_egress_ready",
+                    return_value=(False, "Docker network unavailable: fs-corp-chatdev"),
+                ):
+                    with patch.object(remote_worker_agent, "mock_execute") as mock:
+                        with patch.dict(
+                            os.environ,
+                            {"FS_CORP_REMOTE_WORKER_RUNTIME": "container"},
+                        ):
+                            handled = remote_worker_agent.once(
+                                "https://control", "host-1", "token"
+                            )
+        self.assertEqual(handled, 1)
+        mock.assert_not_called()
+        self.assertEqual(
+            http.call_args_list[-1],
+            call(
+                "POST",
+                "https://control/api/v1/worker-hosts/host-1/jobs/job-1/complete",
+                "token",
+                {
+                    "status": "failed",
+                    "result": {
+                        "error": "Docker network unavailable: fs-corp-chatdev",
+                        "type": "remote_egress_unready",
                     },
                 },
             ),
@@ -228,6 +356,10 @@ class RemoteContainerAgentTests(unittest.TestCase):
             "id": "job-1",
             "task_id": "agent-t1",
             "envelope": {"task_id": "agent-t1"},
+            "egress": {
+                "mode": "allowlist",
+                "docker_network": "fs-corp-chatdev",
+            },
         }
         container_proc = MagicMock(returncode=0)
         container_proc.communicate.return_value = ("", "")
@@ -245,7 +377,7 @@ class RemoteContainerAgentTests(unittest.TestCase):
                 remote_worker_agent.subprocess,
                 "Popen",
                 return_value=container_proc,
-            ):
+            ) as popen:
                 with patch.object(
                     remote_worker_agent, "pump_remote_gateway", side_effect=pump
                 ):
@@ -259,6 +391,8 @@ class RemoteContainerAgentTests(unittest.TestCase):
                         )
         self.assertEqual((status, result), ("completed", {"task_id": "agent-t1"}))
         self.assertTrue(container_started)
+        docker_cmd = popen.call_args.args[0]
+        self.assertEqual(docker_cmd[docker_cmd.index("--network") + 1], "fs-corp-chatdev")
         self.assertEqual(
             http.call_args_list,
             [
