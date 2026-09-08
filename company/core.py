@@ -2058,6 +2058,30 @@ class Company:
             self._event("feed.source_approved",{"id":source_id,"url":url},actor_id=actor)
         return dict(self.db.execute("SELECT * FROM feed_sources WHERE id=?",(source_id,)).fetchone())
 
+    def pause_feed_source(self,actor,source_id):
+        """CEO-only pause; poll fails closed until re-approved."""
+        self._ceo(actor)
+        with self.tx():
+            row=self.db.execute("SELECT * FROM feed_sources WHERE id=?",(source_id,)).fetchone()
+            if not row:
+                raise ValueError("Feed source not found")
+            if row["status"]=="revoked":
+                raise ValueError("Revoked feed cannot be paused")
+            self.db.execute("UPDATE feed_sources SET status=? WHERE id=?",("paused",source_id))
+            self._event("feed.source_paused",{"id":source_id},actor_id=actor)
+        return dict(self.db.execute("SELECT * FROM feed_sources WHERE id=?",(source_id,)).fetchone())
+
+    def revoke_feed_source(self,actor,source_id):
+        """CEO-only revoke; poll fails closed until re-approved."""
+        self._ceo(actor)
+        with self.tx():
+            row=self.db.execute("SELECT * FROM feed_sources WHERE id=?",(source_id,)).fetchone()
+            if not row:
+                raise ValueError("Feed source not found")
+            self.db.execute("UPDATE feed_sources SET status=? WHERE id=?",("revoked",source_id))
+            self._event("feed.source_revoked",{"id":source_id},actor_id=actor)
+        return dict(self.db.execute("SELECT * FROM feed_sources WHERE id=?",(source_id,)).fetchone())
+
     def list_feed_sources(self):
         return [dict(r) for r in self.db.execute("SELECT * FROM feed_sources ORDER BY id")]
 
