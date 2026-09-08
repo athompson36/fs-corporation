@@ -90,6 +90,37 @@ class PeriodCloseTests(unittest.TestCase):
             self.c.close_budget_period("human-ceo", pid)
 
 
+class BilledCostsListTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.addCleanup(self.c.close)
+        t = now().isoformat()
+        _insert_billed(self.c, "bc-full", 100, t)
+        _insert_billed(self.c, "bc-part", 80, t)
+        self.c.post_finance_adjustment(
+            "human-ceo", kind="void", billed_cost_id="bc-full", reason="gone")
+        self.c.post_finance_adjustment(
+            "human-ceo", kind="partial_credit", billed_cost_id="bc-part",
+            amount_cents=30, reason="partial")
+
+    def test_default_excludes_fully_credited(self):
+        rows = self.c.list_billed_costs()
+        ids = [r["id"] for r in rows]
+        self.assertIn("bc-part", ids)
+        self.assertNotIn("bc-full", ids)
+        part = next(r for r in rows if r["id"] == "bc-part")
+        self.assertEqual(part["remaining_creditable_cents"], 50)
+        self.assertEqual(part["amount_cents"], 80)
+
+    def test_include_fully_credited(self):
+        rows = self.c.list_billed_costs(include_fully_credited=True)
+        ids = [r["id"] for r in rows]
+        self.assertIn("bc-full", ids)
+        full = next(r for r in rows if r["id"] == "bc-full")
+        self.assertEqual(full["remaining_creditable_cents"], 0)
+
+
 class FinanceApiTests(unittest.TestCase):
     def setUp(self):
         self.c, self.client = owner_client()
@@ -119,6 +150,14 @@ class FinanceApiTests(unittest.TestCase):
         summary = self.client.get("/api/v1/finance/summary", headers=self.h)
         self.assertEqual(summary.status_code, 200)
         self.assertEqual(summary.json()["billed_cost_cents"], 50)
+
+    def test_billed_costs_http(self):
+        t0 = now().isoformat()
+        _insert_billed(self.c, "http-bc", 40, t0)
+        res = self.client.get("/api/v1/finance/billed-costs", headers=self.h)
+        self.assertEqual(res.status_code, 200, res.text)
+        ids = [r["id"] for r in res.json()["billed_costs"]]
+        self.assertIn("http-bc", ids)
 
 
 if __name__ == "__main__":

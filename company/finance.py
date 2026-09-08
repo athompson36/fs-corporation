@@ -35,6 +35,42 @@ def remaining_creditable(company, billed_cost_id: str) -> int:
     return int(row["amount_cents"]) - int(used)
 
 
+def list_billed_costs(
+    company,
+    *,
+    limit: int = 100,
+    include_fully_credited: bool = False,
+) -> list[dict]:
+    try:
+        lim = int(limit)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("limit must be an integer") from exc
+    if lim < 1:
+        raise ValueError("limit must be >= 1")
+    if lim > 500:
+        lim = 500
+    out: list[dict] = []
+    for row in company.db.execute(
+        "SELECT * FROM billed_costs ORDER BY recorded_at DESC"
+    ):
+        remaining = remaining_creditable(company, row["id"])
+        if not include_fully_credited and remaining <= 0:
+            continue
+        out.append({
+            "id": row["id"],
+            "recorded_at": row["recorded_at"],
+            "amount_cents": int(row["amount_cents"]),
+            "remaining_creditable_cents": remaining,
+            "provider": row["provider"],
+            "profile_id": row["profile_id"],
+            "source": row["source"],
+            "task_id": row["task_id"],
+        })
+        if len(out) >= lim:
+            break
+    return out
+
+
 def _parse_iso(stamp: str) -> str:
     if not isinstance(stamp, str) or not stamp.strip():
         raise ValueError("ISO timestamp required")

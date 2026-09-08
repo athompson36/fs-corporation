@@ -786,6 +786,11 @@ class Company:
         from company.finance import list_adjustments
         return list_adjustments(self)
 
+    def list_billed_costs(self, *, limit=100, include_fully_credited=False):
+        from company.finance import list_billed_costs
+        return list_billed_costs(
+            self, limit=limit, include_fully_credited=include_fully_credited)
+
     def finance_summary(self):
         from company.finance import finance_summary
         return finance_summary(self)

@@ -6,7 +6,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -2790,6 +2790,19 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "company.read")
         return {"adjustments": company.list_finance_adjustments()}
+
+    @app.get("/api/v1/finance/billed-costs")
+    def finance_list_billed_costs(
+        authorization: str | None = Header(default=None),
+        include_fully_credited: bool = Query(default=False),
+        limit: int = Query(default=100, ge=1, le=500),
+    ):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {
+            "billed_costs": company.list_billed_costs(
+                limit=limit, include_fully_credited=include_fully_credited),
+        }
 
     @app.post("/api/v1/finance/adjustments")
     def finance_post_adjustment(body: Command, authorization: str | None = Header(default=None),
