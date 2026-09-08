@@ -92,7 +92,7 @@ listed scope can still receive 403 from those routes.
 | GET /github/status | GitHub App connectivity + `webhook_secret_configured` (no secrets returned) | company.read |
 | POST /github/webhooks | Signed GitHub App webhook ingress (HMAC; no bearer) | webhook secret |
 | GET /model/status | Model provider connectivity (no secrets returned) | company.read |
-| GET /chatdev/status | ChatDev opt-in readiness: pin, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, `worker_image_chatdev`, workflow path; optional `pin_check_skipped` (no secrets) | company.read |
+| GET /chatdev/status | ChatDev opt-in readiness: pin, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, `worker_image_chatdev`, `worker_egress_mode`, `allowlist_configured`, `allowlist_count`, `worker_egress_ready`, `docker_network_configured`, workflow path; optional `pin_check_skipped` / `allowlist_error` (no secrets; no host list) | company.read |
 | GET /feeds | List market feed sources (status: approved/paused/revoked) | company.read |
 | POST /feeds | Approve or re-approve an HTTPS feed URL (`payload.id`, `payload.url`) | project.enroll (CEO) |
 | POST /feeds/{id}/pause | Pause an enrolled feed (poll denied until re-approved) | company.pause (CEO) |
@@ -106,6 +106,7 @@ listed scope can still receive 403 from those routes.
 | POST /slos/{id}/observations | Record a sourced, windowed measurement | company.pause |
 | POST /consultant-proposals | Submit an evidence-backed proposal | consultant.propose |
 | GET /consultant-proposals | List consultant proposals | consultant.read |
+| GET /consultant/reviews | List consultant review cooldown rows (honesty; no invented efficiency scores) | consultant.read |
 | POST /consultant-proposals/{id}/decision | CEO approve/reject | consultant.decide |
 | POST /consultant-proposals/{id}/revise | New digest; does not mutate the old proposal | consultant.propose |
 

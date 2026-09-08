@@ -80,6 +80,10 @@ class ChatDevAdapterTests(unittest.TestCase):
         self.assertFalse(s["control_plane_allowed"])
         self.assertFalse(s["worker_live_ready"])
         self.assertIn("worker_image_chatdev", s)
+        self.assertEqual(s["worker_egress_mode"], "none")
+        self.assertFalse(s["worker_egress_ready"])
+        self.assertFalse(s["allowlist_configured"])
+        self.assertEqual(s["allowlist_count"], 0)
 
     def test_worker_image_chatdev_unavailable_without_docker(self):
         from company.chatdev_runtime import worker_image_chatdev_summary

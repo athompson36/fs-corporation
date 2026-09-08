@@ -38,6 +38,7 @@
 | ADR-034 | 2026-09-07 | A paired admin phone is a CEO actor for operations, never for root authority | `_is_ceo_actor` accepts the owner or a `companion-admin-*` principal, covering policy and consultant decisions, owner-inbox responses, HR actions and division proposals. Pairing, revenue, budget, rollback, model, feed and SLO operations stay strict `_ceo`. Scopes are served by `GET /api/v1/session` so a client never infers its own authority. |
 | ADR-035 | 2026-09-07 | Dispatch recommend/autofill is advisory; mock always, live when configured | `GET …/dispatch-options` is the server parameter key. `POST …/dispatch-recommend` returns editable suggestions (`source` mock|live) and never calls `dispatch_project_brief`. Live uses `invoke_model` + validation; unusable/unavailable falls back to mock with notes. |
 | ADR-036 | 2026-09-07 | Settings platform uses SQLite overlay; secrets status only; honest restart_required | Allowlisted non-secret knobs persist in `company_settings`; effective resolution is overlay → env → catalog default. PATCH/reset require `company.pause` + CEO/admin companion. Secrets API returns configured/missing only. Rate-limit keys store overlay but apply only after API restart; UI states that honestly. Host-bound IPs are read-only in GET. |
+| ADR-037 | 2026-09-07 | ChatDev worker egress is opt-in allowlist + explicit Docker network | Default remains `--network none`. Mode `allowlist` requires host allowlist file, non-empty `https_hosts`, and `FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK`; never bare `bridge`/`host`. Status reports mode/count/ready without listing hosts. |
 
 ### ADR-010 detail
 
@@ -430,5 +431,23 @@ rate limiter in slice A was rejected in favor of honest `restart_required` metad
 ChatDev control-plane flag, and idempotency retention without shell access. Desk Settings and
 expanded Settings sections (Company, Models, Feeds, …) remain follow-ons. Overlay does not
 escalate scopes or invent HQ/financial state.
+
+### ADR-037 detail
+
+**Context.** Container workers stay `--network none` by default. Live ChatDev model calls need
+HTTPS egress without opening unrestricted Docker bridge networking.
+
+**Decision.** `FS_CORP_CHATDEV_WORKER_EGRESS` is `none` (default) or `allowlist`. Ready egress
+requires a host allowlist file (`FS_CORP_CHATDEV_EGRESS_ALLOWLIST_FILE` with non-empty
+`https_hosts`), plus an explicit Docker network name
+(`FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK`). `ContainerWorkerRuntime` uses that network only when
+ready; otherwise `--network none`. Never `bridge` or `host`. Status exposes mode, configured,
+count, and ready — not the host list.
+
+**Alternatives considered.** Full open worker network was rejected. Phone-editable allowlist was
+rejected (host file only). Shipping unrestricted bridge behind a boolean was rejected.
+
+**Consequences.** Operators must create the restricted Docker network and allowlist on the host
+before ChatDev containers can egress. Misconfiguration fails closed to network-none.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

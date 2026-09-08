@@ -256,11 +256,19 @@ class ContainerWorkerRuntime:
         image = os.environ.get("FS_CORP_WORKER_IMAGE", "fs-corporation-worker:local")
         mount_src = self._docker_mount_path(scratch_root)
         worker_nic = (os.environ.get("FS_CORP_WORKER_NIC_IP") or "").strip()
+        from company.chatdev_egress import container_network_args
+        network_args = container_network_args(company)
+        # Hard rule: never omit --network; never use bare bridge.
+        if network_args != ["--network", "none"] and (
+            len(network_args) != 2 or network_args[0] != "--network" or network_args[1] in {"", "bridge", "host"}
+        ):
+            network_args = ["--network", "none"]
         cmd = [
-            docker, "run", "--rm", "--network", "none",
+            docker, "run", "--rm", *network_args,
             "-v", f"{mount_src}:/work:rw",
             *self._docker_run_env_args(),
             "--label", "fs.corp.runtime=container",
+            "--label", f"fs.corp.network={network_args[1]}",
         ]
         if worker_nic:
             # Workers stay network-none; the label records the reserved host NIC for ops.

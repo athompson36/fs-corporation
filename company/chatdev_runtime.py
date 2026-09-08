@@ -240,9 +240,12 @@ def worker_image_chatdev_summary() -> dict | None:
 
 
 def status_summary(*, company=None) -> dict:
+    from company.chatdev_egress import allowlist_status
+
     home = chatdev_home()
     ready = chatdev_home_ready()
     skipped = pin_check_skipped()
+    egress = allowlist_status(company)
     out = {
         "pin": PINNED_COMMIT,
         "home_set": home is not None,
@@ -254,7 +257,14 @@ def status_summary(*, company=None) -> dict:
         "worker_live_ready": ready,
         "workflow": str(workflow_path()),
         "worker_image_chatdev": worker_image_chatdev_summary(),
+        "worker_egress_mode": egress["worker_egress_mode"],
+        "allowlist_configured": egress["allowlist_configured"],
+        "allowlist_count": egress["allowlist_count"],
+        "worker_egress_ready": egress["worker_egress_ready"],
+        "docker_network_configured": egress["docker_network_configured"],
     }
     if skipped:
         out["pin_check_skipped"] = True
+    if egress.get("allowlist_error"):
+        out["allowlist_error"] = egress["allowlist_error"]
     return out
