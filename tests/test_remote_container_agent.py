@@ -1,9 +1,12 @@
 """Remote container-on-agent: envelope, gateway relay, renew."""
+import importlib.util
+import json
 import os
 import tempfile
 import unittest
 from datetime import timedelta
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import MagicMock, call, patch
 
 from company.core import Company, now
 from company.remote_jobs import (
@@ -16,6 +19,203 @@ from company.remote_jobs import (
 from company.worker_hosts import create_worker_host, record_worker_host_heartbeat
 from tests.test_api import owner_client
 from tests.test_core import install, policy
+
+
+AGENT_PATH = Path(__file__).parents[1] / "scripts" / "remote_worker_agent.py"
+AGENT_SPEC = importlib.util.spec_from_file_location("remote_worker_agent", AGENT_PATH)
+remote_worker_agent = importlib.util.module_from_spec(AGENT_SPEC)
+assert AGENT_SPEC.loader is not None
+AGENT_SPEC.loader.exec_module(remote_worker_agent)
+
+
+class RemoteContainerAgentTests(unittest.TestCase):
+    def test_runtime_mode_reads_environment(self):
+        with patch.dict(
+            os.environ, {"FS_CORP_REMOTE_WORKER_RUNTIME": " container "}, clear=False
+        ):
+            self.assertEqual(remote_worker_agent.runtime_mode(), "container")
+
+    def test_docker_ready_reports_missing_binary(self):
+        with patch.object(remote_worker_agent.shutil, "which", return_value=None):
+            ready, reason = remote_worker_agent.docker_ready("worker:local")
+        self.assertFalse(ready)
+        self.assertIn("Docker", reason)
+
+    def test_docker_ready_reports_missing_image(self):
+        inspected = MagicMock(return_value=MagicMock(returncode=1, stderr="No such image"))
+        with patch.object(remote_worker_agent.subprocess, "run", inspected):
+            ready, reason = remote_worker_agent.docker_ready(
+                "worker:missing", docker_bin="/usr/bin/docker"
+            )
+        self.assertFalse(ready)
+        self.assertIn("worker:missing", reason)
+        inspected.assert_called_once()
+
+    def test_build_docker_cmd_forces_network_none(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            cmd = remote_worker_agent.build_docker_cmd(
+                "/usr/bin/docker", "worker:local", Path(scratch)
+            )
+        self.assertIn(["--network", "none"], [cmd[i : i + 2] for i in range(len(cmd) - 1)])
+        self.assertNotIn("bridge", cmd)
+        self.assertIn("fs.corp.runtime=remote_container", cmd)
+
+    def test_pump_remote_gateway_relays_request_and_renews(self):
+        with tempfile.TemporaryDirectory() as scratch_name:
+            scratch = Path(scratch_name)
+            (scratch / "gw-request.json").write_text(
+                json.dumps({"type": "request", "op": "gateway_check"}),
+                encoding="utf-8",
+            )
+            (scratch / "result.json").write_text(
+                json.dumps({"task_id": "agent-t1"}), encoding="utf-8"
+            )
+            post_gateway = MagicMock(return_value={"allow": True})
+            renew = MagicMock()
+
+            result = remote_worker_agent.pump_remote_gateway(
+                scratch, post_gateway, renew, timeout=0.2
+            )
+
+            self.assertEqual(result["task_id"], "agent-t1")
+            post_gateway.assert_called_once_with(
+                {"type": "request", "op": "gateway_check"}
+            )
+            renew.assert_called_once_with()
+            self.assertEqual(
+                json.loads((scratch / "gw-response.json").read_text(encoding="utf-8")),
+                {"allow": True},
+            )
+
+    def test_once_default_path_still_mock_completes(self):
+        claimed = {"id": "job-1", "task_id": "agent-t1"}
+        responses = [
+            {},
+            {"jobs": [{"id": "job-1", "task_id": "agent-t1"}]},
+            claimed,
+            {},
+        ]
+        with patch.object(remote_worker_agent, "request", side_effect=responses) as http:
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("FS_CORP_REMOTE_WORKER_RUNTIME", None)
+                handled = remote_worker_agent.once("https://control", "host-1", "token")
+        self.assertEqual(handled, 1)
+        self.assertEqual(
+            http.call_args_list[-1],
+            call(
+                "POST",
+                "https://control/api/v1/worker-hosts/host-1/jobs/job-1/complete",
+                "token",
+                {
+                    "status": "completed",
+                    "result": {
+                        "type": "remote_mock",
+                        "task_id": "agent-t1",
+                        "artifact_hint": "remote-mock-agent-t1",
+                    },
+                },
+            ),
+        )
+
+    def test_once_container_missing_docker_fails_without_mock(self):
+        claimed = {"id": "job-1", "task_id": "agent-t1", "envelope": {}}
+        responses = [
+            {},
+            {"jobs": [{"id": "job-1", "task_id": "agent-t1"}]},
+            claimed,
+            {},
+        ]
+        with patch.object(remote_worker_agent, "request", side_effect=responses) as http:
+            with patch.object(
+                remote_worker_agent,
+                "docker_ready",
+                return_value=(False, "Docker executable not found"),
+            ):
+                with patch.dict(
+                    os.environ, {"FS_CORP_REMOTE_WORKER_RUNTIME": "container"}
+                ):
+                    handled = remote_worker_agent.once(
+                        "https://control", "host-1", "token"
+                    )
+        self.assertEqual(handled, 1)
+        self.assertEqual(
+            http.call_args_list[-1],
+            call(
+                "POST",
+                "https://control/api/v1/worker-hosts/host-1/jobs/job-1/complete",
+                "token",
+                {
+                    "status": "failed",
+                    "result": {
+                        "error": "Docker executable not found",
+                        "type": "remote_container_unready",
+                    },
+                    "runtime": "remote_container",
+                },
+            ),
+        )
+
+    def test_execute_claimed_job_posts_gateway_and_renew(self):
+        claimed = {
+            "id": "job-1",
+            "task_id": "agent-t1",
+            "envelope": {"task_id": "agent-t1"},
+        }
+        proc = MagicMock(returncode=0)
+        proc.communicate.return_value = ("", "")
+
+        def pump(_scratch, post_gateway, renew):
+            self.assertEqual(
+                post_gateway({"op": "gateway_check"}), {"allow": True}
+            )
+            renew()
+            return {"task_id": "agent-t1"}
+
+        with patch.object(remote_worker_agent.shutil, "which", return_value="/docker"):
+            with patch.object(remote_worker_agent.subprocess, "Popen", return_value=proc):
+                with patch.object(
+                    remote_worker_agent, "pump_remote_gateway", side_effect=pump
+                ):
+                    with patch.object(
+                        remote_worker_agent,
+                        "request",
+                        side_effect=[{"allow": True}, {"status": "claimed"}],
+                    ) as http:
+                        status, result = remote_worker_agent.execute_claimed_job(
+                            "https://control", "host-1", "token", claimed
+                        )
+        self.assertEqual((status, result), ("completed", {"task_id": "agent-t1"}))
+        self.assertEqual(
+            http.call_args_list,
+            [
+                call(
+                    "POST",
+                    "https://control/api/v1/worker-hosts/host-1/jobs/job-1/gateway",
+                    "token",
+                    {"op": "gateway_check"},
+                ),
+                call(
+                    "POST",
+                    "https://control/api/v1/worker-hosts/host-1/jobs/job-1/renew",
+                    "token",
+                ),
+            ],
+        )
+
+    def test_execute_claimed_job_returns_failed_when_docker_start_fails(self):
+        claimed = {"id": "job-1", "envelope": {"task_id": "agent-t1"}}
+        with patch.object(remote_worker_agent.shutil, "which", return_value="/docker"):
+            with patch.object(
+                remote_worker_agent.subprocess,
+                "Popen",
+                side_effect=OSError("cannot start docker"),
+            ):
+                status, result = remote_worker_agent.execute_claimed_job(
+                    "https://control", "host-1", "token", claimed
+                )
+        self.assertEqual(status, "failed")
+        self.assertEqual(result["type"], "remote_container_error")
+        self.assertIn("cannot start docker", result["error"])
 
 
 class ClaimEnvelopeTests(unittest.TestCase):
