@@ -4,7 +4,7 @@
 
 A position defines responsibilities, required capabilities, memory access and tool permissions. A model profile defines provider, exact model ID, endpoint policy, capabilities, allowed data classifications, context limits, price metadata, credential reference and enabled status. Assignment history preserves which profile/version produced each artifact.
 
-Selection precedence: explicit approved task assignment → position override → department default → company default. The reference `choose_model` implements position override followed by department default with ordered capability/data filtering; task/company fallback is future work.
+Selection precedence: explicit approved task assignment → position override → department default → company default. The reference `choose_model` implements position override followed by department default with ordered capability/data filtering; task/company fallback is future work. When a `role` and `benchmarks` list are supplied, among **already eligible** profiles it prefers the highest recorded `quality` for that role (`benchmark_source=quality_max`); otherwise it keeps list order (`benchmark_source=order`). Benchmarks never invent scores or broaden data permissions.
 
 Never broaden data permissions on fallback. A restricted project must not silently move to a public cloud provider because a local model is unavailable. If no suitable provider is available, block the task with a clear reason.
 

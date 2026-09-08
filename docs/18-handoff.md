@@ -1,26 +1,24 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.53**. State: **P3 durable finance merged to `main`,
-pushing, and deploying to fs-dev.**
+Date: 2026-09-08. Version: **0.3.53**. State: **P3 follow-on (benchmarks + work-order
+replay) on `feature/p3-benchmarks-replay`.**
 
-## P3 Durable finance (on main)
+## This branch
 
-- Alembic `0025_durable_finance`: `invoices`, `finance_adjustments`, `budget_period_closures`.
-- APIs under `/api/v1/finance/*`; `status().billed_cost_cents` is **net** (ADR-038).
-- Companion More → **Finance**: summary, invoices, refunds, budget periods.
-- Deferred: choose_model benchmarks + work-order replay ledger.
+- `choose_model` prefers max benchmark **quality** among eligible profiles (ADR-039).
+- Alembic `0026_work_order_replays`; authorize / complete-outcome / replay APIs.
+- Consultant `to_work_order` writes the first ledger row.
 
 ## Also on main
 
-- P2 live ops; P1 Settings; P0 M10 / dispatch recommend.
+- P3 durable finance; P2 live ops; P1 Settings.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **403 passed**
-- `cd companion && npm run build`: passed
+- `.venv/bin/python -m unittest discover -s tests`: **408 passed**
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Smoke Finance tab on https://192.168.4.100.
-2. **P4 Scale and presence** or thin P3 follow-on (benchmarks / work-order replay).
+1. Merge/push/deploy when owner requests.
+2. **P4 Scale and presence** design (second worker host · TailscaleKit · furnished HQ art).

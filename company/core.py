@@ -1829,6 +1829,123 @@ class Company:
             )
         return [dict(r) for r in rows]
 
+    def choose_model(self, registry, department, position, capability, classification="public",
+                     task_assignment=None, company_default=None, role=None):
+        from company.routing import choose_model as route
+        benches = self.list_benchmark_results(role=role) if role else None
+        return route(
+            registry, department, position, capability, classification,
+            task_assignment=task_assignment, company_default=company_default,
+            role=role, benchmarks=benches,
+        )
+
+    def list_work_order_replays(self, work_order_id):
+        rows = self.db.execute(
+            """SELECT * FROM work_order_replays WHERE work_order_id=?
+               ORDER BY attempt, created_at""",
+            (work_order_id,),
+        )
+        out = []
+        for row in rows:
+            item = dict(row)
+            item["outcome"] = json.loads(item.pop("outcome_json"))
+            out.append(item)
+        return out
+
+    def _next_replay_attempt(self, work_order_id):
+        row = self.db.execute(
+            "SELECT COALESCE(MAX(attempt),0) FROM work_order_replays WHERE work_order_id=?",
+            (work_order_id,),
+        ).fetchone()
+        return int(row[0]) + 1
+
+    def record_work_order_authorized(self, actor, work_order_id, workflow_digest, outcome=None):
+        """First ledger row for a newly authorized work order."""
+        self._ceo(actor)
+        if not self.db.execute("SELECT 1 FROM work_orders WHERE id=?", (work_order_id,)).fetchone():
+            raise ValueError("Work order not found")
+        existing = self.db.execute(
+            "SELECT id FROM work_order_replays WHERE work_order_id=? AND status='authorized'",
+            (work_order_id,),
+        ).fetchone()
+        if existing:
+            return dict(self.db.execute(
+                "SELECT * FROM work_order_replays WHERE id=?", (existing["id"],)).fetchone())
+        rid = str(uuid.uuid4())
+        body = outcome if isinstance(outcome, dict) else {"status": "authorized"}
+        with self.tx():
+            self.db.execute(
+                "INSERT INTO work_order_replays VALUES(?,?,?,?,?,?,?,?)",
+                (rid, work_order_id, 1, workflow_digest, "authorized",
+                 json.dumps(body), now().isoformat(), actor),
+            )
+            self._event("work_order.replay_authorized", {
+                "id": rid, "work_order_id": work_order_id, "attempt": 1,
+            }, actor_id=actor)
+        return dict(self.db.execute("SELECT * FROM work_order_replays WHERE id=?", (rid,)).fetchone())
+
+    def complete_work_order_outcome(self, actor, work_order_id, outcome):
+        """Store a frozen outcome for later identical-digest replay."""
+        self._ceo(actor)
+        wo = self.db.execute("SELECT * FROM work_orders WHERE id=?", (work_order_id,)).fetchone()
+        if not wo:
+            raise ValueError("Work order not found")
+        if not isinstance(outcome, dict):
+            raise ValueError("outcome must be an object")
+        attempt = self._next_replay_attempt(work_order_id)
+        rid = str(uuid.uuid4())
+        with self.tx():
+            self.db.execute(
+                "INSERT INTO work_order_replays VALUES(?,?,?,?,?,?,?,?)",
+                (rid, work_order_id, attempt, wo["workflow_digest"], "completed",
+                 json.dumps(outcome), now().isoformat(), actor),
+            )
+            self._event("work_order.replay_completed", {
+                "id": rid, "work_order_id": work_order_id, "attempt": attempt,
+            }, actor_id=actor)
+        row = dict(self.db.execute("SELECT * FROM work_order_replays WHERE id=?", (rid,)).fetchone())
+        row["outcome"] = json.loads(row.pop("outcome_json"))
+        return row
+
+    def replay_work_order(self, actor, work_order_id, workflow_digest):
+        """Return prior frozen outcome for the same digest; append a replayed row."""
+        self._ceo(actor)
+        wo = self.db.execute("SELECT * FROM work_orders WHERE id=?", (work_order_id,)).fetchone()
+        if not wo:
+            raise ValueError("Work order not found")
+        if wo["workflow_digest"] != workflow_digest:
+            raise PermissionError("Workflow digest mismatch")
+        prior = self.db.execute(
+            """SELECT * FROM work_order_replays
+               WHERE work_order_id=? AND workflow_digest=? AND status IN ('completed','replayed','authorized')
+               ORDER BY attempt DESC LIMIT 1""",
+            (work_order_id, workflow_digest),
+        ).fetchone()
+        if not prior:
+            raise ValueError("No replayable outcome for work order")
+        outcome = json.loads(prior["outcome_json"])
+        # Prefer a completed outcome if one exists
+        completed = self.db.execute(
+            """SELECT * FROM work_order_replays
+               WHERE work_order_id=? AND workflow_digest=? AND status='completed'
+               ORDER BY attempt DESC LIMIT 1""",
+            (work_order_id, workflow_digest),
+        ).fetchone()
+        if completed:
+            outcome = json.loads(completed["outcome_json"])
+        attempt = self._next_replay_attempt(work_order_id)
+        rid = str(uuid.uuid4())
+        with self.tx():
+            self.db.execute(
+                "INSERT INTO work_order_replays VALUES(?,?,?,?,?,?,?,?)",
+                (rid, work_order_id, attempt, workflow_digest, "replayed",
+                 json.dumps(outcome), now().isoformat(), actor),
+            )
+            self._event("work_order.replayed", {
+                "id": rid, "work_order_id": work_order_id, "attempt": attempt,
+            }, actor_id=actor)
+        return {"replay": True, "work_order_id": work_order_id, "attempt": attempt, "outcome": outcome}
+
     def seed_benchmarks(self, path):
         data = json.loads(Path(path).read_text())
         items = data.get("benchmarks") or []

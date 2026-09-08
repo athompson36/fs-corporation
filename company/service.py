@@ -3031,6 +3031,34 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "consultant.read")
         return {"reviews": company.list_consultant_reviews()}
 
+    @app.get("/api/v1/work-orders/{work_order_id}/replays")
+    def work_order_replays(work_order_id: str, authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"replays": company.list_work_order_replays(work_order_id)}
+
+    @app.post("/api/v1/work-orders/{work_order_id}/complete-outcome")
+    def work_order_complete_outcome(work_order_id: str, body: Command,
+                                    authorization: str | None = Header(default=None),
+                                    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"work_order_id": work_order_id}, lambda: (
+            company.complete_work_order_outcome(
+                ident["principal_id"], work_order_id, payload["outcome"]), 200))
+
+    @app.post("/api/v1/work-orders/{work_order_id}/replay")
+    def work_order_replay(work_order_id: str, body: Command,
+                          authorization: str | None = Header(default=None),
+                          idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"work_order_id": work_order_id}, lambda: (
+            company.replay_work_order(
+                ident["principal_id"], work_order_id, payload["workflow_digest"]), 200))
+
     @app.middleware("http")
     async def enforce_rate_limit(request: Request, call_next):
         path = request.url.path

@@ -132,13 +132,18 @@ class ConsultantDesk:
         if not p or p["status"]!="approved":raise ValueError("Approved consultant proposal required")
         body=json.loads(p["body"])
         oid=digest({"consultant_proposal":pid,"task":"handoff"})
+        wf_digest=digest(body)
         with c.tx():
             if not c.db.execute("SELECT 1 FROM work_orders WHERE id=?",(oid,)).fetchone():
                 c.db.execute(
                     "INSERT INTO work_orders VALUES(?,?,?,?,?,?,?)",
-                    (oid,pid,c.policy()["version"],digest(body),body["implementation_cost_cents"],
+                    (oid,pid,c.policy()["version"],wf_digest,body["implementation_cost_cents"],
                      canonical({"source":"consultant","proposal_id":pid}),"authorized"))
                 c._event("consultant.work_order_authorized",{"work_order_id":oid,"proposal_id":pid})
+        c.record_work_order_authorized(
+            actor, oid, wf_digest,
+            outcome={"status": "authorized", "proposal_id": pid},
+        )
         return oid
 
     def list(self):

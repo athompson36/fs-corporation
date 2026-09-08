@@ -116,6 +116,9 @@ listed scope can still receive 403 from those routes.
 | POST /consultant-proposals | Submit an evidence-backed proposal | consultant.propose |
 | GET /consultant-proposals | List consultant proposals | consultant.read |
 | GET /consultant/reviews | List consultant review cooldown rows (honesty; no invented efficiency scores) | consultant.read |
+| GET /work-orders/{id}/replays | List append-only work-order replay ledger rows | company.read |
+| POST /work-orders/{id}/complete-outcome | Freeze an outcome for later identical-digest replay | company.pause (CEO) |
+| POST /work-orders/{id}/replay | Return prior outcome for matching `workflow_digest` without re-executing ChatDev | company.pause (CEO) |
 | POST /consultant-proposals/{id}/decision | CEO approve/reject | consultant.decide |
 | POST /consultant-proposals/{id}/revise | New digest; does not mutate the old proposal | consultant.propose |
 

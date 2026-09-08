@@ -40,6 +40,7 @@
 | ADR-036 | 2026-09-07 | Settings platform uses SQLite overlay; secrets status only; honest restart_required | Allowlisted non-secret knobs persist in `company_settings`; effective resolution is overlay → env → catalog default. PATCH/reset require `company.pause` + CEO/admin companion. Secrets API returns configured/missing only. Rate-limit keys store overlay but apply only after API restart; UI states that honestly. Host-bound IPs are read-only in GET. |
 | ADR-037 | 2026-09-07 | ChatDev worker egress is opt-in allowlist + explicit Docker network | Default remains `--network none`. Mode `allowlist` requires host allowlist file, non-empty `https_hosts`, and `FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK`; never bare `bridge`/`host`. Status reports mode/count/ready without listing hosts. |
 | ADR-038 | 2026-09-08 | Append-only finance adjustments; invoices are window snapshots | `billed_costs` stay immutable. Voids/partial credits live in `finance_adjustments`. `billed_cost_cents` means net. Internal invoices snapshot billable lines; period close writes `budget_period_closures`. |
+| ADR-039 | 2026-09-08 | choose_model may prefer best benchmark quality; work-order replay is append-only | Among eligible profiles, max `quality` for a role wins when benches exist; else ordered pick. `work_order_replays` freezes outcomes; identical digest replay returns prior result without ChatDev re-execution. |
 
 ### ADR-010 detail
 
@@ -464,7 +465,21 @@ Finance mutations remain CEO-gated.
 **Alternatives considered.** Mutating billed rows in place was rejected (weaker audit).
 Provider invoice import / Stripe was rejected for P3.
 
-**Consequences.** Companion Finance tab manages invoices, refunds, and period close. Benchmarks
-and work-order replay remain a follow-on.
+**Consequences.** Companion Finance tab manages invoices, refunds, and period close.
+
+### ADR-039 detail
+
+**Context.** Model routing ignored recorded benchmarks; consultant work orders had no
+identical-digest replay surface without re-running work.
+
+**Decision.** `choose_model` optionally ranks eligible profiles by max `quality` for a role.
+`work_order_replays` stores authorize/complete/replay rows; matching digest replay returns the
+frozen outcome and does not invoke ChatDev.
+
+**Alternatives considered.** Cost-first ranking and advisory-only notes were rejected for this
+slice. Full workflow re-execution was rejected as out of scope.
+
+**Consequences.** Call sites may pass benches via `Company.choose_model`. Replay APIs are
+CEO-gated for mutations; list is `company.read`.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
