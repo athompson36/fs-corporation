@@ -1,0 +1,44 @@
+/* Shared cosmic-glass tokens — desk (/static/…) and companion (Vite import). */
+:root {
+  color-scheme: dark;
+  --midnight: #070b14;
+  --midnight-elev: #0c1220;
+  --glass: rgba(16, 24, 40, 0.62);
+  --glass-border: rgba(120, 170, 255, 0.22);
+  --cosmic: #3b82f6;
+  --cosmic-deep: #1d4ed8;
+  --ultraviolet: #8b5cf6;
+  --aurora: #34d399;
+  --soft: #e8eef8;
+  --muted: #9aa8c0;
+  --warning: #f5b942;
+  --focus-ring: 0 0 0 2px var(--midnight), 0 0 0 4px var(--cosmic);
+  --radius-glass: 1rem;
+  --radius-chip: 999px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+}
+
+.muted,
+.lede {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.lede {
+  margin: 0 0 var(--space-4);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+#iso [data-room-id]:focus-visible,
+#floor [data-room-id]:focus-visible,
+#floor [data-worker-id]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

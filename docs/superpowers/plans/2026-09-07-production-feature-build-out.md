@@ -69,9 +69,12 @@ Invoice/refunds/period rollover · budget-period UX · optional `choose_model` b
 - [x] Furnished HQ SVG from `room_type`
 - [x] Org hierarchy milestone 5 docs honesty (cross-dept already implemented)
 
-## P5 — UI pass (later)
+## P5 — UI pass
 
-Cosmic-glass refresh, version chrome, HQ tile keyboard, marketing layout — after P0–P2.
+- [x] Shared `assets/cosmic-glass-tokens.css` (desk `/static` + companion import)
+- [x] Version chrome (desk rail footer; companion above tabs)
+- [x] HQ tile keyboard (focus + Enter/Space)
+- Marketing / deeper redesign deferred
 
 ## Governance
 

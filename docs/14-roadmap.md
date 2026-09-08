@@ -346,13 +346,10 @@ tracks (TailscaleKit, second worker host, ChatDev egress).
       `push/status`, `chatdev/status`, `feeds`, `slos`, and `local-repos` in parallel; failed
       probes show unavailable rather than invented healthy state. Local repo candidates appear
       under Projects with tap-to-enroll.
-- [ ] **Display the version.** No dedicated chrome shows one; `GET /api/v1/health` returns it
-      (also visible inside Diagnostics). Companion package version now tracks releases (0.3.50).
-      *Acceptance:* desk and companion render the backend version in primary chrome (not only
-      diagnostics).
-- [ ] **Keyboard access for HQ room tiles.** Isometric and plan tiles in `company/service.py`
-      are click-only SVG with no focus or key handler; the list view is already accessible.
-      *Acceptance:* tiles are focusable and activate on Enter/Space.
+- [x] **Display the version.** Desk rail footer `#desk-version` and companion strip above tabs
+      show backend `GET /api/v1/health` → `version` (P5 / ADR-041). Diagnostics still probes health.
+- [x] **Keyboard access for HQ room tiles.** Plan/iso tiles and worker markers are focusable
+      (`tabindex`, `role="button"`) and activate on Enter/Space (P5).
 - [x] **Replace remaining `window.prompt` in the companion** (P0.2). Inbox response,
       escalation, and project enroll use labeled forms; source assertion that `window.prompt`
       is absent from `App.tsx`.
@@ -401,9 +398,5 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**P4 Scale and presence is complete at 0.3.54** (worker host registry + heartbeat, TailscaleKit
-stub, SVG furniture from `room_type`, org m5 docs). Next: **P5 UI pass** (deferred chrome) or
-remote worker agent follow-on per
-[superpowers/plans/2026-09-07-production-feature-build-out.md](superpowers/plans/2026-09-07-production-feature-build-out.md).
-
-Optional follow-ons: real TailscaleKit binary; remote dispatch agent; photoreal HQ art packs.
+**P5 UI chrome is complete at 0.3.55** (shared tokens, version chrome, HQ keyboard). Next:
+owner-directed follow-ons (marketing layout, remote worker agent, photoreal art).

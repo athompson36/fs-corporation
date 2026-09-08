@@ -42,6 +42,7 @@
 | ADR-038 | 2026-09-08 | Append-only finance adjustments; invoices are window snapshots | `billed_costs` stay immutable. Voids/partial credits live in `finance_adjustments`. `billed_cost_cents` means net. Internal invoices snapshot billable lines; period close writes `budget_period_closures`. |
 | ADR-039 | 2026-09-08 | choose_model may prefer best benchmark quality; work-order replay is append-only | Among eligible profiles, max `quality` for a role wins when benches exist; else ordered pick. `work_order_replays` freezes outcomes; identical digest replay returns prior result without ChatDev re-execution. |
 | ADR-040 | 2026-09-08 | Worker host registry without remote dispatch; SVG furniture from room_type | CEO registers remotes + heartbeat → ready/stale/disabled on `/workers/status`. Dispatch stays same-host. TailscaleKit stubbed. Desk furniture glyphs bind only to persisted room types. |
+| ADR-041 | 2026-09-08 | Shared cosmic-glass tokens for desk + companion | Single `assets/cosmic-glass-tokens.css` served at `/static` and imported by companion; M10-04 version chrome + HQ keyboard. |
 
 ### ADR-010 detail
 
@@ -499,5 +500,19 @@ scope.
 
 **Consequences.** Operators can register and monitor remotes before remote execution exists.
 Org hierarchy milestone 5 docs mark cross-dept as implemented.
+
+### ADR-041 detail
+
+**Context.** Desk and companion duplicated cosmic-glass color tokens; M10-04 still lacked
+primary version chrome and HQ keyboard access.
+
+**Decision.** Share `assets/cosmic-glass-tokens.css` via `/static` (desk) and Vite import
+(companion). Show backend `health.version` in desk rail footer and above companion tabs.
+HQ plan/iso tiles use tabindex + Enter/Space. Light polish is token-driven only.
+
+**Alternatives considered.** Keeping duplicated `:root` blocks (approach 1) was rejected by
+owner preference for a shared file. A npm design-system package was rejected as overkill.
+
+**Consequences.** Token edits land once; desk layout CSS and companion shell CSS stay local.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

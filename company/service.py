@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from company import __version__
 from company.core import Company, canonical, digest
@@ -23,6 +24,7 @@ from company.rate_limit import (
 DEFAULT_DATA_DIR = ".local"
 DEFAULT_DB = ".local/company.db"
 DEFAULT_TOKEN_FILE = ".local/owner.token"
+ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 
 DESK_HTML = """<!DOCTYPE html>
 <html lang="en">
@@ -31,27 +33,15 @@ DESK_HTML = """<!DOCTYPE html>
 <title>FS-Corporation — CEO desk</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <meta name="theme-color" content="#070b14"/>
+<link rel="stylesheet" href="/static/cosmic-glass-tokens.css"/>
 <style>
-:root {
-  color-scheme: dark;
-  --midnight: #070b14;
-  --midnight-elev: #0c1220;
-  --glass: rgba(16, 24, 40, 0.62);
-  --glass-border: rgba(120, 170, 255, 0.22);
-  --cosmic: #3b82f6;
-  --cosmic-deep: #1d4ed8;
-  --ultraviolet: #8b5cf6;
-  --aurora: #34d399;
-  --soft: #e8eef8;
-  --muted: #9aa8c0;
-  --warning: #f5b942;
-}
 * { box-sizing: border-box; }
 body { font-family: system-ui, sans-serif; background: radial-gradient(1200px 600px at 10% -10%, #12203a 0%, var(--midnight) 55%); color: var(--soft); margin: 0; }
 .shell { display: grid; grid-template-columns: 13rem 1fr; min-height: 100vh; }
-.rail { background: var(--midnight-elev); border-right: 1px solid var(--glass-border); padding: 1.1rem 0.9rem; position: sticky; top: 0; height: 100vh; }
+.rail { background: var(--midnight-elev); border-right: 1px solid var(--glass-border); padding: 1.1rem 0.9rem; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; }
 .brand { font-weight: 700; letter-spacing: 0.04em; margin: 0 0 1rem; color: var(--soft); }
-.rail nav { display: flex; flex-direction: column; gap: 0.25rem; }
+.rail nav { display: flex; flex-direction: column; gap: var(--space-1, 0.25rem); flex: 1; }
+.desk-version { margin-top: auto; padding-top: var(--space-3, 0.75rem); font-size: 0.75rem; }
 .rail a { color: var(--soft); text-decoration: none; padding: 0.45rem 0.65rem; border-radius: 0.65rem; font-size: 0.92rem; }
 .rail a:hover, .rail a:focus-visible { background: rgba(59,130,246,0.16); box-shadow: inset 0 0 0 1px var(--cosmic); }
 .workspace { padding: 1.25rem 1.5rem 2rem; }
@@ -59,7 +49,7 @@ body { font-family: system-ui, sans-serif; background: radial-gradient(1200px 60
 .metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 0.75rem; margin-bottom: 0.75rem; }
 .metric .value { font-size: 1.8rem; font-weight: 700; letter-spacing: 0.04em; }
 .desk-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 0.75rem; }
-.glass { background: var(--glass); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 1rem; padding: 1rem; margin: 0 0 0.75rem; box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 12px 40px rgba(0,0,0,0.28); }
+.glass { background: var(--glass); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: var(--radius-glass, 1rem); padding: 1rem; margin: 0 0 0.75rem; box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 12px 40px rgba(0,0,0,0.28); }
 h1, h2, h3 { margin: 0 0 0.5rem; }
 h1 { font-size: 1.7rem; }
 h2 { font-size: 1.05rem; }
@@ -112,6 +102,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <a href="#activity">Activity</a>
 <a href="#consultant">Consultant</a>
 </nav>
+<p class="muted desk-version" id="desk-version" aria-live="polite"></p>
 </aside>
 <main class="workspace">
 <header>
@@ -1286,6 +1277,18 @@ async function load() {
   svg.innerHTML = '';
   const iso = document.getElementById('iso');
   iso.innerHTML = '';
+  function enableTileActivation(el, handler, label) {
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'button');
+    if (label) el.setAttribute('aria-label', label);
+    el.addEventListener('click', handler);
+    el.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handler(event);
+      }
+    });
+  }
   function ns(name) { return document.createElementNS('http://www.w3.org/2000/svg', name); }
   if (hasFloorplan) {
     const plan = (data.floorplans || []).find(
@@ -1302,7 +1305,7 @@ async function load() {
       r.setAttribute('height', room.height * cellH);
       r.setAttribute('fill', '#1d4ed8'); r.setAttribute('stroke', '#93c5fd');
       r.setAttribute('data-room-id', room.id);
-      r.addEventListener('click', () => openRoom(room.id));
+      enableTileActivation(r, () => openRoom(room.id), room.room_type || room.id);
       svg.appendChild(r);
       const t = ns('text');
       t.setAttribute('x', x + 2); t.setAttribute('y', y + Math.min(9, cellH - 1));
@@ -1318,11 +1321,10 @@ async function load() {
           'fill', worker.sprite ? '#34d399' : '#9aa8c0');
         marker.setAttribute('stroke', '#e8eef8');
         marker.setAttribute('data-worker-id', worker.employee_id);
-        marker.setAttribute('aria-label', worker.display_name);
-        marker.addEventListener('click', event => {
-          event.stopPropagation();
+        enableTileActivation(marker, event => {
+          if (event && event.stopPropagation) event.stopPropagation();
           openWorkerCard(worker.employee_id);
-        });
+        }, worker.display_name || worker.employee_id);
         svg.appendChild(marker);
       });
     });
@@ -1337,7 +1339,7 @@ async function load() {
     const g = ns('g');
     g.setAttribute('data-room-id', room.id);
     if (built) g.setAttribute('class', 'iso-rise');
-    g.addEventListener('click', () => openRoom(room.id));
+    enableTileActivation(g, () => openRoom(room.id), room.room_type || room.status || room.id);
     const top = ns('polygon');
     top.setAttribute('points', [ix,iy-h, ix+24,iy-h+12, ix,iy-h+24, ix-24,iy-h+12].join(' '));
     top.setAttribute('fill', built ? '#3b82f6' : '#2a2040');
@@ -1406,6 +1408,19 @@ function drawFurniture(g, kind, ix, iy) {
     g.appendChild(desk);
   }
 }
+async function loadDeskVersion() {
+  const el = document.getElementById('desk-version');
+  if (!el) return;
+  try {
+    const res = await fetch('/api/v1/health');
+    if (!res.ok) { el.textContent = 'version unavailable'; return; }
+    const body = await res.json();
+    el.textContent = body.version ? ('v' + body.version) : 'version unavailable';
+  } catch (err) {
+    el.textContent = 'version unavailable';
+  }
+}
+loadDeskVersion();
 load().catch(err => { document.getElementById('status-json').textContent = String(err); });
 setInterval(loadActivity, 10000);
 async function loadDiagnostics() {
@@ -1466,6 +1481,8 @@ def _json(data, code=200):
 def create_app(company: Company, *, rate_limit=None) -> FastAPI:
     app = FastAPI(title="FS-Corporation", version=__version__)
     app.state.company = company
+    if ASSETS_DIR.is_dir():
+        app.mount("/static", StaticFiles(directory=str(ASSETS_DIR)), name="static")
     if rate_limit is None:
         rate_limit = RateLimitPolicy(
             authenticated_limit=int(

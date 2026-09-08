@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 
 EXEMPT_PATHS = frozenset({"/", "/desk", "/api/v1/health"})
+# /static/* is unauthenticated CSS; middleware skips rate limits when no bearer identity.
 
 UNAUTH_LIMITED_PATHS = frozenset({
     "/api/v1/github/webhooks",

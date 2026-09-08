@@ -174,6 +174,7 @@ export default function App() {
   const [periodLimit, setPeriodLimit] = useState("500000");
   const [lastMoreTab, setLastMoreTab] = useState<Tab>("decisions");
   const [formStatus, setFormStatus] = useState<Record<string, FormStatus>>({});
+  const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
   const scopes = settings.scopes;
   const api = useMemo(() => new ApiClient(settings), [settings]);
@@ -262,6 +263,12 @@ export default function App() {
       if (local) {
         setLocalReposRoot(local.root);
         setLocalCandidates(local.candidates);
+      }
+      try {
+        const health = await api.health();
+        setBackendVersion(health.version ?? null);
+      } catch {
+        setBackendVersion(null);
       }
     } catch (e) {
       setOffline(true);
@@ -2277,6 +2284,9 @@ export default function App() {
         </section>
       )}
 
+      <p className="app-version muted" aria-live="polite">
+        {backendVersion ? `v${backendVersion}` : ""}
+      </p>
       <nav className="tabs" aria-label="Primary">
         {PRIMARY_TABS.map(([t, label]) => (
           <button key={t} type="button" className={tab === t ? "active" : ""} onClick={() => setTab(t)}>

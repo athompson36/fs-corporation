@@ -1,15 +1,6 @@
+@import "../../assets/cosmic-glass-tokens.css";
+
 :root {
-  color-scheme: dark;
-  --midnight: #070b14;
-  --midnight-elev: #0c1220;
-  --glass: rgba(16, 24, 40, 0.62);
-  --glass-border: rgba(120, 170, 255, 0.22);
-  --cosmic: #3b82f6;
-  --aurora: #34d399;
-  --ultraviolet: #8b5cf6;
-  --soft: #e8eef8;
-  --muted: #9aa8c0;
-  --warning: #f5b942;
   font-family: system-ui, -apple-system, sans-serif;
   background: radial-gradient(900px 480px at 20% -20%, #12203a 0%, var(--midnight) 50%);
   color: var(--soft);
@@ -24,15 +15,13 @@ body { margin: 0; min-height: 100dvh; }
   max-width: 32rem;
   margin: 0 auto;
   /* Bottom padding clears the fixed tab bar plus the home indicator. */
-  padding: 0.85rem 1rem calc(4.75rem + env(safe-area-inset-bottom));
+  padding: 0.85rem 1rem calc(5.5rem + env(safe-area-inset-bottom));
   padding-left: max(1rem, env(safe-area-inset-left));
   padding-right: max(1rem, env(safe-area-inset-right));
 }
 
 h1 { font-size: 1.35rem; margin: 0.35rem 0 0.25rem; }
 h2 { font-size: 0.95rem; margin: 0 0 0.35rem; }
-
-.lede, .muted { color: var(--muted); font-size: 0.85rem; }
 
 .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
 .metric .value { font-size: 1.45rem; font-weight: 700; letter-spacing: 0.04em; }
@@ -41,7 +30,7 @@ h2 { font-size: 0.95rem; margin: 0 0 0.35rem; }
   background: var(--glass);
   backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
-  border-radius: 1rem;
+  border-radius: var(--radius-glass, 1rem);
   padding: 0.85rem;
   margin: 0.55rem 0;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
@@ -189,6 +178,21 @@ nav.tabs {
   border-top: 1px solid var(--glass-border);
   backdrop-filter: blur(16px);
   z-index: 2;
+}
+
+.app-version {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  margin: 0;
+  padding: 0.2rem 1rem;
+  text-align: center;
+  font-size: 0.72rem;
+  background: rgba(7, 11, 20, 0.85);
+  border-top: 1px solid transparent;
+  z-index: 2;
+  pointer-events: none;
 }
 
 nav.tabs button {
