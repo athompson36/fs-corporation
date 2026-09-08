@@ -97,7 +97,7 @@ outcome on an inline status line next to the control, not only at the top of the
 | More → Decisions | Approve/reject when `policy.approve` or `consultant.decide` |
 | More → Inbox | Respond when `company.pause`; escalate when `owner.escalate` |
 | More → Diagnostics | Parallel live probes: health, workers, model, github, push, chatdev, feeds, slos, local-repos |
-| More → Finance | Summary (gross/net/adjustments/revenue); create invoices; void/partial-credit refunds; set/close budget periods (CEO + `company.pause`) |
+| More → Finance | Sub-tabs **Overview · Invoices · Adjustments · Periods**; summary (gross/net/adjustments/revenue); create invoices with expandable line detail; void/partial-credit refunds via billed-cost picker (`GET /finance/billed-costs`); set/close budget periods with confirm + next-period prefill (CEO + `company.pause`). Dollar amounts use display-only `formatUsd`; API payloads stay integer cents. |
 | More → Settings | Connection (API URL, token, session principal/scopes, clear to re-pair); **Runtime** editable overlays with source badge and restart notice when `restart_required`; **Feeds** approve/pause/revoke/poll (HTTPS only; watchlists template-only); **Models** read-only profiles + pointer to global cents setting; read-only **Host** (LAN IP, worker NIC, gateway egress); **Secrets** configured/missing list (no values). PATCH/reset when `company.pause` + CEO/admin companion |
 
 ## API endpoints
@@ -118,7 +118,7 @@ outcome on an inline status line next to the control, not only at the top of the
 - `GET /api/v1/settings`, `PATCH /api/v1/settings`, `POST /api/v1/settings/reset`, `GET /api/v1/settings/secrets-status`
 - `GET /api/v1/feeds`, `POST /api/v1/feeds`, `POST /api/v1/feeds/{id}/pause`, `POST /api/v1/feeds/{id}/revoke`, `POST /api/v1/feeds/{id}/poll`
 - `GET /api/v1/model-profiles`
-- `GET /api/v1/finance/summary`, invoices, adjustments, budget-periods (+ create/close)
+- `GET /api/v1/finance/summary`, `billed-costs`, invoices, adjustments, budget-periods (+ create/close)
 
 ## Security
 

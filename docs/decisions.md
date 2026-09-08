@@ -473,6 +473,8 @@ Finance mutations remain CEO-gated.
 Provider invoice import / Stripe was rejected for P3.
 
 **Consequences.** Companion Finance tab manages invoices, refunds, and period close.
+Companion lists creditable `billed_costs` via `GET /finance/billed-costs` for refund UX; this is
+read-only and does not change adjustment math.
 
 ### ADR-039 detail
 

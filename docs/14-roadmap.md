@@ -399,7 +399,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Remote ChatDev egress policy implemented at 0.3.61** on
-`feature/remote-chatdev-egress` (ADR-046): claims carry mode/network without hostnames;
-allowlisted remote containers run only when the agent is locally ready and otherwise fail
-closed. No Alembic revision. Next: **P3 finance**.
+**Companion Finance UX polish shipped at 0.3.62** on `feature/finance-ux-polish`: Finance
+sub-tabs (Overview · Invoices · Adjustments · Periods), display-only `formatUsd`, invoice line
+detail, `GET /finance/billed-costs` picker for refunds, and clearer period close flow. P3 durable
+finance (invoices, adjustments, period close) was already on `main` at 0.3.61. No Alembic
+revision. Next: **TailscaleKit / second-host polish**, then deeper marketing redesign.

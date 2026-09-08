@@ -112,6 +112,7 @@ listed scope can still receive 403 from those routes.
 | POST /feeds/{id}/revoke | Revoke an enrolled feed (poll denied until re-approved) | company.pause (CEO) |
 | POST /feeds/{id}/poll | Poll an **approved** feed and ingest signals | company.pause (CEO) |
 | GET /finance/summary | Gross/net billed, adjustments, revenue, open budget period | company.read |
+| GET /finance/billed-costs | Creditable billed lines + remaining_creditable_cents | company.read |
 | GET /finance/invoices | List internal invoices | company.read |
 | GET /finance/invoices/{id} | Invoice detail with lines | company.read |
 | POST /finance/invoices | Create invoice for `[period_start, period_end)` | company.pause (CEO) |

@@ -1,22 +1,26 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.61**. State: **Remote ChatDev egress policy merged to
-`main`, pushed, and deployed to fs-dev** (health `0.3.61`).
+Date: 2026-09-08. Version: **0.3.62**. State: **Companion Finance UX polish on
+`feature/finance-ux-polish`** (not yet merged to `main` / fs-dev).
 
-## On main / fs-dev
+## On feature/finance-ux-polish
 
-- ADR-046: remote claim includes `egress: {mode, docker_network}` (no hostnames). Forbidden
-  network names coerce to `none` at claim.
-- Container agents attach allowlisted Docker networks only when locally ready; otherwise
-  `complete` failed (`remote_egress_unready`). Mock / `mode=none` stay `--network none`.
-- No new Alembic; head `0028_remote_worker_jobs`.
+- `GET /api/v1/finance/billed-costs`: creditable billed lines with
+  `remaining_creditable_cents`; default excludes fully credited rows; optional
+  `include_fully_credited` and `limit`.
+- Companion **Finance** sub-tabs: Overview · Invoices · Adjustments · Periods.
+  Display uses `formatUsd`; API stays integer cents. Invoice expand via GET by id;
+  refund picker (no paste-id); empty billed-cost list disables refund; confirm before
+  period close; prefill next period.
+- ADR-038 consequences amended: companion may list creditable billed lines read-only.
+- No new Alembic; ADR-038 net/gross adjustment math unchanged.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **471 passed** before merge.
+- `.venv/bin/python -m unittest discover -s tests`: run before merge.
+- `cd companion && npm run build`: run before merge.
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-**P3 finance** (invoice / refunds / budget-period UX), then TailscaleKit/second-host polish,
-then deeper marketing redesign.
+**TailscaleKit / second-host polish**, then deeper marketing redesign.

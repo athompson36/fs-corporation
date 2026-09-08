@@ -1,6 +1,6 @@
 # Design: Companion Finance UX polish
 
-Date: 2026-09-08. Status: **approved design** (implement as v0.3.62).
+Date: 2026-09-08. Status: **implemented** (v0.3.62 on `feature/finance-ux-polish`).
 
 ## Goal
 
