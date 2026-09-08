@@ -32,6 +32,10 @@
 		reverse_proxy 127.0.0.1:8000
 	}
 
+	handle /welcome {
+		reverse_proxy 127.0.0.1:8000
+	}
+
 	# Shared UI tokens and other API-served assets (desk <link href="/static/…">)
 	handle /static/* {
 		reverse_proxy 127.0.0.1:8000
