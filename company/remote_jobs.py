@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import uuid
 from datetime import timedelta
+from pathlib import Path
 
 from company.core import now
-from company.worker import build_worker_envelope
+from company.worker import SubprocessWorkerRuntime, build_worker_envelope
 from company.worker_hosts import heartbeat_ttl_sec, host_state, require_host_token
 
 
@@ -192,6 +195,74 @@ def claim_job(company, host_id: str, token: str, job_id: str) -> dict:
     worker_id = f"remote-host:{host_id}"
     out["envelope"] = build_worker_envelope(company, worker_id, row["task_id"])
     return out
+
+
+def renew_job_lease(company, host_id: str, token: str, job_id: str) -> dict:
+    require_host_token(company, host_id, token)
+    stamp = now().isoformat()
+    expires = (now() + timedelta(seconds=LEASE_SEC)).isoformat()
+    with company.tx():
+        _expire_stale_claims(company, host_id)
+        row = company.db.execute(
+            "SELECT * FROM remote_worker_jobs WHERE id=? AND host_id=?",
+            (job_id, host_id),
+        ).fetchone()
+        if not row:
+            raise PermissionError("Unknown remote job")
+        if row["status"] != "claimed":
+            raise PermissionError("Job is not claimed")
+        if row["lease_expires_at"] and row["lease_expires_at"] < stamp:
+            raise PermissionError("Job lease expired")
+        company.db.execute(
+            "UPDATE remote_worker_jobs SET lease_expires_at=?, updated_at=? WHERE id=?",
+            (expires, stamp, job_id),
+        )
+        company._event(
+            "remote_job.lease_renewed", {"id": job_id, "host_id": host_id}
+        )
+    row = company.db.execute(
+        "SELECT * FROM remote_worker_jobs WHERE id=?", (job_id,)
+    ).fetchone()
+    return _job_public(row)
+
+
+def relay_gateway(
+    company, host_id: str, token: str, job_id: str, message: dict
+) -> dict:
+    require_host_token(company, host_id, token)
+    stamp = now().isoformat()
+    expires = (now() + timedelta(seconds=LEASE_SEC)).isoformat()
+    with company.tx():
+        _expire_stale_claims(company, host_id)
+        row = company.db.execute(
+            "SELECT * FROM remote_worker_jobs WHERE id=? AND host_id=?",
+            (job_id, host_id),
+        ).fetchone()
+        if not row:
+            raise PermissionError("Unknown remote job")
+        if row["status"] != "claimed":
+            raise PermissionError("Job is not claimed")
+        if row["lease_expires_at"] and row["lease_expires_at"] < stamp:
+            raise PermissionError("Job lease expired")
+        company.db.execute(
+            "UPDATE remote_worker_jobs SET lease_expires_at=?, updated_at=? WHERE id=?",
+            (expires, stamp, job_id),
+        )
+
+    task_id = row["task_id"]
+    base = (os.environ.get("FS_CORP_WORKER_SCRATCH") or "").strip()
+    if base:
+        artifact_root = Path(base) / "remote-artifacts" / task_id
+    else:
+        artifact_root = Path(tempfile.mkdtemp(prefix=f"remote-art-{task_id}-"))
+    artifact_root.mkdir(parents=True, exist_ok=True)
+
+    msg = dict(message)
+    if str(msg.get("root") or "").startswith("/work"):
+        msg.pop("root", None)
+    return SubprocessWorkerRuntime.handle_request(
+        company, msg, approval=None, artifact_root=str(artifact_root)
+    )
 
 
 def complete_job(

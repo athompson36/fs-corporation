@@ -1065,6 +1065,14 @@ class Company:
         from company.remote_jobs import claim_job
         return claim_job(self, host_id, token, job_id)
 
+    def gateway_remote_job(self, host_id, token, job_id, message):
+        from company.remote_jobs import relay_gateway
+        return relay_gateway(self, host_id, token, job_id, message)
+
+    def renew_remote_job(self, host_id, token, job_id):
+        from company.remote_jobs import renew_job_lease
+        return renew_job_lease(self, host_id, token, job_id)
+
     def complete_remote_job(self, host_id, token, job_id, *, status, result=None):
         from company.remote_jobs import complete_job
         return complete_job(self, host_id, token, job_id, status=status, result=result)
