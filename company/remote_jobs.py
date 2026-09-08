@@ -75,7 +75,9 @@ def _expire_stale_claims(company, host_id: str | None = None):
             company._event("remote_job.requeued", {"id": row["id"]})
 
 
-def enqueue_remote_job(company, actor: str, *, host_id: str, task_id: str, worker_id: str) -> dict:
+def enqueue_remote_job(
+    company, actor: str, *, host_id: str, task_id: str, worker_id: str, placement: str = "explicit"
+) -> dict:
     host = company.db.execute(
         "SELECT * FROM worker_hosts WHERE id=?", (host_id,)
     ).fetchone()
@@ -138,13 +140,22 @@ def enqueue_remote_job(company, actor: str, *, host_id: str, task_id: str, worke
         )
         company._event(
             "remote_job.enqueued",
-            {"id": job_id, "host_id": host_id, "task_id": task_id, "run_id": run_id},
+            {
+                "id": job_id,
+                "host_id": host_id,
+                "task_id": task_id,
+                "run_id": run_id,
+                "placement": placement,
+            },
             actor_id=actor,
         )
     row = company.db.execute(
         "SELECT * FROM remote_worker_jobs WHERE id=?", (job_id,)
     ).fetchone()
-    return _job_public(row)
+    out = _job_public(row)
+    out["worker_host_id"] = host_id
+    out["placement"] = placement
+    return out
 
 
 def list_host_jobs(company, host_id: str, token: str, *, status: str | None = "queued") -> list[dict]:

@@ -1038,11 +1038,12 @@ class Company:
         return result
 
     def dispatch_queued_isolated(self,worker_id,task_id,scratch_root,approval=None,runtime="subprocess",
-                                 worker_host_id=None, actor=None):
+                                 worker_host_id=None, actor=None, placement="explicit"):
         if worker_host_id:
             from company.remote_jobs import enqueue_remote_job
             return enqueue_remote_job(
-                self, actor or worker_id, host_id=worker_host_id, task_id=task_id, worker_id=worker_id)
+                self, actor or worker_id, host_id=worker_host_id, task_id=task_id,
+                worker_id=worker_id, placement=placement)
         from .worker import ContainerWorkerRuntime, SubprocessWorkerRuntime
         row=self.db.execute("SELECT * FROM queue WHERE task_id=?",(task_id,)).fetchone()
         if not row:

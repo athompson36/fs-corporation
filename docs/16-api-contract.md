@@ -62,7 +62,7 @@ listed scope can still receive 403 from those routes.
 | GET /projects/{id}/skills | Platform, skill gaps, learning assignments | company.read |
 | POST /projects/{id}/tasks | Queue a scoped task | task.create |
 | POST /tasks/{id}/dispatch | Dispatch authorized mock execution in-process | task.dispatch |
-| POST /tasks/{id}/dispatch-worker | Isolated worker dispatch. Payload: `worker_id`, `scratch_root`, `runtime`, `approval`, optional `worker_host_id` (explicit remote enqueue when host is ready). Without `worker_host_id`, `runtime` defaults from `FS_CORP_DEFAULT_WORKER_RUNTIME` and fails closed with 422 when container dispatch is not ready | task.dispatch |
+| POST /tasks/{id}/dispatch-worker | Isolated worker dispatch. Payload: `worker_id`, `scratch_root`, `runtime`, `approval`, optional `worker_host_id`. Without id, if `FS_CORP_PREFER_REMOTE_WORKERS` then first ready remote (else 422 if none); otherwise same-host runtime from `FS_CORP_DEFAULT_WORKER_RUNTIME` | task.dispatch |
 | POST /tasks/{id}/quality-inspect | Quality Control pass/fail on the exact artifact | quality.inspect |
 | POST /tasks/{id}/accept | Accept exact artifact after a passing QC inspection | artifact.accept |
 | GET /hr/development | Learning assignments and acquired skills | organization.read |
