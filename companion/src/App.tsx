@@ -153,6 +153,10 @@ export default function App() {
   const [settingsDraft, setSettingsDraft] = useState<Record<string, SettingValue>>({});
   const [secretStatuses, setSecretStatuses] = useState<SecretStatus[]>([]);
   const [companySettingsBusy, setCompanySettingsBusy] = useState(false);
+  const [feedSources, setFeedSources] = useState<Record<string, unknown>[]>([]);
+  const [feedApproveId, setFeedApproveId] = useState("");
+  const [feedApproveUrl, setFeedApproveUrl] = useState("https://");
+  const [modelProfiles, setModelProfiles] = useState<Record<string, unknown>[]>([]);
   const [lastMoreTab, setLastMoreTab] = useState<Tab>("decisions");
   const [formStatus, setFormStatus] = useState<Record<string, FormStatus>>({});
 
@@ -281,17 +285,23 @@ export default function App() {
     if (!settings.token) return;
     setCompanySettingsBusy(true);
     try {
-      const [catalog, secrets] = await Promise.all([
+      const [catalog, secrets, feedsBody, profilesBody] = await Promise.all([
         api.companySettings(),
         api.secretsStatus(),
+        api.feeds().catch(() => ({ feeds: [] as Record<string, unknown>[] })),
+        api.modelProfiles().catch(() => ({ profiles: [] as Record<string, unknown>[] })),
       ]);
       setCompanySettings(catalog.items);
       setSettingsDraft(Object.fromEntries(catalog.items.map((item) => [item.key, item.value])));
       setSecretStatuses(secrets.secrets);
+      setFeedSources(feedsBody.feeds || []);
+      setModelProfiles(profilesBody.profiles || []);
     } catch (e) {
       setCompanySettings([]);
       setSecretStatuses([]);
       setSettingsDraft({});
+      setFeedSources([]);
+      setModelProfiles([]);
       setFormStatus((prev) => ({
         ...prev,
         settingsLoad: { ok: false, text: e instanceof Error ? e.message : String(e) },
@@ -520,6 +530,31 @@ export default function App() {
     );
   }
 
+  async function approveFeedSource(event: FormEvent) {
+    event.preventDefault();
+    if (!canEnroll(scopes)) return;
+    const id = feedApproveId.trim();
+    const url = feedApproveUrl.trim();
+    if (!id || !url) return;
+    await runAction("feedApprove", `Feed ${id} approved.`, async () => {
+      await api.approveFeed(id, url);
+      setFeedApproveId("");
+      setFeedApproveUrl("https://");
+      await loadCompanySettings();
+    });
+  }
+
+  async function feedAction(
+    key: string,
+    message: string,
+    run: () => Promise<unknown>,
+  ) {
+    await runAction(key, message, async () => {
+      await run();
+      await loadCompanySettings();
+    });
+  }
+
   const company = (dashboard?.company ?? {}) as Record<string, unknown>;
   const pad = (n: number) => String(n).padStart(2, "0");
   const accessBadge = settings.access_level === "read_only"
@@ -527,6 +562,8 @@ export default function App() {
     : settings.label || (settings.access_level ? settings.access_level : null);
   const canManageOrg = canManageOrganization(scopes);
   const canEditSettings = canPause(scopes);
+  const canApproveFeeds = canEnroll(scopes);
+  const canOperateFeeds = canPause(scopes);
   const isMoreTab = MORE_TABS.some(([t]) => t === tab);
   const moreCount = decisions.length + inbox.length;
 
@@ -1886,6 +1923,111 @@ export default function App() {
             {status("settingsReset")}
             {status("settingsLoad")}
           </form>
+
+          <div className="card">
+            <h2>Feeds</h2>
+            <p className="muted">
+              Approved HTTPS market feeds only. Watchlist templates stay non-live.
+              Poll requires status approved.
+            </p>
+            {feedSources.length === 0 && !companySettingsBusy && (
+              <p className="muted">No feed sources enrolled.</p>
+            )}
+            {feedSources.map((feed) => {
+              const id = String(feed.id || "");
+              const statusValue = String(feed.status || "");
+              return (
+                <div key={id} style={{ marginBottom: "0.85rem" }}>
+                  <strong>{id}</strong>
+                  <div className="muted">{String(feed.url || "")}</div>
+                  <div className="actions">
+                    <span className="tag tag-proposal">{statusValue}</span>
+                    {canOperateFeeds && statusValue === "approved" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => feedAction(`feed-poll-${id}`, `Polled ${id}.`, () => api.pollFeed(id))}
+                        >
+                          Poll
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => feedAction(`feed-pause-${id}`, `Paused ${id}.`, () => api.pauseFeed(id))}
+                        >
+                          Pause
+                        </button>
+                      </>
+                    )}
+                    {canOperateFeeds && statusValue !== "revoked" && (
+                      <button
+                        type="button"
+                        onClick={() => feedAction(`feed-revoke-${id}`, `Revoked ${id}.`, () => api.revokeFeed(id))}
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </div>
+                  {status(`feed-poll-${id}`)}
+                  {status(`feed-pause-${id}`)}
+                  {status(`feed-revoke-${id}`)}
+                </div>
+              );
+            })}
+            {canApproveFeeds ? (
+              <form onSubmit={approveFeedSource}>
+                <label htmlFor="feed-approve-id">Source id</label>
+                <input
+                  id="feed-approve-id"
+                  value={feedApproveId}
+                  onChange={(e) => setFeedApproveId(e.target.value)}
+                  required
+                />
+                <label htmlFor="feed-approve-url">HTTPS URL</label>
+                <input
+                  id="feed-approve-url"
+                  type="url"
+                  value={feedApproveUrl}
+                  onChange={(e) => setFeedApproveUrl(e.target.value)}
+                  required
+                />
+                <div className="actions">
+                  <button className="primary" type="submit">Approve / re-approve</button>
+                </div>
+                {status("feedApprove")}
+              </form>
+            ) : (
+              scopeNotice("approve feeds", "project.enroll")
+            )}
+            {!canOperateFeeds && feedSources.length > 0
+              && scopeNotice("pause, revoke, or poll feeds", "company.pause")}
+          </div>
+
+          <div className="card">
+            <h2>Models</h2>
+            <p className="muted">
+              Global billed rate uses FS_CORP_MODEL_CENTS_PER_1K_TOKENS (edit under Runtime).
+              Profile list is read-only; profile cents override the global rate when set.
+            </p>
+            {modelProfiles.length === 0 && !companySettingsBusy && (
+              <p className="muted">No model profiles loaded.</p>
+            )}
+            {modelProfiles.map((profile) => {
+              const id = String(profile.id || "");
+              const body = typeof profile.body === "string"
+                ? (() => { try { return JSON.parse(profile.body as string); } catch { return {}; } })()
+                : (profile.body as Record<string, unknown> | undefined) || {};
+              const cents = body.cents_per_1k_tokens ?? profile.cents_per_1k_tokens;
+              return (
+                <div key={id} style={{ marginBottom: "0.65rem" }}>
+                  <strong>{id}</strong>
+                  <div className="muted">
+                    enabled: {String(profile.enabled ?? body.enabled ?? "—")}
+                    {cents != null ? ` · cents/1k: ${String(cents)}` : " · cents/1k: (global)"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
           <div className="card">
             <h2>Host (read-only)</h2>

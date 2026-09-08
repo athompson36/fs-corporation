@@ -97,6 +97,20 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("settingDraftDiffers", app)
         self.assertIn("normalizeSettingDraft", app)
 
+    def test_companion_wires_feed_lifecycle(self):
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        client = (root / "api" / "client.ts").read_text()
+        app = (root / "App.tsx").read_text()
+        self.assertIn("pauseFeed", client)
+        self.assertIn("revokeFeed", client)
+        self.assertIn("approveFeed", client)
+        self.assertIn("pollFeed", client)
+        self.assertIn("modelProfiles", client)
+        self.assertIn("<h2>Feeds</h2>", app)
+        self.assertIn("<h2>Models</h2>", app)
+        self.assertIn("feed-approve-id", app)
+        self.assertIn("Watchlist templates stay non-live", app)
+
     def test_companion_replaces_window_prompt_ops_forms(self):
         app = (
             Path(__file__).resolve().parents[1] / "companion" / "src" / "App.tsx"

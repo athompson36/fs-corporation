@@ -93,9 +93,11 @@ listed scope can still receive 403 from those routes.
 | POST /github/webhooks | Signed GitHub App webhook ingress (HMAC; no bearer) | webhook secret |
 | GET /model/status | Model provider connectivity (no secrets returned) | company.read |
 | GET /chatdev/status | ChatDev opt-in readiness: pin, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, `worker_image_chatdev`, workflow path; optional `pin_check_skipped` (no secrets) | company.read |
-| GET /feeds | List CEO-approved market feed sources | company.read |
-| POST /feeds | Approve an HTTPS feed URL (`payload.id`, `payload.url`) | project.enroll (CEO) |
-| POST /feeds/{id}/poll | Poll an approved feed and ingest signals | company.pause (CEO) |
+| GET /feeds | List market feed sources (status: approved/paused/revoked) | company.read |
+| POST /feeds | Approve or re-approve an HTTPS feed URL (`payload.id`, `payload.url`) | project.enroll (CEO) |
+| POST /feeds/{id}/pause | Pause an enrolled feed (poll denied until re-approved) | company.pause (CEO) |
+| POST /feeds/{id}/revoke | Revoke an enrolled feed (poll denied until re-approved) | company.pause (CEO) |
+| POST /feeds/{id}/poll | Poll an **approved** feed and ingest signals | company.pause (CEO) |
 | GET /remote-access | VPN/pairing status and `pairing_levels` catalog | company.read |
 | POST /remote-access/pairing | Issue one-time pairing QR (`payload.access_level`: `read_only`, `user`, `admin`) | company.pause (owner only) |
 | POST /remote-access/redeem | Redeem ticket for scoped companion token (no auth) | — |

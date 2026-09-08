@@ -147,6 +147,26 @@ export class ApiClient {
     return this.get<{ feeds: Record<string, unknown>[] }>("/api/v1/feeds");
   }
 
+  approveFeed(id: string, url: string) {
+    return this.post("/api/v1/feeds", { id, url }, `feed-approve-${id}-${Date.now()}`);
+  }
+
+  pauseFeed(sourceId: string) {
+    return this.post(`/api/v1/feeds/${encodeURIComponent(sourceId)}/pause`, {}, `feed-pause-${sourceId}-${Date.now()}`);
+  }
+
+  revokeFeed(sourceId: string) {
+    return this.post(`/api/v1/feeds/${encodeURIComponent(sourceId)}/revoke`, {}, `feed-revoke-${sourceId}-${Date.now()}`);
+  }
+
+  pollFeed(sourceId: string) {
+    return this.post(`/api/v1/feeds/${encodeURIComponent(sourceId)}/poll`, {}, `feed-poll-${sourceId}-${Date.now()}`);
+  }
+
+  modelProfiles() {
+    return this.get<{ profiles: Record<string, unknown>[] }>("/api/v1/model-profiles");
+  }
+
   slos() {
     return this.get<Record<string, unknown>>("/api/v1/slos");
   }
