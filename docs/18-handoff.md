@@ -1,22 +1,20 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.59**. State: **Track C marketing layout merged to
-`main`, pushed, and deployed to fs-dev** (health `0.3.59`).
+Date: 2026-09-08. Version: **0.3.60**. State: **Track B auto remote placement merged to
+`main`, pushed, and deploying to fs-dev.**
 
 ## On main / fs-dev
 
-- Public `GET /welcome` (cosmic-glass FastAPI landing; CTAs to `/` and `/desk`; rate-limit
-  exempt). Caddy proxies `/welcome` before the SPA catch-all.
-- Desk HQ maps room types containing `market` to `campaign` furniture (ADR-045).
-- Companion remains at `/`. No new Alembic; head `0028_remote_worker_jobs`.
+- `FS_CORP_PREFER_REMOTE_WORKERS` (ADR-043): opt-in auto pick first ready host by `(label, id)`
+  when `worker_host_id` omitted; none ready → 422; explicit id wins.
+- Also on main: remote container-on-agent (0.3.58), `/welcome` + campaign furniture (0.3.59).
+- No new Alembic; head `0028_remote_worker_jobs`.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **458 passed** before merge.
+- `.venv/bin/python -m unittest discover -s tests`: **463 passed** before merge.
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Recover and review **Track B automatic remote-host placement** (stash /
-   `feature/auto-remote-placement`) if still desired.
-2. Otherwise owner picks the next roadmap item.
+Owner picks the next roadmap item (A/B/C follow-ons complete for this sequence).

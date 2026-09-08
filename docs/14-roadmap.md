@@ -399,10 +399,6 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Track C is complete on `feature/marketing-layout` at 0.3.59:** FastAPI serves the public
-cosmic-glass `/welcome` landing, fs-dev Caddy proxies that exact path, and Marketing rooms
-render persisted `campaign` furniture in the desk HQ. The companion remains at `/`; no
-Alembic revision was added.
-
-Next: recover and review **Track B automatic remote-host placement** if it remains in a stash
-or on `feature/auto-remote-placement`; otherwise the owner selects the next roadmap item.
+**Track B auto remote placement recovered at 0.3.60** on `feature/auto-remote-placement`
+(`FS_CORP_PREFER_REMOTE_WORKERS`, ADR-043). A (remote container) and C (marketing layout)
+are already on `main`. Next: owner merge/push/deploy of B, or pick the next roadmap item.

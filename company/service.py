@@ -2395,13 +2395,24 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         payload = envelope(ident, body)
         worker_id = payload.get("worker_id") or ident["principal_id"]
         host_id = (payload.get("worker_host_id") or "").strip() or None
+        placement = "explicit" if host_id else None
         scratch = payload.get("scratch_root") or os.environ.get("FS_CORP_WORKER_SCRATCH") or tempfile.mkdtemp(prefix="company-worker-")
+        if not host_id:
+            from company.worker_hosts import choose_ready_remote_host_id, prefer_remote_workers
+            if prefer_remote_workers(company):
+                host_id = choose_ready_remote_host_id(company)
+                if not host_id:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="FS_CORP_PREFER_REMOTE_WORKERS is set but no ready remote worker host",
+                    )
+                placement = "auto"
         if host_id:
-            return run(ident, idempotency_key, payload | {"task_id": task_id, "worker_host_id": host_id}, lambda: (
+            return run(ident, idempotency_key, payload | {"task_id": task_id, "worker_host_id": host_id, "placement": placement}, lambda: (
                 dict(company.dispatch_queued_isolated(
                     worker_id, task_id, scratch, payload.get("approval"),
                     runtime="remote_agent", worker_host_id=host_id,
-                    actor=ident["principal_id"])), 200))
+                    actor=ident["principal_id"], placement=placement or "explicit")), 200))
         from company.worker_status import resolve_worker_runtime
         try:
             runtime = resolve_worker_runtime(payload.get("runtime"), company=company)

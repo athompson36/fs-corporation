@@ -44,6 +44,7 @@
 | ADR-040 | 2026-09-08 | Worker host registry without remote dispatch; SVG furniture from room_type | CEO registers remotes + heartbeat → ready/stale/disabled on `/workers/status`. Dispatch stays same-host. TailscaleKit stubbed. Desk furniture glyphs bind only to persisted room types. |
 | ADR-041 | 2026-09-08 | Shared cosmic-glass tokens for desk + companion | Single `assets/cosmic-glass-tokens.css` served at `/static` and imported by companion; M10-04 version chrome + HQ keyboard. |
 | ADR-042 | 2026-09-08 | Remote pull agent with explicit host routing; mock-complete v1 | `worker_host_id` enqueues `remote_worker_jobs`; agent claims/completes with host token. Default dispatch stays same-host. No remote Docker yet. |
+| ADR-043 | 2026-09-08 | Opt-in prefer remotes; fail closed if none ready | `FS_CORP_PREFER_REMOTE_WORKERS` auto-picks first ready host by label/id when `worker_host_id` omitted. Explicit id wins. |
 | ADR-044 | 2026-09-08 | Opt-in remote container with host-token gateway relay | Remote agents may opt into container execution with `--network none`; the agent relays allowlisted gateway operations. Default remains mock-complete. No remote egress this slice. |
 | ADR-045 | 2026-09-08 | Public `/welcome` landing and marketing campaign furniture | FastAPI serves a cosmic-glass landing while the companion remains at `/`; desk HQ maps persisted marketing room types to `campaign` furniture. |
 
@@ -533,6 +534,20 @@ dispatch. Remote Docker/file gateway is deferred.
 
 **Consequences.** `scripts/remote_worker_agent.py` is the reference agent. Control plane
 never opens remote SSH.
+
+### ADR-043 detail
+
+**Context.** Explicit `worker_host_id` works but operators may want remotes by default
+without typing an id each time.
+
+**Decision.** Settings/env `FS_CORP_PREFER_REMOTE_WORKERS` (default false). When true and
+dispatch omits `worker_host_id`, pick the first `ready` host ordered by `(label, id)`.
+If none are ready, fail closed (422). Explicit `worker_host_id` always wins.
+
+**Alternatives considered.** Silent local fallback was rejected (hides outages). Always-on
+auto placement was rejected (surprise off-box runs).
+
+**Consequences.** Enable the flag only when at least one agent is heartbeating.
 
 ### ADR-044 detail
 

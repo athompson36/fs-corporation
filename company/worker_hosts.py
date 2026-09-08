@@ -237,3 +237,22 @@ def remote_host_status_rows(company) -> list[dict]:
             item["last_heartbeat_meta"] = meta
         out.append(item)
     return out
+
+
+def prefer_remote_workers(company) -> bool:
+    try:
+        return bool(company.effective_setting("FS_CORP_PREFER_REMOTE_WORKERS"))
+    except (ValueError, TypeError):
+        return False
+
+
+def choose_ready_remote_host_id(company) -> str | None:
+    """First ready host by (label, id), or None."""
+    ttl = heartbeat_ttl_sec(company)
+    rows = company.db.execute(
+        "SELECT * FROM worker_hosts ORDER BY label, id"
+    ).fetchall()
+    for row in rows:
+        if host_state(row, ttl_sec=ttl) == "ready":
+            return row["id"]
+    return None

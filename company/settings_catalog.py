@@ -140,6 +140,14 @@ CATALOG: dict[str, SettingDef] = {
         "restart_required": False,
         "description": "Seconds after which a remote worker host heartbeat is stale",
     },
+    "FS_CORP_PREFER_REMOTE_WORKERS": {
+        "key": "FS_CORP_PREFER_REMOTE_WORKERS",
+        "type": "bool",
+        "default": False,
+        "editable": True,
+        "restart_required": False,
+        "description": "When true, dispatch-worker without worker_host_id uses the first ready remote host",
+    },
 }
 
 EDITABLE_KEYS = frozenset(k for k, d in CATALOG.items() if d["editable"])
