@@ -310,6 +310,16 @@ CREATE TABLE IF NOT EXISTS scorecard_snapshots(
 CREATE TABLE IF NOT EXISTS company_settings(
   key TEXT PRIMARY KEY, value_json TEXT NOT NULL,
   updated_at TEXT NOT NULL, updated_by TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS worker_hosts(
+  id TEXT PRIMARY KEY,
+  label TEXT NOT NULL,
+  base_url TEXT NOT NULL,
+  enabled INTEGER NOT NULL,
+  heartbeat_token_hash TEXT NOT NULL,
+  last_heartbeat_at TEXT,
+  last_heartbeat_meta TEXT,
+  created_at TEXT NOT NULL,
+  created_by TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (

@@ -798,6 +798,30 @@ class Company:
         from company.finance import close_budget_period
         return close_budget_period(self, actor, period_id)
 
+    def create_worker_host(self, actor, *, label, base_url):
+        from company.worker_hosts import create_worker_host
+        return create_worker_host(self, actor, label=label, base_url=base_url)
+
+    def list_worker_hosts(self):
+        from company.worker_hosts import list_worker_hosts
+        return list_worker_hosts(self)
+
+    def set_worker_host_enabled(self, actor, host_id, enabled):
+        from company.worker_hosts import set_worker_host_enabled
+        return set_worker_host_enabled(self, actor, host_id, enabled)
+
+    def delete_worker_host(self, actor, host_id):
+        from company.worker_hosts import delete_worker_host
+        return delete_worker_host(self, actor, host_id)
+
+    def record_worker_host_heartbeat(self, host_id, token, meta=None):
+        from company.worker_hosts import record_worker_host_heartbeat
+        return record_worker_host_heartbeat(self, host_id, token, meta=meta)
+
+    def remote_host_status_rows(self):
+        from company.worker_hosts import remote_host_status_rows
+        return remote_host_status_rows(self)
+
     def _check_period_budget(self,cost):
         stamp=now().isoformat()
         row=self.db.execute(

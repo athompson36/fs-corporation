@@ -1,7 +1,7 @@
 # Design: Org hierarchy, rules, and project handoff
 
-Date: 2026-09-07. Status: **implemented through milestone 4** (v0.3.51);
-milestone 5 cross-department work orders remain deferred.
+Date: 2026-09-07. Status: **implemented through milestone 5** (v0.3.54);
+cross-department work orders are implemented (`create_cross_dept_request` / accept APIs).
 
 ## Goal
 
@@ -21,7 +21,8 @@ Authority chain: human owner → CEO (`human-ceo`) → grants → delegations (d
 
 - Departments are seeded from `config/departments.json`; `head_title` is a label, not a principal.
 - `dispatch_project_brief` writes `project_dispatches` + `work_orders` but does not fill a head inbox, assign specialists, or create grants.
-- No supervisor org-chart tables; documentation (`docs/04-governance.md`, `docs/05-organization.md`) describes richer head queues and cross-dept work orders than code enforces.
+- No supervisor org-chart tables; cross-department request APIs are implemented (milestone 5).
+  Richer head-queue UX in governance docs may still exceed the companion UI.
 - Existing `employees` / training tables remain for hire/training; they do not grant authority.
 
 ## Authority model

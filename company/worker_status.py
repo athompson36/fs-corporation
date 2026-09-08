@@ -232,4 +232,9 @@ def status_summary(*, company=None) -> dict:
     if worker_nic:
         out["worker_nic_ip"] = worker_nic
         out["worker_nic_present"] = host_has_ipv4(worker_nic)
+    if company is not None:
+        from company.worker_hosts import remote_host_status_rows
+        out["remote_hosts"] = remote_host_status_rows(company)
+    else:
+        out["remote_hosts"] = []
     return out

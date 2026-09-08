@@ -6,6 +6,10 @@ Expo app that pairs via CEO desk QR URL, hands off Tailscale auth (clipboard + o
 
 Neither iOS nor Android allows third-party apps to silently inject a Tailscale auth key into the system VPN. After redeem we **copy the key** and open Tailscale; you paste once via **Use an auth key**.
 
+### TailscaleKit (future)
+
+`tailscale_kit.ts` exports `isTailscaleKitAvailable()` (always `false`) and `joinWithAuthKey()` (`not_implemented`). A userspace TailscaleKit / libtailscale path may land when Apple/Google packaging allows embedding a node without the system VPN paste step. Until then the clipboard + system Tailscale app path above remains the only supported join.
+
 | Platform | Store fallback | In-app paste path |
 |---|---|---|
 | iOS | App Store Tailscale | profile → Log in → (…) → Use an auth key |

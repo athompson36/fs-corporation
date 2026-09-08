@@ -1,20 +1,21 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.53**. State: **P3 follow-on (benchmarks + work-order
-replay) merged to `main`, pushing, and deploying to fs-dev.**
+Date: 2026-09-08. Version: **0.3.54**. State: **P4 Scale and presence on
+`feature/p4-scale-presence` (ready to merge when owner asks).**
 
-## On main
+## On this branch
 
-- `choose_model` prefers max benchmark **quality** among eligible profiles (ADR-039).
-- Alembic `0026_work_order_replays`; authorize / complete-outcome / replay APIs.
-- P3 durable finance; P2 live ops; P1 Settings.
+- Alembic `0027_worker_hosts`; CEO registry + heartbeat; `remote_hosts` on `/workers/status`.
+- Dispatch still same-host only (ADR-040).
+- TailscaleKit stub in `companion-native`; SVG furniture from `room_type` on desk iso.
+- Org m5 docs: cross-dept implemented.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **408 passed**
+- Run: `.venv/bin/python -m unittest discover -s tests`
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Smoke is optional for this API-first slice.
-2. **P4 Scale and presence** design (second worker host · TailscaleKit · furnished HQ art).
+1. Merge / push / deploy when owner requests (Alembic `0027` on fs-dev).
+2. **P5** UI pass (deferred chrome) or remote worker agent follow-on.

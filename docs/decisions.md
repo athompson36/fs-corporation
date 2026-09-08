@@ -41,6 +41,7 @@
 | ADR-037 | 2026-09-07 | ChatDev worker egress is opt-in allowlist + explicit Docker network | Default remains `--network none`. Mode `allowlist` requires host allowlist file, non-empty `https_hosts`, and `FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK`; never bare `bridge`/`host`. Status reports mode/count/ready without listing hosts. |
 | ADR-038 | 2026-09-08 | Append-only finance adjustments; invoices are window snapshots | `billed_costs` stay immutable. Voids/partial credits live in `finance_adjustments`. `billed_cost_cents` means net. Internal invoices snapshot billable lines; period close writes `budget_period_closures`. |
 | ADR-039 | 2026-09-08 | choose_model may prefer best benchmark quality; work-order replay is append-only | Among eligible profiles, max `quality` for a role wins when benches exist; else ordered pick. `work_order_replays` freezes outcomes; identical digest replay returns prior result without ChatDev re-execution. |
+| ADR-040 | 2026-09-08 | Worker host registry without remote dispatch; SVG furniture from room_type | CEO registers remotes + heartbeat → ready/stale/disabled on `/workers/status`. Dispatch stays same-host. TailscaleKit stubbed. Desk furniture glyphs bind only to persisted room types. |
 
 ### ADR-010 detail
 
@@ -481,5 +482,22 @@ slice. Full workflow re-execution was rejected as out of scope.
 
 **Consequences.** Call sites may pass benches via `Company.choose_model`. Replay APIs are
 CEO-gated for mutations; list is `company.read`.
+
+### ADR-040 detail
+
+**Context.** Production P4 needed an honest second-host story without pretending remotes
+execute work, plus TailscaleKit and furnished HQ without store binaries or art packs.
+
+**Decision.** Persist `worker_hosts` with hashed heartbeat tokens. Heartbeats set ready/stale;
+CEO can disable. `/workers/status` lists `remote_hosts`. Isolated dispatch remains local
+subprocess/container only. `companion-native/tailscale_kit.ts` stubs TailscaleKit as
+unavailable. Desk isometric adds SVG furniture from persisted `room_type` only.
+
+**Alternatives considered.** Remote enqueue/agent in the same slice was rejected (no agent).
+Shipping TailscaleKit binaries and photoreal art packs was rejected as out of repository
+scope.
+
+**Consequences.** Operators can register and monitor remotes before remote execution exists.
+Org hierarchy milestone 5 docs mark cross-dept as implemented.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

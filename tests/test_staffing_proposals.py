@@ -197,7 +197,7 @@ class StaffingProposalApiAndMigrationTests(unittest.TestCase):
         self.assertIn("staffing-proposals/' + proposal.id + '/decision", desk)
 
     def test_file_database_preserves_staffing_tables_at_current_head(self):
-        self.assertEqual(HEAD_REVISION, "0026_work_order_replays")
+        self.assertEqual(HEAD_REVISION, "0027_worker_hosts")
         with tempfile.TemporaryDirectory() as directory:
             company = Company(str(Path(directory) / "staffing.db"))
             try:

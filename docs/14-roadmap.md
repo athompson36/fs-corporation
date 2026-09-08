@@ -195,7 +195,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Accessible 2D floor plan + list navigation; reduced motion
 - [x] Facilities: costed proposal → approve → contractor provision → independent inspection → `room.built`
 - [x] Growth credit once per unique accepted project; replay/retry cannot farm credits
-- [x] Art/isometric animation — CEO desk isometric SVG from the same `headquarters()` rooms; rise animation respects `prefers-reduced-motion`; no invented occupancy; cosmic-glass chrome adopted; furnished room art still deferred
+- [x] Art/isometric animation — CEO desk isometric SVG from the same `headquarters()` rooms; rise animation respects `prefers-reduced-motion`; no invented occupancy; cosmic-glass chrome adopted; **P4 SVG furniture glyphs** from persisted `room_type` (photoreal art packs still deferred)
 - [x] Room detail — `GET /api/v1/headquarters/rooms/{id}` returns persisted tasks, staff, deliverables, simulated costs and related decisions; desk list/tiles open that panel; missing rooms fail closed
 - [x] Consultant inbox: findings, evidence, approve/reject/revise (API + desk list)
 - [x] Corporate HQ Phase 1 — runtime department/position editing and revision history
@@ -401,11 +401,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Corporate HQ Phases 1–8 are complete at 0.3.53.** P0.2 M10 ops (idempotency prune,
-model/benchmark reads, companion prompt forms, LearningAdapter allowlist) landed on
-`feature/p0-m10-ops`. Remaining M10-04 chrome: version display in primary UI, HQ tile
-keyboard access. Next production track: **Settings platform (P1)** per
+**P4 Scale and presence is complete at 0.3.54** (worker host registry + heartbeat, TailscaleKit
+stub, SVG furniture from `room_type`, org m5 docs). Next: **P5 UI pass** (deferred chrome) or
+remote worker agent follow-on per
 [superpowers/plans/2026-09-07-production-feature-build-out.md](superpowers/plans/2026-09-07-production-feature-build-out.md).
 
-Optional tracks, none blocking: TailscaleKit; a dedicated second worker host; full ChatDev
-dependencies plus controlled egress in the worker image; furnished HQ room art.
+Optional follow-ons: real TailscaleKit binary; remote dispatch agent; photoreal HQ art packs.

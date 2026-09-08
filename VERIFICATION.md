@@ -1,6 +1,6 @@
 # Verification record
 
-Updated 2026-09-07 for **0.3.53** and Corporate HQ Phases 1–8.
+Updated 2026-09-08 for **0.3.54** (P4 Scale and presence) and Corporate HQ Phases 1–8.
 Prior: 0.3.52 runtime department editing; 0.3.51 desk + companion organization/head handoff UI; 0.3.50 local-repos +
 Diagnostics; 0.3.49 GitHub assign; 0.3.48 billed
 cost/revenue; 0.3.47 companion PWA. Run on Python 3.14.3 in `.venv`
@@ -20,7 +20,7 @@ Earlier records: 0.2.0 ZIP (2026-09-01, Python 3.12.13) and 0.3.13 cosmic-glass 
   bundle link/config failure was reported before that point.
 - Alembic revision chain is linear and single-headed: `0001_initial` through
   `0023_ceo_scorecard`.
-- Companion **0.3.53** build completes (`generateSW`) and emits the production PWA assets.
+- Companion **0.3.54** build completes (`generateSW`) and emits the production PWA assets.
 
 ## Verified on the fs-dev host (owner-operated, not reproducible from CI)
 

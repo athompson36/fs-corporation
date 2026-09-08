@@ -1353,10 +1353,58 @@ async function load() {
     label.setAttribute('fill', '#eee'); label.setAttribute('font-size', '6');
     label.textContent = room.status;
     g.appendChild(left); g.appendChild(right); g.appendChild(top); g.appendChild(label);
+    if (built) {
+      const furniture = ns('g');
+      furniture.setAttribute('class', 'iso-furniture');
+      const kind = furnitureKind(room.room_type || room.source_project || '');
+      furniture.setAttribute('data-furniture', kind);
+      furniture.setAttribute('data-room-id', room.id);
+      drawFurniture(furniture, kind, ix, iy - h);
+      g.appendChild(furniture);
+    }
     iso.appendChild(g);
   });
   if (!hasFloorplan) setHqView('iso');
   await loadActivity();
+}
+function furnitureKind(roomType) {
+  const t = String(roomType || '').toLowerCase();
+  if (t.includes('engine') || t.includes('hardware') || t.includes('dev')) return 'workstation';
+  if (t.includes('executive') || t.includes('ceo') || t.includes('board')) return 'conference';
+  if (t.includes('ops') || t.includes('infra') || t.includes('server')) return 'rack';
+  return 'desk';
+}
+function drawFurniture(g, kind, ix, iy) {
+  const ns = (name) => document.createElementNS('http://www.w3.org/2000/svg', name);
+  if (kind === 'workstation') {
+    const desk = ns('rect');
+    desk.setAttribute('x', ix - 6); desk.setAttribute('y', iy + 6);
+    desk.setAttribute('width', '12'); desk.setAttribute('height', '4');
+    desk.setAttribute('fill', '#94a3b8');
+    const mon = ns('rect');
+    mon.setAttribute('x', ix - 3); mon.setAttribute('y', iy + 2);
+    mon.setAttribute('width', '6'); mon.setAttribute('height', '4');
+    mon.setAttribute('fill', '#cbd5e1');
+    g.appendChild(desk); g.appendChild(mon);
+  } else if (kind === 'conference') {
+    const table = ns('ellipse');
+    table.setAttribute('cx', ix); table.setAttribute('cy', iy + 8);
+    table.setAttribute('rx', '10'); table.setAttribute('ry', '4');
+    table.setAttribute('fill', '#a8a29e');
+    g.appendChild(table);
+  } else if (kind === 'rack') {
+    const rack = ns('rect');
+    rack.setAttribute('x', ix - 4); rack.setAttribute('y', iy + 2);
+    rack.setAttribute('width', '8'); rack.setAttribute('height', '10');
+    rack.setAttribute('fill', '#64748b');
+    g.appendChild(rack);
+  } else {
+    const desk = ns('rect');
+    desk.setAttribute('x', ix - 5); desk.setAttribute('y', iy + 7);
+    desk.setAttribute('width', '10'); desk.setAttribute('height', '3');
+    desk.setAttribute('fill', '#78716c');
+    g.appendChild(desk);
+  }
 }
 load().catch(err => { document.getElementById('status-json').textContent = String(err); });
 setInterval(loadActivity, 10000);
@@ -2776,6 +2824,80 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "company.read")
         from company.worker_status import status_summary
         return status_summary(company=company)
+
+    @app.get("/api/v1/worker-hosts")
+    def worker_hosts_list(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"hosts": company.list_worker_hosts()}
+
+    @app.post("/api/v1/worker-hosts")
+    def worker_hosts_create(
+            body: Command, authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_worker_host(
+                ident["principal_id"],
+                label=payload.get("label"),
+                base_url=payload.get("base_url")), 200))
+
+    @app.post("/api/v1/worker-hosts/{host_id}/enable")
+    def worker_hosts_enable(
+            host_id: str, body: Command, authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"host_id": host_id}, lambda: (
+            company.set_worker_host_enabled(ident["principal_id"], host_id, True), 200))
+
+    @app.post("/api/v1/worker-hosts/{host_id}/disable")
+    def worker_hosts_disable(
+            host_id: str, body: Command, authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"host_id": host_id}, lambda: (
+            company.set_worker_host_enabled(ident["principal_id"], host_id, False), 200))
+
+    @app.delete("/api/v1/worker-hosts/{host_id}")
+    def worker_hosts_delete(
+            host_id: str, authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = {"host_id": host_id}
+        return run(ident, idempotency_key, payload, lambda: (
+            company.delete_worker_host(ident["principal_id"], host_id), 200))
+
+    @app.post("/api/v1/worker-hosts/{host_id}/heartbeat")
+    def worker_hosts_heartbeat(
+            host_id: str,
+            body: dict | None = None,
+            authorization: str | None = Header(default=None),
+            x_worker_host_token: str | None = Header(default=None, alias="X-Worker-Host-Token")):
+        token = None
+        if x_worker_host_token:
+            token = x_worker_host_token.strip()
+        elif authorization and authorization.lower().startswith("bearer "):
+            token = authorization.split(" ", 1)[1].strip()
+        if not token:
+            raise HTTPException(status_code=401, detail="unauthenticated")
+        meta = None
+        if isinstance(body, dict):
+            meta = body.get("meta", body) if body else None
+            if meta == {}:
+                meta = None
+        try:
+            return company.record_worker_host_heartbeat(host_id, token, meta=meta)
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/api/v1/chatdev/status")
     def chatdev_status(authorization: str | None = Header(default=None)):

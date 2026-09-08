@@ -24,7 +24,12 @@ listed scope can still receive 403 from those routes.
 | GET /push/status | VAPID configuration summary (public key when set) | company.read |
 | GET /push/subscriptions | List active CEO push subscriptions | company.read |
 | POST /push/notify | Send a test/owner Web Push to active subscriptions | company.pause |
-| GET /workers/status | Container worker readiness: Docker/scratch/image, `default_runtime`, `gateway_egress`, `worker_plane` (`same_host_nic` healthy/degraded/unset), optional flat `worker_nic_*` | company.read |
+| GET /workers/status | Container worker readiness: Docker/scratch/image, `default_runtime`, `gateway_egress`, `worker_plane` (`same_host_nic` healthy/degraded/unset), optional flat `worker_nic_*`, `remote_hosts` (registry heartbeat state; never tokens) | company.read |
+| GET /worker-hosts | List registered remote hosts + state | company.read |
+| POST /worker-hosts | CEO create host (`label`, https `base_url`); returns one-time `token` | company.pause + CEO |
+| POST /worker-hosts/{id}/enable\|disable | CEO enable/disable | company.pause + CEO |
+| DELETE /worker-hosts/{id} | CEO delete | company.pause + CEO |
+| POST /worker-hosts/{id}/heartbeat | Host token auth (`Bearer` or `X-Worker-Host-Token`); optional meta JSON | host token |
 | POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
 | GET /projects/{id}/dispatch-options | Parameter key: templates, presets, max_cents, department statuses | project.enroll |
 | POST /projects/{id}/dispatch-recommend | Advisory mock→live recommend/autofill payload (never dispatches) | project.enroll |
@@ -190,7 +195,8 @@ of them.
   `{mode, egress_active, egress_table}` plus `egress_source_ip`, `egress_ready`, and
   `egress_blockers` when relevant, and `worker_nic_ip` / `worker_nic_present` when
   `FS_CORP_WORKER_NIC_IP` is set. Those two duplicate the plane values and are retained for
-  compatibility.
+  compatibility. `remote_hosts` lists registered remotes with `state` of `ready` / `stale` /
+  `disabled` (never tokens); status-only — dispatch remains same-host.
 - **`GET /chatdev/status`** — `pin`, `home_set`, `configured`, `pin_verified`,
   `control_plane_allowed`, `worker_live_ready`, `workflow` (a path string), and optional
   `pin_check_skipped`. `worker_image_chatdev` is `null` when Docker is unavailable or the image

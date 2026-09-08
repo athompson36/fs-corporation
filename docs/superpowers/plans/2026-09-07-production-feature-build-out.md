@@ -64,7 +64,10 @@ Invoice/refunds/period rollover · budget-period UX · optional `choose_model` b
 
 ## P4 — Scale and presence
 
-Second worker host · TailscaleKit · furnished HQ room art · org hierarchy milestone 5 if needed.
+- [x] Worker host registry + heartbeat (`0027`); dispatch still same-host (ADR-040)
+- [x] TailscaleKit stub + README honesty
+- [x] Furnished HQ SVG from `room_type`
+- [x] Org hierarchy milestone 5 docs honesty (cross-dept already implemented)
 
 ## P5 — UI pass (later)
 

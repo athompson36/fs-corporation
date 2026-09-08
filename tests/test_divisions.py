@@ -161,7 +161,7 @@ class DivisionApiAndMigrationTests(unittest.TestCase):
         self.assertIn("/api/v1/divisions/", desk)
 
     def test_file_database_migrates_to_0022(self):
-        self.assertEqual(HEAD_REVISION, "0026_work_order_replays")
+        self.assertEqual(HEAD_REVISION, "0027_worker_hosts")
         with tempfile.TemporaryDirectory() as directory:
             company = Company(str(Path(directory) / "divisions.db"))
             try:

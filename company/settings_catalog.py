@@ -131,6 +131,15 @@ CATALOG: dict[str, SettingDef] = {
         "restart_required": False,
         "description": "Gateway egress address (host-bound; read-only in Settings)",
     },
+    "FS_CORP_WORKER_HOST_HEARTBEAT_TTL_SEC": {
+        "key": "FS_CORP_WORKER_HOST_HEARTBEAT_TTL_SEC",
+        "type": "int",
+        "default": 120,
+        "min": 1,
+        "editable": True,
+        "restart_required": False,
+        "description": "Seconds after which a remote worker host heartbeat is stale",
+    },
 }
 
 EDITABLE_KEYS = frozenset(k for k, d in CATALOG.items() if d["editable"])

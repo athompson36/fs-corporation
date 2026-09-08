@@ -32,8 +32,8 @@ Set company name and owner → choose CEO mode → set root limits → enable in
 
 ## Design direction
 
-Official visual system: **cosmic restraint** — midnight background, cosmic blue primary, ultraviolet secondary, aurora success, soft-white type, subtle glass cards, clear hierarchy. The CEO desk uses a sidebar and metric cards. The companion uses the same tokens with a bottom tab bar. Metrics pad real counts (including zero); they never invent occupancy, rooms, or workload. Furnished isometric interiors remain deferred.
+Official visual system: **cosmic restraint** — midnight background, cosmic blue primary, ultraviolet secondary, aurora success, soft-white type, subtle glass cards, clear hierarchy. The CEO desk uses a sidebar and metric cards. The companion uses the same tokens with a bottom tab bar. Metrics pad real counts (including zero); they never invent occupancy, rooms, or workload. Isometric rooms show small SVG furniture glyphs from persisted `room_type`; photoreal art packs remain deferred.
 
 ## Current status
 
-This bundle has a local HTML CEO desk (cosmic-glass shell, 2D plan + isometric projection + room detail from persisted events, plus read lists for projects, departments, people, intelligence, budget and activity) and a mobile-first PWA in `companion/` that reads the same persisted API state. Hardware skill gaps appear as blocked work, not as animated progress. Custom furnished room art remains deferred.
+This bundle has a local HTML CEO desk (cosmic-glass shell, 2D plan + isometric projection + room detail from persisted events, plus read lists for projects, departments, people, intelligence, budget and activity) and a mobile-first PWA in `companion/` that reads the same persisted API state. Hardware skill gaps appear as blocked work, not as animated progress. Custom photoreal room art remains deferred; P4 ships type-based SVG furniture only.
