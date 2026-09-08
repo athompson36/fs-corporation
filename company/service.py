@@ -1374,6 +1374,7 @@ function furnitureKind(roomType) {
   if (t.includes('engine') || t.includes('hardware') || t.includes('dev')) return 'workstation';
   if (t.includes('executive') || t.includes('ceo') || t.includes('board')) return 'conference';
   if (t.includes('ops') || t.includes('infra') || t.includes('server')) return 'rack';
+  if (t.includes('market')) return 'campaign';
   return 'desk';
 }
 function drawFurniture(g, kind, ix, iy) {
@@ -1400,6 +1401,16 @@ function drawFurniture(g, kind, ix, iy) {
     rack.setAttribute('width', '8'); rack.setAttribute('height', '10');
     rack.setAttribute('fill', '#64748b');
     g.appendChild(rack);
+  } else if (kind === 'campaign') {
+    const desk = ns('rect');
+    desk.setAttribute('x', ix - 5); desk.setAttribute('y', iy + 7);
+    desk.setAttribute('width', '10'); desk.setAttribute('height', '3');
+    desk.setAttribute('fill', '#78716c');
+    const board = ns('rect');
+    board.setAttribute('x', ix + 2); board.setAttribute('y', iy + 1);
+    board.setAttribute('width', '3'); board.setAttribute('height', '7');
+    board.setAttribute('fill', '#38bdf8');
+    g.appendChild(desk); g.appendChild(board);
   } else {
     const desk = ns('rect');
     desk.setAttribute('x', ix - 5); desk.setAttribute('y', iy + 7);
