@@ -1,21 +1,20 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.54**. State: **P4 Scale and presence on
-`feature/p4-scale-presence` (ready to merge when owner asks).**
+Date: 2026-09-08. Version: **0.3.54**. State: **P4 merged to `main`, pushed, and
+deployed to fs-dev.**
 
-## On this branch
+## On main / fs-dev
 
 - Alembic `0027_worker_hosts`; CEO registry + heartbeat; `remote_hosts` on `/workers/status`.
 - Dispatch still same-host only (ADR-040).
-- TailscaleKit stub in `companion-native`; SVG furniture from `room_type` on desk iso.
-- Org m5 docs: cross-dept implemented.
+- TailscaleKit stub; SVG furniture from `room_type`; org m5 docs honesty.
 
 ## Verification
 
-- Run: `.venv/bin/python -m unittest discover -s tests`
+- `.venv/bin/python -m unittest discover -s tests`: **416 passed** (pre-merge).
+- fs-dev health: `version` **0.3.54**, HTTP **200**.
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Merge / push / deploy when owner requests (Alembic `0027` on fs-dev).
-2. **P5** UI pass (deferred chrome) or remote worker agent follow-on.
+1. **P5** UI pass (deferred chrome), or remote worker agent follow-on.
