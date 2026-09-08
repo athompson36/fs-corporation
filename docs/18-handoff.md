@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-08. Version: **0.3.58**. State: **Track A remote container-on-agent
-merged to `main`, pushed, and deploying to fs-dev.**
+merged to `main`, pushed, and deployed to fs-dev** (health `0.3.58`, alembic `0028`).
 
 ## On main / fs-dev
 
