@@ -398,5 +398,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Remote pull agent is complete at 0.3.56** (explicit `worker_host_id`, lease + mock complete).
-Next: remote container-on-agent, auto placement, or marketing layout.
+**Track A is complete at 0.3.58:** remote pull agents default to mock completion and may
+opt into fail-closed container execution with `--network none` plus a host-token gateway
+relay. No remote egress is enabled.
+
+Next: **Track C — marketing layout**. Track B (automatic remote-host placement / ADR-043)
+may still exist on a separate branch or stash and is not part of this release.
