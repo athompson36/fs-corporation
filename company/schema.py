@@ -169,6 +169,17 @@ CREATE TABLE IF NOT EXISTS billed_costs(
   id TEXT PRIMARY KEY, recorded_at TEXT NOT NULL, amount_cents INTEGER NOT NULL,
   usage_tokens INTEGER NOT NULL, provider TEXT NOT NULL, profile_id TEXT NOT NULL,
   source TEXT NOT NULL, task_id TEXT);
+CREATE TABLE IF NOT EXISTS finance_adjustments(
+  id TEXT PRIMARY KEY, created_at TEXT NOT NULL, created_by TEXT NOT NULL,
+  kind TEXT NOT NULL, billed_cost_id TEXT NOT NULL, amount_cents INTEGER NOT NULL,
+  reason TEXT NOT NULL, invoice_id TEXT);
+CREATE TABLE IF NOT EXISTS invoices(
+  id TEXT PRIMARY KEY, created_at TEXT NOT NULL, created_by TEXT NOT NULL,
+  period_start TEXT NOT NULL, period_end TEXT NOT NULL, total_cents INTEGER NOT NULL,
+  line_count INTEGER NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS budget_period_closures(
+  id TEXT PRIMARY KEY, budget_period_id TEXT NOT NULL, closed_at TEXT NOT NULL,
+  closed_by TEXT NOT NULL, snapshot TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS revenue(
   id TEXT PRIMARY KEY, recorded_at TEXT NOT NULL, amount_cents INTEGER NOT NULL,
   source TEXT NOT NULL, note TEXT NOT NULL DEFAULT '');

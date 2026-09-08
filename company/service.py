@@ -2605,6 +2605,87 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 ident["principal_id"], project_id, str(payload.get("upstream") or "")),
             200))
 
+    @app.get("/api/v1/finance/summary")
+    def finance_summary(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.finance_summary()
+
+    @app.get("/api/v1/finance/invoices")
+    def finance_list_invoices(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"invoices": company.list_invoices()}
+
+    @app.get("/api/v1/finance/invoices/{invoice_id}")
+    def finance_get_invoice(invoice_id: str, authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.get_invoice(invoice_id)
+
+    @app.post("/api/v1/finance/invoices")
+    def finance_create_invoice(body: Command, authorization: str | None = Header(default=None),
+                               idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_invoice(
+                ident["principal_id"], payload["period_start"], payload["period_end"]), 200))
+
+    @app.get("/api/v1/finance/adjustments")
+    def finance_list_adjustments(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"adjustments": company.list_finance_adjustments()}
+
+    @app.post("/api/v1/finance/adjustments")
+    def finance_post_adjustment(body: Command, authorization: str | None = Header(default=None),
+                                idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.post_finance_adjustment(
+                ident["principal_id"],
+                kind=payload["kind"],
+                billed_cost_id=payload["billed_cost_id"],
+                reason=payload["reason"],
+                amount_cents=payload.get("amount_cents"),
+                invoice_id=payload.get("invoice_id"),
+            ), 200))
+
+    @app.get("/api/v1/finance/budget-periods")
+    def finance_list_budget_periods(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"periods": company.list_budget_periods_finance()}
+
+    @app.post("/api/v1/finance/budget-periods")
+    def finance_set_budget_period(body: Command, authorization: str | None = Header(default=None),
+                                  idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            {"id": company.set_budget_period(
+                ident["principal_id"],
+                payload.get("scope") or "company",
+                payload["period_start"],
+                payload["period_end"],
+                payload["limit_cents"],
+            )}, 200))
+
+    @app.post("/api/v1/finance/budget-periods/{period_id}/close")
+    def finance_close_budget_period(period_id: str, body: Command,
+                                    authorization: str | None = Header(default=None),
+                                    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"period_id": period_id}, lambda: (
+            company.close_budget_period(ident["principal_id"], period_id), 200))
+
     @app.get("/api/v1/github/status")
     def github_status(authorization: str | None = Header(default=None)):
         ident = principal(authorization)

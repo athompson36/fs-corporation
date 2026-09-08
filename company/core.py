@@ -750,16 +750,53 @@ class Company:
         return True
 
     def status(self):
+        from company.finance import billed_adjustment_cents, billed_gross_cents, billed_net_cents
         counts={table:self.db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
                 for table in ("tasks","completions","signals","events")}
         return {"mode":"offline_mock","policy_version":self.policy()["version"],**counts,
             "simulated_spend_cents":self.db.execute("SELECT COALESCE(SUM(cost),0) FROM ledger").fetchone()[0],
-            "billed_cost_cents":self.db.execute(
-                "SELECT COALESCE(SUM(amount_cents),0) FROM billed_costs").fetchone()[0],
+            "billed_cost_gross_cents":billed_gross_cents(self),
+            "billed_adjustment_cents":billed_adjustment_cents(self),
+            "billed_cost_cents":billed_net_cents(self),
             "revenue_cents":self.db.execute(
                 "SELECT COALESCE(SUM(amount_cents),0) FROM revenue").fetchone()[0],
             "rooms":1+self.db.execute("SELECT COUNT(*) FROM expansions WHERE status='built'").fetchone()[0],
             "audit_valid":self.verify_audit()}
+
+    def create_invoice(self, actor, period_start, period_end):
+        from company.finance import create_invoice
+        return create_invoice(self, actor, period_start, period_end)
+
+    def list_invoices(self):
+        from company.finance import list_invoices
+        return list_invoices(self)
+
+    def get_invoice(self, invoice_id):
+        from company.finance import get_invoice
+        return get_invoice(self, invoice_id)
+
+    def post_finance_adjustment(self, actor, *, kind, billed_cost_id, reason,
+                                amount_cents=None, invoice_id=None):
+        from company.finance import post_adjustment
+        return post_adjustment(
+            self, actor, kind=kind, billed_cost_id=billed_cost_id, reason=reason,
+            amount_cents=amount_cents, invoice_id=invoice_id)
+
+    def list_finance_adjustments(self):
+        from company.finance import list_adjustments
+        return list_adjustments(self)
+
+    def finance_summary(self):
+        from company.finance import finance_summary
+        return finance_summary(self)
+
+    def list_budget_periods_finance(self):
+        from company.finance import list_budget_periods
+        return list_budget_periods(self)
+
+    def close_budget_period(self, actor, period_id):
+        from company.finance import close_budget_period
+        return close_budget_period(self, actor, period_id)
 
     def _check_period_budget(self,cost):
         stamp=now().isoformat()
