@@ -318,6 +318,52 @@ class ClaimEnvelopeTests(unittest.TestCase):
         self.assertIn("payload", env)
         self.assertIn("workflow_digest", env)
 
+    def _claim_job(self):
+        job = enqueue_remote_job(
+            self.c,
+            "human-ceo",
+            host_id=self.host_id,
+            task_id="env-t1",
+            worker_id="worker-r",
+        )
+        return claim_job(self.c, self.host_id, self.token, job["id"])
+
+    def test_claim_includes_egress_none_by_default(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK", None)
+            os.environ.pop("FS_CORP_CHATDEV_WORKER_EGRESS", None)
+            claimed = self._claim_job()
+        self.assertEqual(claimed["egress"]["mode"], "none")
+        self.assertIsNone(claimed["egress"]["docker_network"])
+        self.assertNotIn("https_hosts", claimed["egress"])
+
+    def test_claim_egress_allowlist_when_configured(self):
+        self.c.patch_company_settings(
+            "human-ceo", {"FS_CORP_CHATDEV_WORKER_EGRESS": "allowlist"}
+        )
+        with patch.dict(
+            os.environ,
+            {"FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK": "fs-corp-chatdev"},
+            clear=False,
+        ):
+            claimed = self._claim_job()
+        self.assertEqual(claimed["egress"]["mode"], "allowlist")
+        self.assertEqual(claimed["egress"]["docker_network"], "fs-corp-chatdev")
+        self.assertNotIn("https_hosts", claimed["egress"])
+
+    def test_claim_coerces_bridge_to_none(self):
+        self.c.patch_company_settings(
+            "human-ceo", {"FS_CORP_CHATDEV_WORKER_EGRESS": "allowlist"}
+        )
+        with patch.dict(
+            os.environ,
+            {"FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK": "bridge"},
+            clear=False,
+        ):
+            claimed = self._claim_job()
+        self.assertEqual(claimed["egress"]["mode"], "none")
+        self.assertIsNone(claimed["egress"]["docker_network"])
+
 
 class GatewayRelayTests(unittest.TestCase):
     def setUp(self):
