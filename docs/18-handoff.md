@@ -1,16 +1,12 @@
 # Current handoff
 
 Date: 2026-09-08. Version: **0.3.53**. State: **P3 follow-on (benchmarks + work-order
-replay) on `feature/p3-benchmarks-replay`.**
+replay) merged to `main`, pushing, and deploying to fs-dev.**
 
-## This branch
+## On main
 
 - `choose_model` prefers max benchmark **quality** among eligible profiles (ADR-039).
 - Alembic `0026_work_order_replays`; authorize / complete-outcome / replay APIs.
-- Consultant `to_work_order` writes the first ledger row.
-
-## Also on main
-
 - P3 durable finance; P2 live ops; P1 Settings.
 
 ## Verification
@@ -20,5 +16,5 @@ replay) on `feature/p3-benchmarks-replay`.**
 
 ## Next
 
-1. Merge/push/deploy when owner requests.
+1. Smoke is optional for this API-first slice.
 2. **P4 Scale and presence** design (second worker host · TailscaleKit · furnished HQ art).
