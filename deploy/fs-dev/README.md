@@ -65,6 +65,7 @@ Caddy serves:
 
 - `/` → companion PWA (`FS_CORP_COMPANION_DIST`)
 - `/desk` → CEO desk (pairing QR) via the loopback API
+- `/static/*` → shared UI assets (cosmic-glass tokens) via the loopback API
 - `/api/*` → `127.0.0.1:8000` (SSE-friendly on `/api/v1/events/stream`)
 
 HTTP/3 is disabled on this host because WireGuard (`wg0`) already owns UDP 443.

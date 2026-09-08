@@ -1,21 +1,19 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.55**. State: **P5 UI chrome on
-`feature/p5-ui-chrome` (ready to merge when owner asks).**
+Date: 2026-09-08. Version: **0.3.55**. State: **P5 merged to `main`, pushed, and
+deployed to fs-dev** (plus Caddy `/static/*` proxy so desk tokens load on the edge).
 
-## On this branch
+## On main / fs-dev
 
-- Shared `assets/cosmic-glass-tokens.css` (ADR-041); desk `/static` + companion import.
-- Backend version in desk rail footer and companion above tabs.
-- HQ plan/iso tiles + worker markers: keyboard Enter/Space (M10-04 closed).
+- Shared `assets/cosmic-glass-tokens.css` (ADR-041); desk version + HQ keyboard.
+- Caddy proxies `/static/*` to the API (same as `/desk`).
 
 ## Verification
 
-- Run: `.venv/bin/python -m unittest discover -s tests`
-- Companion: `npm run build` (verified locally).
+- Health **200**, version **0.3.55**.
+- Loopback `/static/cosmic-glass-tokens.css` **200**; edge after Caddy fix should match.
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Merge / push / deploy when owner requests.
-2. Follow-ons: marketing layout, remote worker agent, or photoreal art.
+1. Follow-ons: marketing layout, remote worker agent, or photoreal art.

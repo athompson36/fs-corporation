@@ -32,6 +32,11 @@
 		reverse_proxy 127.0.0.1:8000
 	}
 
+	# Shared UI tokens and other API-served assets (desk <link href="/static/…">)
+	handle /static/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
 	# Server-Sent Events — disable buffering
 	handle /api/v1/events/stream {
 		reverse_proxy 127.0.0.1:8000 {
