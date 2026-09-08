@@ -399,6 +399,7 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Track B auto remote placement recovered at 0.3.60** on `feature/auto-remote-placement`
-(`FS_CORP_PREFER_REMOTE_WORKERS`, ADR-043). A (remote container) and C (marketing layout)
-are already on `main`. Next: owner merge/push/deploy of B, or pick the next roadmap item.
+**Remote ChatDev egress policy implemented at 0.3.61** on
+`feature/remote-chatdev-egress` (ADR-046): claims carry mode/network without hostnames;
+allowlisted remote containers run only when the agent is locally ready and otherwise fail
+closed. No Alembic revision. Next: **P3 finance**.

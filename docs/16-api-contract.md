@@ -34,7 +34,7 @@ listed scope can still receive 403 from those routes.
 | DELETE /worker-hosts/{id} | CEO delete | company.pause + CEO |
 | POST /worker-hosts/{id}/heartbeat | Host token auth (`Bearer` or `X-Worker-Host-Token`); optional meta JSON | host token |
 | GET /worker-hosts/{id}/jobs | List jobs for this host (`status` query, default queued) | host token |
-| POST /worker-hosts/{id}/jobs/{job_id}/claim | Claim lease; returns job, queue payload, and worker command `envelope` | host token |
+| POST /worker-hosts/{id}/jobs/{job_id}/claim | Claim lease; returns job, queue payload, worker command `envelope`, and `egress: {mode, docker_network}`; never returns allowlist hostnames | host token |
 | POST /worker-hosts/{id}/jobs/{job_id}/gateway | Relay only `gateway_check`, `execute_mock`, or `store_artifact` for a claimed, unexpired job; `invoke_model` is denied; successful calls renew while still claimed and artifacts use the control-plane task root | host token |
 | POST /worker-hosts/{id}/jobs/{job_id}/renew | Extend the lease for a claimed, unexpired job without executing a gateway operation | host token |
 | POST /worker-hosts/{id}/jobs/{job_id}/complete | Body `{status, result?, runtime?}` → completed/failed; `runtime=remote_container` records a container that actually started; failure releases non-cancelled queue work for redispatch | host token |
@@ -137,8 +137,11 @@ listed scope can still receive 403 from those routes.
 
 Remote pull agents default to mock completion. Setting
 `FS_CORP_REMOTE_WORKER_RUNTIME=container` on the agent opts into a worker container that
-always runs with `--network none`; the agent relays only allowlisted gateway operations over
-its host-token API. Remote container egress is not implemented.
+uses claim `egress.mode`: `none` runs with `--network none`; `allowlist` uses the claim's named
+Docker network only when the agent's local allowlist is non-empty and that network exists,
+otherwise the agent completes the job as failed. The claim never carries allowlist hostnames
+or file paths. Missing/blank, `bridge`, and `host` network names are coerced to `none` by the
+control plane. The agent relays only allowlisted gateway operations over its host-token API.
 
 HTML surfaces: `GET /welcome` is the public landing, and `GET /` plus its alias `GET /desk`
 serve the CEO desk from FastAPI (no auth for the shell pages; the API reads they perform still

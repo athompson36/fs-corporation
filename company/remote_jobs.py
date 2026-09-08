@@ -8,6 +8,7 @@ import uuid
 from datetime import timedelta
 from pathlib import Path
 
+from company.chatdev_egress import claim_egress_policy
 from company.core import now
 from company.worker import SubprocessWorkerRuntime, build_worker_envelope
 from company.worker_hosts import heartbeat_ttl_sec, host_state, require_host_token
@@ -206,6 +207,7 @@ def claim_job(company, host_id: str, token: str, job_id: str) -> dict:
     out["payload"] = json.loads(qrow["payload"]) if qrow else {}
     worker_id = f"remote-host:{host_id}"
     out["envelope"] = build_worker_envelope(company, worker_id, row["task_id"])
+    out["egress"] = claim_egress_policy(company)
     return out
 
 

@@ -9,7 +9,7 @@ Environment:
   FS_CORP_WORKER_IMAGE    Docker image (default fs-corporation-worker:local)
   FS_CORP_WORKER_SCRATCH  Optional parent directory for temporary job scratch
 
-Does not open the company database. Container workers always use network none.
+Does not open the company database. Container workers default to network none.
 """
 from __future__ import annotations
 
@@ -90,14 +90,56 @@ def docker_ready(image: str, docker_bin: str | None = None) -> tuple[bool, str]:
     return True, ""
 
 
-def build_docker_cmd(docker: str, image: str, scratch: Path) -> list[str]:
+def agent_egress_ready(policy: dict) -> tuple[bool, str]:
+    """Check local prerequisites before using a claim's allowlisted network."""
+    if (policy or {}).get("mode") != "allowlist":
+        return True, ""
+    network = str((policy or {}).get("docker_network") or "").strip()
+    if not network or network.lower() in {"bridge", "host"}:
+        return False, "Egress docker_network missing or forbidden"
+    try:
+        from company.chatdev_egress import allowlist_path, load_https_hosts
+
+        path = allowlist_path()
+        if path is None:
+            return False, "Egress allowlist file not configured"
+        if not load_https_hosts(path):
+            return False, "Egress allowlist empty"
+    except Exception as exc:  # noqa: BLE001 — any local setup error fails closed
+        return False, f"Egress allowlist unready: {exc}"
+    docker = shutil.which("docker")
+    if not docker:
+        return False, "Docker executable not found for egress network inspection"
+    try:
+        inspected = subprocess.run(
+            [docker, "network", "inspect", network],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"Docker network inspection failed for {network}: {exc}"
+    if inspected.returncode != 0:
+        detail = (inspected.stderr or inspected.stdout or "").strip()
+        reason = f"Docker network unavailable: {network}"
+        return False, f"{reason}: {detail}" if detail else reason
+    return True, ""
+
+
+def build_docker_cmd(
+    docker: str, image: str, scratch: Path, network: str = "none"
+) -> list[str]:
     mount = str(scratch.resolve())
+    selected_network = str(network or "none").strip() or "none"
+    if selected_network.lower() in {"bridge", "host"}:
+        selected_network = "none"
     return [
         docker,
         "run",
         "--rm",
         "--network",
-        "none",
+        selected_network,
         "-v",
         f"{mount}:/work:rw",
         "-e",
@@ -105,7 +147,7 @@ def build_docker_cmd(docker: str, image: str, scratch: Path) -> list[str]:
         "--label",
         "fs.corp.runtime=remote_container",
         "--label",
-        "fs.corp.network=none",
+        f"fs.corp.network={selected_network}",
         image,
         "--envelope",
         "/work/envelope.json",
@@ -155,6 +197,12 @@ def execute_claimed_job(
     base: str, host_id: str, token: str, claimed: dict
 ) -> tuple[str, dict, bool]:
     image = (os.environ.get("FS_CORP_WORKER_IMAGE") or DEFAULT_WORKER_IMAGE).strip()
+    egress = claimed.get("egress") or {}
+    network = (
+        egress.get("docker_network")
+        if egress.get("mode") == "allowlist"
+        else "none"
+    )
     docker = shutil.which("docker")
     if not docker:
         return "failed", {
@@ -175,7 +223,7 @@ def execute_claimed_job(
                 json.dumps(claimed["envelope"]), encoding="utf-8"
             )
             proc = subprocess.Popen(
-                build_docker_cmd(docker, image, scratch),
+                build_docker_cmd(docker, image, scratch, network=network),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -229,13 +277,20 @@ def once(base: str, host_id: str, token: str) -> int:
             image = (
                 os.environ.get("FS_CORP_WORKER_IMAGE") or DEFAULT_WORKER_IMAGE
             ).strip()
-            ready, reason = docker_ready(image)
-            if not ready:
+            egress_ready, reason = agent_egress_ready(claimed.get("egress") or {})
+            if not egress_ready:
+                status, result = "failed", {
+                    "error": reason,
+                    "type": "remote_egress_unready",
+                }
+            else:
+                ready, reason = docker_ready(image)
+            if egress_ready and not ready:
                 status, result = "failed", {
                     "error": reason,
                     "type": "remote_container_unready",
                 }
-            else:
+            elif egress_ready:
                 try:
                     status, result, container_started = execute_claimed_job(
                         base, host_id, token, claimed

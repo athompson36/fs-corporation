@@ -92,6 +92,20 @@ def allowlist_status(company=None) -> dict:
     return out
 
 
+FORBIDDEN_NETWORKS = frozenset({"", "bridge", "host"})
+
+
+def claim_egress_policy(company=None) -> dict:
+    """Claim payload egress policy; never includes host lists."""
+    mode = egress_mode(company)
+    if mode != "allowlist":
+        return {"mode": "none", "docker_network": None}
+    network = (docker_network_name() or "").strip()
+    if not network or network.lower() in FORBIDDEN_NETWORKS:
+        return {"mode": "none", "docker_network": None}
+    return {"mode": "allowlist", "docker_network": network}
+
+
 def container_network_args(company=None) -> list[str]:
     """Docker --network args. Never returns unrestricted bridge; default none."""
     status = allowlist_status(company)
