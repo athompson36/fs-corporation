@@ -114,13 +114,16 @@ def build_docker_cmd(docker: str, image: str, scratch: Path) -> list[str]:
     ]
 
 
-def pump_remote_gateway(scratch, post_gateway, renew, timeout=120):
+def pump_remote_gateway(
+    scratch, post_gateway, renew, timeout=120, proc=None, renew_interval=30
+):
     scratch = Path(scratch)
     request_path = scratch / "gw-request.json"
     response_path = scratch / "gw-response.json"
     result_path = scratch / "result.json"
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    deadline = time.monotonic() + timeout
+    next_renew = time.monotonic() + renew_interval
+    while time.monotonic() < deadline:
         if request_path.exists() and not response_path.exists():
             try:
                 message = json.loads(request_path.read_text(encoding="utf-8"))
@@ -132,8 +135,18 @@ def pump_remote_gateway(scratch, post_gateway, renew, timeout=120):
             tmp.write_text(json.dumps(reply), encoding="utf-8")
             tmp.replace(response_path)
             renew()
+            next_renew = time.monotonic() + renew_interval
         if result_path.exists():
             return json.loads(result_path.read_text(encoding="utf-8"))
+        returncode = proc.poll() if proc is not None else None
+        if returncode is not None:
+            _stdout, stderr = proc.communicate()
+            detail = (stderr or "").strip()
+            suffix = f": {detail}" if detail else ""
+            raise RuntimeError(f"Remote container exited {returncode}{suffix}")
+        if time.monotonic() >= next_renew:
+            renew()
+            next_renew = time.monotonic() + renew_interval
         time.sleep(0.05)
     raise TimeoutError("Remote container worker did not finish")
 
@@ -148,39 +161,35 @@ def execute_claimed_job(
             "error": "Docker executable not found",
             "type": "remote_container_unready",
         }
-    scratch_parent = (os.environ.get("FS_CORP_WORKER_SCRATCH") or "").strip()
-    if scratch_parent:
-        Path(scratch_parent).mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(
-        prefix=f"remote-worker-{claimed['id']}-",
-        dir=scratch_parent or None,
-    ) as scratch_name:
-        scratch = Path(scratch_name)
-        (scratch / "envelope.json").write_text(
-            json.dumps(claimed["envelope"]), encoding="utf-8"
-        )
-        try:
+    proc = None
+    try:
+        scratch_parent = (os.environ.get("FS_CORP_WORKER_SCRATCH") or "").strip()
+        if scratch_parent:
+            Path(scratch_parent).mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            prefix=f"remote-worker-{claimed['id']}-",
+            dir=scratch_parent or None,
+        ) as scratch_name:
+            scratch = Path(scratch_name)
+            (scratch / "envelope.json").write_text(
+                json.dumps(claimed["envelope"]), encoding="utf-8"
+            )
             proc = subprocess.Popen(
                 build_docker_cmd(docker, image, scratch),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
             )
-        except OSError as exc:
-            return "failed", {
-                "error": str(exc),
-                "type": "remote_container_error",
-            }
-        job_url = (
-            f"{base}/api/v1/worker-hosts/{host_id}/jobs/{claimed['id']}"
-        )
-        try:
+            job_url = (
+                f"{base}/api/v1/worker-hosts/{host_id}/jobs/{claimed['id']}"
+            )
             result = pump_remote_gateway(
                 scratch,
                 lambda message: request(
                     "POST", f"{job_url}/gateway", token, message
                 ),
                 lambda: request("POST", f"{job_url}/renew", token),
+                proc=proc,
             )
             _stdout, stderr = proc.communicate(timeout=30)
             if proc.returncode != 0:
@@ -190,14 +199,15 @@ def execute_claimed_job(
                     "type": "remote_container_error",
                 }
             return "completed", result
-        except Exception as exc:  # noqa: BLE001 — return a failed job outcome
+    except Exception as exc:  # noqa: BLE001 — return a failed job outcome
+        if proc is not None:
             if proc.poll() is None:
                 proc.kill()
-            proc.communicate()
-            return "failed", {
-                "error": str(exc),
-                "type": "remote_container_error",
-            }
+                proc.communicate()
+        return "failed", {
+            "error": str(exc),
+            "type": "remote_container_error",
+        }
 
 
 def once(base: str, host_id: str, token: str) -> int:
@@ -225,7 +235,15 @@ def once(base: str, host_id: str, token: str) -> int:
                     "type": "remote_container_unready",
                 }
             else:
-                status, result = execute_claimed_job(base, host_id, token, claimed)
+                try:
+                    status, result = execute_claimed_job(
+                        base, host_id, token, claimed
+                    )
+                except Exception as exc:  # noqa: BLE001 — claimed jobs must complete
+                    status, result = "failed", {
+                        "error": str(exc),
+                        "type": "remote_container_error",
+                    }
             completion["runtime"] = "remote_container"
         request(
             "POST",

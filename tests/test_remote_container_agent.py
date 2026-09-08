@@ -87,6 +87,26 @@ class RemoteContainerAgentTests(unittest.TestCase):
                 {"allow": True},
             )
 
+    def test_pump_remote_gateway_detects_dead_process_without_result(self):
+        with tempfile.TemporaryDirectory() as scratch_name:
+            proc = MagicMock()
+            proc.poll.return_value = 7
+            proc.communicate.return_value = ("", "worker crashed")
+
+            with self.assertRaisesRegex(
+                RuntimeError, "Remote container exited 7: worker crashed"
+            ):
+                remote_worker_agent.pump_remote_gateway(
+                    Path(scratch_name),
+                    MagicMock(),
+                    MagicMock(),
+                    proc=proc,
+                    timeout=120,
+                )
+
+            proc.poll.assert_called()
+            proc.communicate.assert_called_once_with()
+
     def test_once_default_path_still_mock_completes(self):
         claimed = {"id": "job-1", "task_id": "agent-t1"}
         responses = [
@@ -155,16 +175,66 @@ class RemoteContainerAgentTests(unittest.TestCase):
             ),
         )
 
+    def test_once_container_setup_failure_posts_failed_complete(self):
+        claimed = {
+            "id": "job-1",
+            "task_id": "agent-t1",
+            "envelope": {"task_id": "agent-t1"},
+        }
+        responses = [
+            {},
+            {"jobs": [{"id": "job-1", "task_id": "agent-t1"}]},
+            claimed,
+            {},
+        ]
+        with patch.object(remote_worker_agent, "request", side_effect=responses) as http:
+            with patch.object(
+                remote_worker_agent, "docker_ready", return_value=(True, "")
+            ):
+                with patch.object(
+                    remote_worker_agent.shutil, "which", return_value="/docker"
+                ):
+                    with patch.object(
+                        remote_worker_agent.Path,
+                        "write_text",
+                        side_effect=OSError("scratch is read-only"),
+                    ):
+                        with patch.dict(
+                            os.environ, {"FS_CORP_REMOTE_WORKER_RUNTIME": "container"}
+                        ):
+                            handled = remote_worker_agent.once(
+                                "https://control", "host-1", "token"
+                            )
+
+        self.assertEqual(handled, 1)
+        self.assertEqual(
+            http.call_args_list[-1],
+            call(
+                "POST",
+                "https://control/api/v1/worker-hosts/host-1/jobs/job-1/complete",
+                "token",
+                {
+                    "status": "failed",
+                    "result": {
+                        "error": "scratch is read-only",
+                        "type": "remote_container_error",
+                    },
+                    "runtime": "remote_container",
+                },
+            ),
+        )
+
     def test_execute_claimed_job_posts_gateway_and_renew(self):
         claimed = {
             "id": "job-1",
             "task_id": "agent-t1",
             "envelope": {"task_id": "agent-t1"},
         }
-        proc = MagicMock(returncode=0)
-        proc.communicate.return_value = ("", "")
+        container_proc = MagicMock(returncode=0)
+        container_proc.communicate.return_value = ("", "")
 
-        def pump(_scratch, post_gateway, renew):
+        def pump(_scratch, post_gateway, renew, *, proc):
+            self.assertIs(proc, container_proc)
             self.assertEqual(
                 post_gateway({"op": "gateway_check"}), {"allow": True}
             )
@@ -172,7 +242,11 @@ class RemoteContainerAgentTests(unittest.TestCase):
             return {"task_id": "agent-t1"}
 
         with patch.object(remote_worker_agent.shutil, "which", return_value="/docker"):
-            with patch.object(remote_worker_agent.subprocess, "Popen", return_value=proc):
+            with patch.object(
+                remote_worker_agent.subprocess,
+                "Popen",
+                return_value=container_proc,
+            ):
                 with patch.object(
                     remote_worker_agent, "pump_remote_gateway", side_effect=pump
                 ):

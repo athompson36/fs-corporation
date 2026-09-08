@@ -13,6 +13,10 @@ pushed, and deployed to fs-dev.**
 
 - Health **200**, version **0.3.56**; alembic **`0028_remote_worker_jobs`**.
 - Do not commit `local repos/service-department/`.
+- On `feature/remote-container-on-agent`, Task 4 review fixes make the gateway
+  pump renew idle leases, detect dead containers promptly, and convert
+  post-claim container setup errors into failed completions.
+- Review-fix verification: focused **26 tests passed**; full **452 tests passed**.
 
 ## Next
 
