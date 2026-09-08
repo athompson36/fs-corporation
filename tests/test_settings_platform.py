@@ -292,6 +292,28 @@ class SettingsApiTests(unittest.TestCase):
         for row in s.json()["secrets"]:
             self.assertEqual(set(row.keys()), {"name", "configured"})
 
+    def test_secrets_status_vapid_file(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            pub = Path(tmp) / "vapid-public.pem"
+            priv = Path(tmp) / "vapid-private.pem"
+            pub.write_text("pub")
+            priv.write_text("priv")
+            with patch.dict(
+                os.environ,
+                {
+                    "VAPID_PUBLIC_KEY_FILE": str(pub),
+                    "VAPID_PRIVATE_KEY_FILE": str(priv),
+                },
+                clear=False,
+            ):
+                os.environ.pop("VAPID_PUBLIC_KEY", None)
+                os.environ.pop("VAPID_PRIVATE_KEY", None)
+                rows = {r["name"]: r["configured"] for r in secrets_status()}
+        self.assertTrue(rows["VAPID_PUBLIC_KEY"])
+        self.assertTrue(rows["VAPID_PRIVATE_KEY"])
+
     def test_paired_admin_allowed_and_companion_user_denied(self):
         admin_token = self._pair("admin")
         allowed = self.client.patch(

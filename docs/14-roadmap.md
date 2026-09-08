@@ -230,7 +230,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Two concurrent projects with no cross-leakage or overspend
 - [x] Backup/restore commands and operations notes
 - [x] Measured SLOs — catalog + sourced `slo_observations`; remain `unmeasured` until an owner records a windowed sample; no invented met/breached targets
-- [x] Consultant review cooldowns; independent before/after validation still requires a live change
+- [x] Consultant review cooldowns; independent before/after validation still requires a live change (P2 exposes `GET /api/v1/consultant/reviews` for cooldown honesty; no invented efficiency scores)
 - [x] Explicit refusal of non-loopback binds; human approval still required before any deployment
 
 **Acceptance:** two projects operate concurrently without cross-project data leakage or overspend; interruption/recovery tested; all claims in the capability matrix verified. Establish operational SLOs from measurement.

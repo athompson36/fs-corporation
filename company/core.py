@@ -2971,6 +2971,10 @@ class Company:
                                 (rid,trigger_kind,now().isoformat(),until))
         return until
 
+    def list_consultant_reviews(self):
+        return [dict(r) for r in self.db.execute(
+            "SELECT id, trigger_kind, last_run, cooldown_until FROM consultant_reviews ORDER BY trigger_kind")]
+
     def events_page(self,cursor=0,limit=50,project_id=None):
         limit=min(max(int(limit),1),200)
         if project_id:

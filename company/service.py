@@ -2944,6 +2944,12 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "consultant.read")
         return {"proposals": desk.list()}
 
+    @app.get("/api/v1/consultant/reviews")
+    def consultant_reviews(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "consultant.read")
+        return {"reviews": company.list_consultant_reviews()}
+
     @app.middleware("http")
     async def enforce_rate_limit(request: Request, call_next):
         path = request.url.path

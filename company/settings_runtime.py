@@ -97,11 +97,18 @@ def list_settings(company) -> list[dict]:
 
 def _secret_configured(name: str) -> bool:
     raw = os.environ.get(name)
-    if raw is None or str(raw).strip() == "":
-        return False
-    if name.endswith("_FILE"):
-        return Path(raw.strip()).expanduser().is_file()
-    return True
+    if raw is not None and str(raw).strip() != "":
+        if name.endswith("_FILE") or name.endswith("_PATH"):
+            return Path(raw.strip()).expanduser().is_file()
+        return True
+    # fs-dev often stores VAPID material as *_FILE paths only.
+    if name == "VAPID_PUBLIC_KEY":
+        path = (os.environ.get("VAPID_PUBLIC_KEY_FILE") or "").strip()
+        return bool(path) and Path(path).expanduser().is_file()
+    if name == "VAPID_PRIVATE_KEY":
+        path = (os.environ.get("VAPID_PRIVATE_KEY_FILE") or "").strip()
+        return bool(path) and Path(path).expanduser().is_file()
+    return False
 
 
 def secrets_status() -> list[dict]:

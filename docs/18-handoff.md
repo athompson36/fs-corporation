@@ -1,35 +1,30 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.53**. State: **P1 Settings platform slice A merged to
-`main`, pushed, and deploying to fs-dev.**
+Date: 2026-09-07. Version: **0.3.53**. State: **P2 live ops on `feature/p2-live-ops`
+(feeds + Models + ChatDev egress allowlist + secrets VAPID file honesty + consultant reviews read).**
 
-## P1 Settings platform slice A (on main)
+## P2 on this branch
 
-- `company_settings` SQLite overlay + catalog; effective resolution overlay → env → default.
-- APIs: `GET/PATCH /api/v1/settings`, `POST /api/v1/settings/reset`,
-  `GET /api/v1/settings/secrets-status` (ADR-036).
-- Companion Settings: Connection, **Runtime**, read-only **Host**, **Secrets** status.
-- Rate-limit overlays apply at API process start (`restart_required`); default worker
-  runtime catalog default is `subprocess` (fs-dev env still sets `container`).
+- Feed pause/revoke + companion Settings → Feeds (watchlists remain template-only).
+- Companion Settings → Models (read-only profiles; global cents via Runtime).
+- `FS_CORP_CHATDEV_WORKER_EGRESS` + host allowlist file; workers stay `--network none`
+  unless mode=allowlist, file valid, and `FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK` set (ADR-037).
+- Secrets-status treats VAPID `*_FILE` as configured.
+- `GET /api/v1/consultant/reviews` for cooldown rows (no fake before/after metrics).
 
 ## Also on main
 
-- P0.2 M10 ops (idempotency prune, model/benchmark reads, companion forms, learning fetch).
-- Dispatch options + recommend autofill (ADR-035).
-- Companion iPhone scopes / paired-admin ops / five-tab layout (ADR-034).
+- P1 Settings platform (ADR-036).
+- P0.2 M10 ops; dispatch recommend (ADR-035); companion scopes (ADR-034).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **382 passed**
-- `cd companion && npm run build`: passed
-
-## Production roadmap
-
-Next: **P2 Live ops** or expand Settings sections — see
-[docs/superpowers/plans/2026-09-07-production-feature-build-out.md](superpowers/plans/2026-09-07-production-feature-build-out.md).
+- Targeted: `tests.test_feed_lifecycle`, `tests.test_chatdev_egress`, companion feed source test,
+  `npm run build` — run full suite before merge.
+- Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. After deploy: open https://192.168.4.100 companion Settings → Runtime / Secrets.
-2. Owner chooses P2 vs Settings expansion.
-3. Do not commit `local repos/service-department/`.
+1. Merge/push `feature/p2-live-ops` when owner requests; deploy to fs-dev.
+2. On fs-dev ChatDev egress: create restricted Docker network + allowlist file before enabling mode.
+3. **P3 Durable finance** (invoice/refunds/period rollover) — see production build-out plan.
