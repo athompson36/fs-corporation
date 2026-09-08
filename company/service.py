@@ -2955,6 +2955,33 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @app.post("/api/v1/worker-hosts/{host_id}/jobs/{job_id}/gateway")
+    def worker_host_job_gateway(
+            host_id: str, job_id: str, body: dict | None = None,
+            authorization: str | None = Header(default=None),
+            x_worker_host_token: str | None = Header(default=None, alias="X-Worker-Host-Token")):
+        token = _host_token(authorization, x_worker_host_token)
+        payload = body if isinstance(body, dict) else {}
+        try:
+            return company.gateway_remote_job(host_id, token, job_id, payload)
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/worker-hosts/{host_id}/jobs/{job_id}/renew")
+    def worker_host_job_renew(
+            host_id: str, job_id: str,
+            authorization: str | None = Header(default=None),
+            x_worker_host_token: str | None = Header(default=None, alias="X-Worker-Host-Token")):
+        token = _host_token(authorization, x_worker_host_token)
+        try:
+            return company.renew_remote_job(host_id, token, job_id)
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     @app.post("/api/v1/worker-hosts/{host_id}/jobs/{job_id}/complete")
     def worker_host_job_complete(
             host_id: str, job_id: str, body: dict | None = None,
@@ -2964,9 +2991,10 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         payload = body if isinstance(body, dict) else {}
         status = payload.get("status") or "completed"
         result = payload.get("result")
+        runtime = payload.get("runtime")
         try:
             return company.complete_remote_job(
-                host_id, token, job_id, status=status, result=result)
+                host_id, token, job_id, status=status, result=result, runtime=runtime)
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:

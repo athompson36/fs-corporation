@@ -1,19 +1,27 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.56**. State: **Remote pull agent merged to `main`,
-pushed, and deployed to fs-dev.**
+Date: 2026-09-08. Version: **0.3.58**. State: **Track A remote container-on-agent
+merged to `main`, pushed, and deploying to fs-dev.**
 
 ## On main / fs-dev
 
-- Alembic `0028_remote_worker_jobs`; explicit `worker_host_id` enqueue (ADR-042).
-- Host-token claim/complete; `scripts/remote_worker_agent.py`.
-- Default dispatch remains same-host.
+- Claim returns worker `envelope`; host-token `gateway` + `renew`; optional complete
+  `runtime=remote_container` (ADR-044).
+- Remote gateway allowlist: `gateway_check`, `execute_mock`, `store_artifact` only (no
+  `invoke_model` relay).
+- Failed remote complete releases non-cancelled queue leases for re-dispatch.
+- Agent opt-in: `FS_CORP_REMOTE_WORKER_RUNTIME=container` → `--network none` + relayed
+  gateway; default remains mock-complete. Fail closed without Docker/image.
+- No new Alembic; head remains `0028_remote_worker_jobs`.
 
 ## Verification
 
-- Health **200**, version **0.3.56**; alembic **`0028_remote_worker_jobs`**.
+- `.venv/bin/python -m unittest discover -s tests`: **455 passed** before merge.
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Follow-ons: remote container-on-agent, auto placement, or marketing layout.
+1. **Track C — marketing layout** (approach approved: C1 `/welcome` FastAPI landing, then
+   C2 marketing HQ furniture kind). Design sections / spec not written yet.
+2. Track B automatic placement may still be in git stash / `feature/auto-remote-placement`;
+   not part of 0.3.58.

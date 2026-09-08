@@ -44,6 +44,7 @@
 | ADR-040 | 2026-09-08 | Worker host registry without remote dispatch; SVG furniture from room_type | CEO registers remotes + heartbeat → ready/stale/disabled on `/workers/status`. Dispatch stays same-host. TailscaleKit stubbed. Desk furniture glyphs bind only to persisted room types. |
 | ADR-041 | 2026-09-08 | Shared cosmic-glass tokens for desk + companion | Single `assets/cosmic-glass-tokens.css` served at `/static` and imported by companion; M10-04 version chrome + HQ keyboard. |
 | ADR-042 | 2026-09-08 | Remote pull agent with explicit host routing; mock-complete v1 | `worker_host_id` enqueues `remote_worker_jobs`; agent claims/completes with host token. Default dispatch stays same-host. No remote Docker yet. |
+| ADR-044 | 2026-09-08 | Opt-in remote container with host-token gateway relay | Remote agents may opt into container execution with `--network none`; the agent relays allowlisted gateway operations. Default remains mock-complete. No remote egress this slice. |
 
 ### ADR-010 detail
 
@@ -531,5 +532,29 @@ dispatch. Remote Docker/file gateway is deferred.
 
 **Consequences.** `scripts/remote_worker_agent.py` is the reference agent. Control plane
 never opens remote SSH.
+
+### ADR-044 detail
+
+**Context.** ADR-042 established explicit remote pull jobs with host-token claim and
+mock completion, but did not execute the isolated worker image. Operators need an opt-in
+container path without giving the container network access or control-plane credentials.
+
+**Decision.** When `FS_CORP_REMOTE_WORKER_RUNTIME=container`, the pull agent runs the
+configured worker image with `--network none`, writes the claimed command envelope to local
+scratch, and relays allowlisted file-gateway requests over the existing host-token API.
+Gateway activity renews the claim lease, and a dedicated renew route covers idle work.
+Default agent behavior remains mock-complete. Remote egress is not enabled in this slice.
+
+**Alternatives considered.** Giving the container direct API credentials or Docker network
+access was rejected because it broadens the trust and egress boundary. Replacing the default
+mock path was rejected because container execution must remain explicit and fail closed.
+
+**Consequences.** Missing Docker or an unavailable image fails the claimed job rather than
+falling back to mock completion. Artifacts relayed from `/work` are rooted by the control
+plane. The relay permits only gateway checks, mock execution, and artifact storage; model
+invocation remains local-only. Failed remote completion releases non-cancelled queue work for
+redispatch, and pre-start failures retain the `remote_agent` runtime. Auto placement, registry
+control, and remote ChatDev/provider egress remain separate work. No Alembic revision is
+required.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

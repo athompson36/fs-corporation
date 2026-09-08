@@ -1,23 +1,32 @@
 #!/usr/bin/env python3
-"""Pull agent for registered worker hosts (heartbeat + claim + mock complete).
+"""Pull agent for registered worker hosts (heartbeat + claim + execute).
 
 Environment:
   FS_CORP_CONTROL_URL     Base URL of the control plane (e.g. https://192.168.4.100)
   FS_CORP_WORKER_HOST_ID  Host id from CEO create
   FS_CORP_WORKER_HOST_TOKEN  Host token (or FS_CORP_WORKER_HOST_TOKEN_FILE)
+  FS_CORP_REMOTE_WORKER_RUNTIME  Set to "container" to opt into Docker execution
+  FS_CORP_WORKER_IMAGE    Docker image (default fs-corporation-worker:local)
+  FS_CORP_WORKER_SCRATCH  Optional parent directory for temporary job scratch
 
-Does not open the company database. Mock-complete only (no remote Docker in v1).
+Does not open the company database. Container workers always use network none.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+
+DEFAULT_WORKER_IMAGE = "fs-corporation-worker:local"
 
 
 def _token_from_env() -> str:
@@ -56,6 +65,151 @@ def mock_execute(job: dict) -> dict:
     }
 
 
+def runtime_mode() -> str:
+    return (os.environ.get("FS_CORP_REMOTE_WORKER_RUNTIME") or "").strip().lower()
+
+
+def docker_ready(image: str, docker_bin: str | None = None) -> tuple[bool, str]:
+    docker = docker_bin or shutil.which("docker")
+    if not docker:
+        return False, "Docker executable not found"
+    try:
+        inspected = subprocess.run(
+            [docker, "image", "inspect", image],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, f"Docker image inspection failed for {image}: {exc}"
+    if inspected.returncode != 0:
+        detail = (inspected.stderr or inspected.stdout or "").strip()
+        reason = f"Docker image unavailable: {image}"
+        return False, f"{reason}: {detail}" if detail else reason
+    return True, ""
+
+
+def build_docker_cmd(docker: str, image: str, scratch: Path) -> list[str]:
+    mount = str(scratch.resolve())
+    return [
+        docker,
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "-v",
+        f"{mount}:/work:rw",
+        "-e",
+        "COMPANY_WORKER_MODE=container",
+        "--label",
+        "fs.corp.runtime=remote_container",
+        "--label",
+        "fs.corp.network=none",
+        image,
+        "--envelope",
+        "/work/envelope.json",
+        "--scratch",
+        "/work",
+    ]
+
+
+def pump_remote_gateway(
+    scratch, post_gateway, renew, timeout=120, proc=None, renew_interval=30
+):
+    scratch = Path(scratch)
+    request_path = scratch / "gw-request.json"
+    response_path = scratch / "gw-response.json"
+    result_path = scratch / "result.json"
+    deadline = time.monotonic() + timeout
+    next_renew = time.monotonic() + renew_interval
+    while time.monotonic() < deadline:
+        if request_path.exists() and not response_path.exists():
+            try:
+                message = json.loads(request_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                time.sleep(0.05)
+                continue
+            reply = post_gateway(message)
+            tmp = scratch / "gw-response.json.tmp"
+            tmp.write_text(json.dumps(reply), encoding="utf-8")
+            tmp.replace(response_path)
+            renew()
+            next_renew = time.monotonic() + renew_interval
+        if result_path.exists():
+            return json.loads(result_path.read_text(encoding="utf-8"))
+        returncode = proc.poll() if proc is not None else None
+        if returncode is not None:
+            _stdout, stderr = proc.communicate()
+            detail = (stderr or "").strip()
+            suffix = f": {detail}" if detail else ""
+            raise RuntimeError(f"Remote container exited {returncode}{suffix}")
+        if time.monotonic() >= next_renew:
+            renew()
+            next_renew = time.monotonic() + renew_interval
+        time.sleep(0.05)
+    raise TimeoutError("Remote container worker did not finish")
+
+
+def execute_claimed_job(
+    base: str, host_id: str, token: str, claimed: dict
+) -> tuple[str, dict, bool]:
+    image = (os.environ.get("FS_CORP_WORKER_IMAGE") or DEFAULT_WORKER_IMAGE).strip()
+    docker = shutil.which("docker")
+    if not docker:
+        return "failed", {
+            "error": "Docker executable not found",
+            "type": "remote_container_unready",
+        }, False
+    proc = None
+    try:
+        scratch_parent = (os.environ.get("FS_CORP_WORKER_SCRATCH") or "").strip()
+        if scratch_parent:
+            Path(scratch_parent).mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            prefix=f"remote-worker-{claimed['id']}-",
+            dir=scratch_parent or None,
+        ) as scratch_name:
+            scratch = Path(scratch_name)
+            (scratch / "envelope.json").write_text(
+                json.dumps(claimed["envelope"]), encoding="utf-8"
+            )
+            proc = subprocess.Popen(
+                build_docker_cmd(docker, image, scratch),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            job_url = (
+                f"{base}/api/v1/worker-hosts/{host_id}/jobs/{claimed['id']}"
+            )
+            result = pump_remote_gateway(
+                scratch,
+                lambda message: request(
+                    "POST", f"{job_url}/gateway", token, message
+                ),
+                lambda: request("POST", f"{job_url}/renew", token),
+                proc=proc,
+            )
+            _stdout, stderr = proc.communicate(timeout=30)
+            if proc.returncode != 0:
+                detail = (stderr or "").strip()
+                return "failed", {
+                    "error": f"Remote container exited {proc.returncode}: {detail}",
+                    "type": "remote_container_error",
+                }, True
+            return "completed", result, True
+    except Exception as exc:  # noqa: BLE001 — return a failed job outcome
+        if proc is not None:
+            if proc.poll() is None:
+                proc.kill()
+                proc.communicate()
+        return "failed", {
+            "error": str(exc),
+            "type": "remote_container_error",
+        }, proc is not None
+
+
 def once(base: str, host_id: str, token: str) -> int:
     request("POST", f"{base}/api/v1/worker-hosts/{host_id}/heartbeat", token, {"meta": {"agent": "remote_worker_agent"}})
     listed = request("GET", f"{base}/api/v1/worker-hosts/{host_id}/jobs?status=queued", token)
@@ -67,15 +221,43 @@ def once(base: str, host_id: str, token: str) -> int:
             f"{base}/api/v1/worker-hosts/{host_id}/jobs/{job['id']}/claim",
             token,
         )
-        result = mock_execute(claimed)
+        completion: dict = {}
+        if runtime_mode() != "container":
+            status, result = "completed", mock_execute(claimed)
+        else:
+            container_started = False
+            image = (
+                os.environ.get("FS_CORP_WORKER_IMAGE") or DEFAULT_WORKER_IMAGE
+            ).strip()
+            ready, reason = docker_ready(image)
+            if not ready:
+                status, result = "failed", {
+                    "error": reason,
+                    "type": "remote_container_unready",
+                }
+            else:
+                try:
+                    status, result, container_started = execute_claimed_job(
+                        base, host_id, token, claimed
+                    )
+                except Exception as exc:  # noqa: BLE001 — claimed jobs must complete
+                    status, result = "failed", {
+                        "error": str(exc),
+                        "type": "remote_container_error",
+                    }
+            if container_started:
+                completion["runtime"] = "remote_container"
         request(
             "POST",
             f"{base}/api/v1/worker-hosts/{host_id}/jobs/{job['id']}/complete",
             token,
-            {"status": "completed", "result": result},
+            {"status": status, "result": result, **completion},
         )
         handled += 1
-        print(f"completed job={job['id']} task={job.get('task_id')}", flush=True)
+        print(
+            f"{status} job={job['id']} task={job.get('task_id')}",
+            flush=True,
+        )
     return handled
 
 

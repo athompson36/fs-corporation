@@ -31,8 +31,10 @@ listed scope can still receive 403 from those routes.
 | DELETE /worker-hosts/{id} | CEO delete | company.pause + CEO |
 | POST /worker-hosts/{id}/heartbeat | Host token auth (`Bearer` or `X-Worker-Host-Token`); optional meta JSON | host token |
 | GET /worker-hosts/{id}/jobs | List jobs for this host (`status` query, default queued) | host token |
-| POST /worker-hosts/{id}/jobs/{job_id}/claim | Claim lease; returns job + queue payload | host token |
-| POST /worker-hosts/{id}/jobs/{job_id}/complete | Body `{status, result?}` → completed/failed | host token |
+| POST /worker-hosts/{id}/jobs/{job_id}/claim | Claim lease; returns job, queue payload, and worker command `envelope` | host token |
+| POST /worker-hosts/{id}/jobs/{job_id}/gateway | Relay only `gateway_check`, `execute_mock`, or `store_artifact` for a claimed, unexpired job; `invoke_model` is denied; successful calls renew while still claimed and artifacts use the control-plane task root | host token |
+| POST /worker-hosts/{id}/jobs/{job_id}/renew | Extend the lease for a claimed, unexpired job without executing a gateway operation | host token |
+| POST /worker-hosts/{id}/jobs/{job_id}/complete | Body `{status, result?, runtime?}` → completed/failed; `runtime=remote_container` records a container that actually started; failure releases non-cancelled queue work for redispatch | host token |
 | POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
 | GET /projects/{id}/dispatch-options | Parameter key: templates, presets, max_cents, department statuses | project.enroll |
 | POST /projects/{id}/dispatch-recommend | Advisory mock→live recommend/autofill payload (never dispatches) | project.enroll |
@@ -129,6 +131,11 @@ listed scope can still receive 403 from those routes.
 | POST /work-orders/{id}/replay | Return prior outcome for matching `workflow_digest` without re-executing ChatDev | company.pause (CEO) |
 | POST /consultant-proposals/{id}/decision | CEO approve/reject | consultant.decide |
 | POST /consultant-proposals/{id}/revise | New digest; does not mutate the old proposal | consultant.propose |
+
+Remote pull agents default to mock completion. Setting
+`FS_CORP_REMOTE_WORKER_RUNTIME=container` on the agent opts into a worker container that
+always runs with `--network none`; the agent relays only allowlisted gateway operations over
+its host-token API. Remote container egress is not implemented.
 
 HTML CEO desk: `GET /` and its alias `GET /desk` (no auth for the shell page; the API reads it
 performs still require a bearer token). The alias exists so the fs-dev Caddy edge can serve the
