@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "https_hosts": [
+    "api.anthropic.com",
+    "api.openai.com"
+  ],
+  "note": "Hostnames only (no schemes). Used when FS_CORP_CHATDEV_WORKER_EGRESS=allowlist and FS_CORP_CHATDEV_EGRESS_ALLOWLIST_FILE points here. Default workers remain --network none."
+}

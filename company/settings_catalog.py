@@ -89,6 +89,15 @@ CATALOG: dict[str, SettingDef] = {
         "restart_required": False,
         "description": "Allow ChatDev runs to invoke control-plane actions",
     },
+    "FS_CORP_CHATDEV_WORKER_EGRESS": {
+        "key": "FS_CORP_CHATDEV_WORKER_EGRESS",
+        "type": "enum",
+        "default": "none",
+        "enum_values": ("none", "allowlist"),
+        "editable": True,
+        "restart_required": False,
+        "description": "Container ChatDev egress: none (default) or allowlisted HTTPS via host Docker network",
+    },
     "FS_CORP_IDEMPOTENCY_RETENTION_DAYS": {
         "key": "FS_CORP_IDEMPOTENCY_RETENTION_DAYS",
         "type": "int",
