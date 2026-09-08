@@ -10,6 +10,9 @@ or deployed by this task.**
 - Claimed jobs expose host-token gateway and lease-renew routes; gateway operations reuse the
   worker allowlist, renew leases, and root stored artifacts on the control plane.
 - Completion can record runtime `remote_container`.
+- Whole-branch review fixes restrict the remote relay to `gateway_check`, `execute_mock`, and
+  `store_artifact`; failed completion releases non-cancelled queue leases; successful gateway
+  replies survive a post-operation lost claim; and pre-start failures stay `remote_agent`.
 - `scripts/remote_worker_agent.py` defaults to mock completion. Explicit
   `FS_CORP_REMOTE_WORKER_RUNTIME=container` runs the configured image with `--network none`,
   relays gateway requests, renews idle leases, detects dead containers, and completes failed
@@ -21,7 +24,9 @@ or deployed by this task.**
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **452 passed**.
+- `.venv/bin/python -m unittest tests.test_remote_container_agent tests.test_remote_worker_jobs`:
+  **33 passed** after the whole-branch fixes.
+- `.venv/bin/python -m unittest discover -s tests`: **455 passed** after the whole-branch fixes.
 - `companion/npm run build`: **passed** for companion 0.3.58.
 - `scripts/check_bundle.py`: reaches the pre-existing nested local repository and fails on
   `local repos/service-department/README.md` → missing `./LICENSE`.

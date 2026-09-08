@@ -57,9 +57,9 @@ sequenceDiagram
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | POST | `…/jobs/{job_id}/claim` | host token | Response adds `envelope` |
-| POST | `…/jobs/{job_id}/gateway` | host token | Body = file-gateway message (`op` + args). Reuse `SubprocessWorkerRuntime.handle_request` + `ALLOWED_WORKER_OPS`. Require job `claimed`, valid lease, host match. Successful gateway **also renews** the lease. For `store_artifact`, ignore container-local `root`/`/work` paths; persist under the control-plane artifact root for that task (same as local parent). |
+| POST | `…/jobs/{job_id}/gateway` | host token | Body = file-gateway message (`op` + args). Remote-only allowlist: `gateway_check`, `execute_mock`, `store_artifact`; `invoke_model` is denied. Require job `claimed`, valid lease, host match. Successful gateway **also renews** the lease when still claimed; if the claim is lost after an operation commits, return its successful reply without renewing. For `store_artifact`, ignore container-local `root`/`/work` paths; persist under the control-plane artifact root for that task (same as local parent). |
 | POST | `…/jobs/{job_id}/renew` | host token | Extend `lease_expires_at` by `LEASE_SEC` (120s) without executing an op (idle stretch while container runs). |
-| POST | `…/jobs/{job_id}/complete` | host token | Unchanged body. Container path records runtime `remote_container` on run/events when used. |
+| POST | `…/jobs/{job_id}/complete` | host token | Unchanged body. Container path records runtime `remote_container` only after Docker starts. Failed completion releases a non-cancelled queue lease for redispatch. |
 
 No new Alembic revision: claim payload and routes only.
 
@@ -75,7 +75,7 @@ No new Alembic revision: claim payload and routes only.
 ## Authority and fail-closed
 
 - Gateway and renew: host token only; path `host_id` must match token; job must belong to that host.
-- Unknown `op` → deny (same as local parent).
+- Any remote op outside `gateway_check`, `execute_mock`, and `store_artifact` → deny.
 - Gateway / complete after lease expiry → deny; agent should complete `failed` or let reclaim after expiry rules.
 - Container mode without docker/image → `failed`, never silent mock.
 - Mock agents do not call gateway routes.

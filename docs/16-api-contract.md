@@ -32,9 +32,9 @@ listed scope can still receive 403 from those routes.
 | POST /worker-hosts/{id}/heartbeat | Host token auth (`Bearer` or `X-Worker-Host-Token`); optional meta JSON | host token |
 | GET /worker-hosts/{id}/jobs | List jobs for this host (`status` query, default queued) | host token |
 | POST /worker-hosts/{id}/jobs/{job_id}/claim | Claim lease; returns job, queue payload, and worker command `envelope` | host token |
-| POST /worker-hosts/{id}/jobs/{job_id}/gateway | Relay an allowlisted worker file-gateway message for a claimed, unexpired job; successful calls renew the lease and artifacts use the control-plane task root | host token |
+| POST /worker-hosts/{id}/jobs/{job_id}/gateway | Relay only `gateway_check`, `execute_mock`, or `store_artifact` for a claimed, unexpired job; `invoke_model` is denied; successful calls renew while still claimed and artifacts use the control-plane task root | host token |
 | POST /worker-hosts/{id}/jobs/{job_id}/renew | Extend the lease for a claimed, unexpired job without executing a gateway operation | host token |
-| POST /worker-hosts/{id}/jobs/{job_id}/complete | Body `{status, result?, runtime?}` → completed/failed; `runtime=remote_container` records the opt-in container runtime | host token |
+| POST /worker-hosts/{id}/jobs/{job_id}/complete | Body `{status, result?, runtime?}` → completed/failed; `runtime=remote_container` records a container that actually started; failure releases non-cancelled queue work for redispatch | host token |
 | POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
 | GET /projects/{id}/dispatch-options | Parameter key: templates, presets, max_cents, department statuses | project.enroll |
 | POST /projects/{id}/dispatch-recommend | Advisory mock→live recommend/autofill payload (never dispatches) | project.enroll |

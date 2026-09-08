@@ -153,14 +153,14 @@ def pump_remote_gateway(
 
 def execute_claimed_job(
     base: str, host_id: str, token: str, claimed: dict
-) -> tuple[str, dict]:
+) -> tuple[str, dict, bool]:
     image = (os.environ.get("FS_CORP_WORKER_IMAGE") or DEFAULT_WORKER_IMAGE).strip()
     docker = shutil.which("docker")
     if not docker:
         return "failed", {
             "error": "Docker executable not found",
             "type": "remote_container_unready",
-        }
+        }, False
     proc = None
     try:
         scratch_parent = (os.environ.get("FS_CORP_WORKER_SCRATCH") or "").strip()
@@ -197,8 +197,8 @@ def execute_claimed_job(
                 return "failed", {
                     "error": f"Remote container exited {proc.returncode}: {detail}",
                     "type": "remote_container_error",
-                }
-            return "completed", result
+                }, True
+            return "completed", result, True
     except Exception as exc:  # noqa: BLE001 — return a failed job outcome
         if proc is not None:
             if proc.poll() is None:
@@ -207,7 +207,7 @@ def execute_claimed_job(
         return "failed", {
             "error": str(exc),
             "type": "remote_container_error",
-        }
+        }, proc is not None
 
 
 def once(base: str, host_id: str, token: str) -> int:
@@ -225,6 +225,7 @@ def once(base: str, host_id: str, token: str) -> int:
         if runtime_mode() != "container":
             status, result = "completed", mock_execute(claimed)
         else:
+            container_started = False
             image = (
                 os.environ.get("FS_CORP_WORKER_IMAGE") or DEFAULT_WORKER_IMAGE
             ).strip()
@@ -236,7 +237,7 @@ def once(base: str, host_id: str, token: str) -> int:
                 }
             else:
                 try:
-                    status, result = execute_claimed_job(
+                    status, result, container_started = execute_claimed_job(
                         base, host_id, token, claimed
                     )
                 except Exception as exc:  # noqa: BLE001 — claimed jobs must complete
@@ -244,7 +245,8 @@ def once(base: str, host_id: str, token: str) -> int:
                         "error": str(exc),
                         "type": "remote_container_error",
                     }
-            completion["runtime"] = "remote_container"
+            if container_started:
+                completion["runtime"] = "remote_container"
         request(
             "POST",
             f"{base}/api/v1/worker-hosts/{host_id}/jobs/{job['id']}/complete",

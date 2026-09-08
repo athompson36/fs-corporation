@@ -551,7 +551,10 @@ mock path was rejected because container execution must remain explicit and fail
 
 **Consequences.** Missing Docker or an unavailable image fails the claimed job rather than
 falling back to mock completion. Artifacts relayed from `/work` are rooted by the control
-plane. Auto placement, registry control, and remote ChatDev/provider egress remain separate
-work. No Alembic revision is required.
+plane. The relay permits only gateway checks, mock execution, and artifact storage; model
+invocation remains local-only. Failed remote completion releases non-cancelled queue work for
+redispatch, and pre-start failures retain the `remote_agent` runtime. Auto placement, registry
+control, and remote ChatDev/provider egress remain separate work. No Alembic revision is
+required.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

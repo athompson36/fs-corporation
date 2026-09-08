@@ -16,6 +16,7 @@ from company.remote_jobs import (
     relay_gateway,
     renew_job_lease,
 )
+from company.worker import SubprocessWorkerRuntime
 from company.worker_hosts import create_worker_host, record_worker_host_heartbeat
 from tests.test_api import owner_client
 from tests.test_core import install, policy
@@ -170,7 +171,6 @@ class RemoteContainerAgentTests(unittest.TestCase):
                         "error": "Docker executable not found",
                         "type": "remote_container_unready",
                     },
-                    "runtime": "remote_container",
                 },
             ),
         )
@@ -219,7 +219,6 @@ class RemoteContainerAgentTests(unittest.TestCase):
                         "error": "scratch is read-only",
                         "type": "remote_container_error",
                     },
-                    "runtime": "remote_container",
                 },
             ),
         )
@@ -255,10 +254,11 @@ class RemoteContainerAgentTests(unittest.TestCase):
                         "request",
                         side_effect=[{"allow": True}, {"status": "claimed"}],
                     ) as http:
-                        status, result = remote_worker_agent.execute_claimed_job(
+                        status, result, container_started = remote_worker_agent.execute_claimed_job(
                             "https://control", "host-1", "token", claimed
                         )
         self.assertEqual((status, result), ("completed", {"task_id": "agent-t1"}))
+        self.assertTrue(container_started)
         self.assertEqual(
             http.call_args_list,
             [
@@ -284,12 +284,13 @@ class RemoteContainerAgentTests(unittest.TestCase):
                 "Popen",
                 side_effect=OSError("cannot start docker"),
             ):
-                status, result = remote_worker_agent.execute_claimed_job(
+                status, result, container_started = remote_worker_agent.execute_claimed_job(
                     "https://control", "host-1", "token", claimed
                 )
         self.assertEqual(status, "failed")
         self.assertEqual(result["type"], "remote_container_error")
         self.assertIn("cannot start docker", result["error"])
+        self.assertFalse(container_started)
 
 
 class ClaimEnvelopeTests(unittest.TestCase):
@@ -392,6 +393,21 @@ class GatewayRelayTests(unittest.TestCase):
         ).fetchone()
         self.assertEqual(row["lease_expires_at"], old_expiry)
 
+    def test_gateway_invoke_model_denied(self):
+        claimed = self._claimed()
+        with patch.object(
+            SubprocessWorkerRuntime, "handle_request"
+        ) as handle_request:
+            with self.assertRaises(PermissionError):
+                relay_gateway(
+                    self.c,
+                    self.host_id,
+                    self.token,
+                    claimed["id"],
+                    {"op": "invoke_model"},
+                )
+        handle_request.assert_not_called()
+
     def test_gateway_rejects_task_id_mismatch(self):
         claimed = self._claimed()
         with self.assertRaises(PermissionError):
@@ -479,6 +495,37 @@ class GatewayRelayTests(unittest.TestCase):
                 os.path.dirname(artifact["storage_uri"]),
                 os.path.join(scratch, "remote-artifacts", "gw-t1"),
             )
+
+    def test_gateway_returns_reply_if_claim_lost_after_side_effect(self):
+        claimed = self._claimed()
+
+        def finish_job_during_request(*_args, **_kwargs):
+            with self.c.tx():
+                self.c.db.execute(
+                    "UPDATE remote_worker_jobs SET status='completed' WHERE id=?",
+                    (claimed["id"],),
+                )
+            return {"stored": True}
+
+        with patch.object(
+            SubprocessWorkerRuntime,
+            "handle_request",
+            side_effect=finish_job_during_request,
+        ):
+            reply = relay_gateway(
+                self.c,
+                self.host_id,
+                self.token,
+                claimed["id"],
+                {
+                    "op": "store_artifact",
+                    "producer": "head",
+                    "project": "app",
+                    "task_id": "gw-t1",
+                    "content_text": "artifact",
+                },
+            )
+        self.assertEqual(reply, {"stored": True})
 
 
 class GatewayRelayHttpTests(unittest.TestCase):
@@ -598,6 +645,29 @@ class CompleteRuntimeTests(unittest.TestCase):
         ).fetchone()
         self.assertEqual(run["status"], "failed")
         self.assertEqual(run["runtime"], "remote_container")
+
+    def test_failed_complete_releases_queue_lease_for_redispatch(self):
+        claimed = self._claimed_job()
+        complete_job(
+            self.c,
+            self.host_id,
+            self.token,
+            claimed["id"],
+            status="failed",
+            result={"error": "container unavailable"},
+        )
+        queued = self.c.db.execute(
+            "SELECT status, lease_owner, lease_until FROM queue WHERE task_id=?",
+            ("rt-t1",),
+        ).fetchone()
+        self.assertEqual(queued["status"], "queued")
+        self.assertIsNone(queued["lease_owner"])
+        self.assertIsNone(queued["lease_until"])
+        self.c.dispatch_queued("rt-t1")
+        redispatched = self.c.db.execute(
+            "SELECT status FROM queue WHERE task_id=?", ("rt-t1",)
+        ).fetchone()
+        self.assertEqual(redispatched["status"], "done")
 
     def test_complete_rejects_invalid_runtime(self):
         claimed = self._claimed_job()

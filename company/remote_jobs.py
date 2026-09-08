@@ -9,12 +9,13 @@ from datetime import timedelta
 from pathlib import Path
 
 from company.core import now
-from company.worker import ALLOWED_WORKER_OPS, SubprocessWorkerRuntime, build_worker_envelope
+from company.worker import SubprocessWorkerRuntime, build_worker_envelope
 from company.worker_hosts import heartbeat_ttl_sec, host_state, require_host_token
 
 
 LEASE_SEC = 120
 MAX_ATTEMPTS = 3
+REMOTE_GATEWAY_OPS = frozenset({"gateway_check", "execute_mock", "store_artifact"})
 
 
 def _job_public(row) -> dict:
@@ -249,14 +250,13 @@ def relay_gateway(
     op = msg.get("op")
     if op is None:
         raise ValueError("Gateway message requires op")
-    if op not in ALLOWED_WORKER_OPS:
+    if op not in REMOTE_GATEWAY_OPS:
         raise PermissionError(f"Worker cannot invoke {op}")
-    if op in {"gateway_check", "execute_mock", "store_artifact"}:
-        message_task_id = msg.get("task_id")
-        if message_task_id is None:
-            raise PermissionError(f"Worker operation {op} requires task_id")
-        if message_task_id != task_id:
-            raise PermissionError("Gateway task does not match claimed job")
+    message_task_id = msg.get("task_id")
+    if message_task_id is None:
+        raise PermissionError(f"Worker operation {op} requires task_id")
+    if message_task_id != task_id:
+        raise PermissionError("Gateway task does not match claimed job")
 
     base = (os.environ.get("FS_CORP_WORKER_SCRATCH") or "").strip()
     if base:
@@ -277,12 +277,13 @@ def relay_gateway(
             "SELECT status FROM remote_worker_jobs WHERE id=? AND host_id=?",
             (job_id, host_id),
         ).fetchone()
-        if not current or current["status"] != "claimed":
-            raise PermissionError("Job is no longer claimed")
-        company.db.execute(
-            "UPDATE remote_worker_jobs SET lease_expires_at=?, updated_at=? WHERE id=?",
-            (expires, renewed_at, job_id),
-        )
+        if current and current["status"] == "claimed":
+            company.db.execute(
+                "UPDATE remote_worker_jobs SET lease_expires_at=?, updated_at=? WHERE id=?",
+                (expires, renewed_at, job_id),
+            )
+        # The operation may already have committed side effects. A lost claim only
+        # prevents renewal; it must not turn a successful reply into an error.
     return reply
 
 
@@ -343,18 +344,32 @@ def complete_job(
                     "runtime": recorded_runtime,
                 },
             )
-        elif run_id:
-            if runtime == "remote_container":
-                company.db.execute(
-                    "UPDATE worker_runs SET status=?, finished_at=?, runtime=? WHERE id=?",
-                    ("failed", stamp, "remote_container", run_id),
+        elif status == "failed":
+            if run_id:
+                if runtime == "remote_container":
+                    company.db.execute(
+                        "UPDATE worker_runs SET status=?, finished_at=?, runtime=? WHERE id=?",
+                        ("failed", stamp, "remote_container", run_id),
+                    )
+                else:
+                    company.db.execute(
+                        "UPDATE worker_runs SET status=?, finished_at=? WHERE id=?",
+                        ("failed", stamp, run_id),
+                    )
+                company._event(
+                    "worker.finished", {"run_id": run_id, "status": "failed"}
                 )
-            else:
-                company.db.execute(
-                    "UPDATE worker_runs SET status=?, finished_at=? WHERE id=?",
-                    ("failed", stamp, run_id),
+            released = company.db.execute(
+                """UPDATE queue
+                   SET status='queued', lease_owner=NULL, lease_until=NULL
+                   WHERE task_id=? AND status!='cancelled'""",
+                (task_id,),
+            )
+            if released.rowcount:
+                company._event(
+                    "remote_job.queue_released",
+                    {"id": job_id, "task_id": task_id},
                 )
-            company._event("worker.finished", {"run_id": run_id, "status": "failed"})
         company._event(
             "remote_job.completed" if status == "completed" else "remote_job.failed",
             {"id": job_id, "host_id": host_id, "status": status},
