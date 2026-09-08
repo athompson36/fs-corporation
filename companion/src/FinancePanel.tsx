@@ -4,9 +4,16 @@ import { formatUsd } from "./financeMoney";
 
 type SubTab = "overview" | "invoices" | "adjustments" | "periods";
 
+const SUB_TABS: [SubTab, string][] = [
+  ["overview", "Overview"],
+  ["invoices", "Invoices"],
+  ["adjustments", "Adjustments"],
+  ["periods", "Periods"],
+];
+
 type FinancePanelProps = {
   api: ApiClient;
-  scopes: string[];
+  hasToken: boolean;
   canPause: boolean;
   scopeNotice: (action: string, scope: string) => ReactNode;
   runAction: (
@@ -50,7 +57,7 @@ function cents(value: unknown): number {
 }
 
 export function FinancePanel(props: FinancePanelProps) {
-  const { api, canPause, scopeNotice, runAction, status } = props;
+  const { api, hasToken, canPause, scopeNotice, runAction, status } = props;
   const [subTab, setSubTab] = useState<SubTab>("overview");
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [invoices, setInvoices] = useState<Record<string, unknown>[]>([]);
@@ -72,7 +79,8 @@ export function FinancePanel(props: FinancePanelProps) {
   const periodStartRef = useRef<HTMLInputElement>(null);
   const expandedInvoiceIdRef = useRef("");
 
-  const loadAll = useCallback(async () => {
+  const loadAll = useCallback(async (isCancelled: () => boolean = () => false) => {
+    if (!hasToken) return;
     try {
       const [summaryBody, invoiceBody, adjustmentBody, periodBody, billedCostBody] =
         await Promise.all([
@@ -82,6 +90,7 @@ export function FinancePanel(props: FinancePanelProps) {
           api.financeBudgetPeriods(),
           api.financeBilledCosts(),
         ]);
+      if (isCancelled()) return;
       const costs = billedCostBody.billed_costs as BilledCost[];
       setSummary(summaryBody);
       setInvoices(invoiceBody.invoices || []);
@@ -92,6 +101,7 @@ export function FinancePanel(props: FinancePanelProps) {
         costs.some((item) => item.id === current) ? current : costs[0]?.id || "");
       setLoadError(null);
     } catch (error) {
+      if (isCancelled()) return;
       setSummary(null);
       setInvoices([]);
       setAdjustments([]);
@@ -100,10 +110,14 @@ export function FinancePanel(props: FinancePanelProps) {
       setSelectedBilledCostId("");
       setLoadError(error instanceof Error ? error.message : String(error));
     }
-  }, [api]);
+  }, [api, hasToken]);
 
   useEffect(() => {
-    void loadAll();
+    let cancelled = false;
+    void loadAll(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
   }, [loadAll]);
 
   const selectedBilledCost = billedCosts.find((item) => item.id === selectedBilledCostId);
@@ -229,12 +243,20 @@ export function FinancePanel(props: FinancePanelProps) {
 
   return (
     <section>
-      <nav className="actions" aria-label="Finance sections">
-        <button type="button" onClick={() => setSubTab("overview")}>Overview</button>
-        <button type="button" onClick={() => setSubTab("invoices")}>Invoices</button>
-        <button type="button" onClick={() => setSubTab("adjustments")}>Adjustments</button>
-        <button type="button" onClick={() => setSubTab("periods")}>Periods</button>
-      </nav>
+      <div className="segmented" role="tablist" aria-label="Finance sections">
+        {SUB_TABS.map(([t, label]) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={subTab === t}
+            className={subTab === t ? "active" : ""}
+            onClick={() => setSubTab(t)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {loadError && <p className="error">Finance data could not be loaded: {loadError}</p>}
 

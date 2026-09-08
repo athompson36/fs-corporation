@@ -134,6 +134,16 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("financeBilledCosts", panel)
         self.assertIn("remaining_creditable", panel)
         self.assertIn("confirm(", panel)
+        self.assertIn('className="segmented"', panel)
+        self.assertIn('role="tablist"', panel)
+        self.assertIn('role="tab"', panel)
+        self.assertIn("aria-selected={subTab === t}", panel)
+        self.assertIn('className={subTab === t ? "active" : ""}', panel)
+        self.assertIn("hasToken: boolean", panel)
+        self.assertIn("if (!hasToken) return", panel)
+        self.assertIn("if (isCancelled()) return", panel)
+        self.assertNotIn("scopes: string[]", panel)
+        self.assertNotIn("scopes={scopes || []}", app)
         self.assertNotIn("adj-billed", app)
 
     def test_companion_replaces_window_prompt_ops_forms(self):

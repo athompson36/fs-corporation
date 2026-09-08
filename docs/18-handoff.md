@@ -17,8 +17,9 @@ Date: 2026-09-08. Version: **0.3.62**. State: **Companion Finance UX polish on
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: run before merge.
-- `cd companion && npm run build`: run before merge.
+- `.venv/bin/python -m unittest discover -s tests`: **474 tests passed**.
+- `cd companion && npm run build`: **OK** (TypeScript and Vite production build;
+  35 modules transformed).
 - Do not commit `local repos/service-department/`.
 
 ## Next

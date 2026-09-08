@@ -14,3 +14,18 @@ Date: 2026-09-08
   tests.test_remote_worker_jobs` — 33 passed.
 - Full-suite verification: `.venv/bin/python -m unittest discover -s tests` — 455 passed.
 - Existing untracked `local repos/service-department/` content was preserved and excluded.
+
+## Finance UX whole-branch final fixes
+
+Date: 2026-09-08
+
+- Replaced the Finance action-row sub-navigation with the companion's segmented tab
+  pattern, including tab roles, selected state, and active styling.
+- Removed the unused `scopes` prop and passed token presence explicitly.
+- Finance loading now skips without a token and ignores resolved or rejected requests
+  after the panel effect is cleaned up.
+- Updated the companion source assertion and `docs/18-handoff.md` with actual evidence.
+- Full-suite verification: `.venv/bin/python -m unittest discover -s tests` — 474 passed.
+- Companion verification: `cd companion && npm run build` — OK; TypeScript and Vite
+  production build completed with 35 modules transformed.
+- Existing untracked `local repos/service-department/` content was preserved and excluded.

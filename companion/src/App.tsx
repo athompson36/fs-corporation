@@ -1783,7 +1783,7 @@ export default function App() {
       {tab === "finance" && (
         <FinancePanel
           api={api}
-          scopes={scopes || []}
+          hasToken={Boolean(settings.token)}
           canPause={canPause(scopes)}
           scopeNotice={scopeNotice}
           runAction={async (key, okMessage, run) => {
