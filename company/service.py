@@ -1468,6 +1468,60 @@ loadDiagnostics().catch(() => {});
 </html>
 """
 
+WELCOME_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>FS-Corporation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="/static/cosmic-glass-tokens.css"/>
+<style>
+/* page-local hero only — use token vars; respect prefers-reduced-motion */
+body {
+  margin: 0; min-height: 100vh; color: var(--soft);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background:
+    radial-gradient(1000px 500px at 80% 0%, rgba(59,130,246,0.25), transparent 55%),
+    radial-gradient(800px 400px at 10% 100%, rgba(52,211,153,0.12), transparent 50%),
+    var(--midnight);
+  display: grid; place-items: center;
+}
+.hero { text-align: center; padding: 2rem 1.25rem; max-width: 36rem; }
+.brand {
+  font-size: clamp(2.4rem, 8vw, 3.6rem); font-weight: 700;
+  letter-spacing: 0.06em; margin: 0 0 0.75rem;
+  animation: rise 0.7s ease-out;
+}
+h1 { font-size: clamp(1.15rem, 3vw, 1.45rem); font-weight: 600; margin: 0 0 0.75rem; }
+.support { color: var(--muted); margin: 0 0 1.5rem; line-height: 1.45; }
+.ctas { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+.ctas a {
+  color: var(--soft); text-decoration: none;
+  border: 1px solid var(--glass-border); background: var(--glass);
+  border-radius: var(--radius-glass); padding: 0.65rem 1.1rem;
+  animation: rise 0.9s ease-out;
+}
+.ctas a.primary { border-color: var(--cosmic); background: rgba(59,130,246,0.22); }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .brand, .ctas a { animation: none; }
+}
+</style>
+</head>
+<body data-theme="cosmic-glass">
+<main class="hero">
+  <p class="brand">FS-Corporation</p>
+  <h1>A persistent AI company built on ChatDev</h1>
+  <p class="support">Offline starter — owner-operated, fail-closed integrations until you configure them.</p>
+  <div class="ctas">
+    <a class="primary" href="/">Open companion</a>
+    <a href="/desk">CEO desk</a>
+  </div>
+</main>
+</body>
+</html>
+"""
+
 
 class Command(BaseModel):
     expected_policy_version: int | None = None
@@ -1590,6 +1644,10 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
     def desk_page_alias():
         # fs-dev Caddy serves the companion at /; /desk keeps the CEO desk reachable on HTTPS.
         return DESK_HTML
+
+    @app.get("/welcome", response_class=HTMLResponse)
+    def welcome():
+        return WELCOME_HTML
 
     @app.get("/api/v1/health")
     def health():
