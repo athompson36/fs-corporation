@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-08. Version: **0.3.59**. State: **Track C marketing layout merged to
-`main`, pushed, and deploying to fs-dev.**
+`main`, pushed, and deployed to fs-dev** (health `0.3.59`).
 
 ## On main / fs-dev
 
