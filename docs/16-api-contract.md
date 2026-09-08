@@ -2,6 +2,9 @@
 
 Base path `/api/v1`. Implemented by `python3 -m company.service` bound to `127.0.0.1`. This is not a trusted remote API. Actor identity comes from a bearer token. Request bodies may not supply owner/CEO identity; a payload `actor` field is ignored.
 
+The service also exposes public read-only HTML shells outside `/api/v1`: the companion/desk
+paths described below and `GET /welcome`, a cosmic-glass landing with links to `/` and `/desk`.
+
 The "Required authority" column is the scope checked at the route. Some routes apply a
 **further** identity check inside `company/core.py`; those are listed under
 [Checks beyond the route scope](#checks-beyond-the-route-scope). A caller holding only the
@@ -137,18 +140,20 @@ Remote pull agents default to mock completion. Setting
 always runs with `--network none`; the agent relays only allowlisted gateway operations over
 its host-token API. Remote container egress is not implemented.
 
-HTML CEO desk: `GET /` and its alias `GET /desk` (no auth for the shell page; the API reads it
-performs still require a bearer token). The alias exists so the fs-dev Caddy edge can serve the
-companion PWA at `/` and the desk at `/desk`.
+HTML surfaces: `GET /welcome` is the public landing, and `GET /` plus its alias `GET /desk`
+serve the CEO desk from FastAPI (no auth for the shell pages; the API reads they perform still
+require a bearer token). The aliases let the fs-dev Caddy edge serve the companion PWA at `/`,
+the desk at `/desk`, and reverse-proxy `/welcome` to FastAPI.
 
 ## Unauthenticated routes
 
-Five routes intentionally skip the bearer check. Every other route requires both a valid token
+Six routes intentionally skip the bearer check. Every other route requires both a valid token
 and a scope.
 
 | Route | Why | How it is protected |
 |---|---|---|
 | `GET /` and `GET /desk` | HTML shell only, contains no data | All data fetches from the page carry a token |
+| `GET /welcome` | Public read-only landing with links to the companion and desk | Contains no company data or mutation |
 | `GET /api/v1/health` | Liveness probe for systemd, Caddy, and the native companion | Returns only `ok`, `version`, `db` |
 | `POST /api/v1/github/webhooks` | github.com cannot present a bearer token | HMAC `X-Hub-Signature-256` against `GITHUB_WEBHOOK_SECRET`; unsigned or mismatched requests are rejected |
 | `POST /api/v1/remote-access/redeem` | The caller has no token yet — redeeming is how it gets one | Single-use hashed ticket with an expiry |
@@ -163,7 +168,7 @@ handler. Over-limit responses are `429` with body `{"detail": "rate limit exceed
 |---|---|---|---|
 | Authenticated `/api/v1/*` | Resolved bearer principal | 120 requests / 60 s | `FS_CORP_RATE_LIMIT_AUTH`, `FS_CORP_RATE_LIMIT_WINDOW_SEC` |
 | `POST /api/v1/github/webhooks`, `POST /api/v1/remote-access/redeem` | Client IP | 60 requests / 60 s | `FS_CORP_RATE_LIMIT_UNAUTH`, same window |
-| `GET /`, `GET /desk`, `GET /api/v1/health` | — | **Exempt** — never 429 | — |
+| `GET /`, `GET /desk`, `GET /welcome`, `GET /api/v1/health` | — | **Exempt** — never 429 | — |
 
 Unauthenticated requests that are not webhook/redeem (for example a missing bearer on a
 protected route) are not counted; they fail with 401 as usual. Limits are per process and

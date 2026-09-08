@@ -196,6 +196,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Facilities: costed proposal → approve → contractor provision → independent inspection → `room.built`
 - [x] Growth credit once per unique accepted project; replay/retry cannot farm credits
 - [x] Art/isometric animation — CEO desk isometric SVG from the same `headquarters()` rooms; rise animation respects `prefers-reduced-motion`; no invented occupancy; cosmic-glass chrome adopted; **P4 SVG furniture glyphs** from persisted `room_type` (photoreal art packs still deferred)
+- [x] Track C marketing layout (0.3.59) — public token-styled `/welcome` landing with companion/desk CTAs; Caddy exact-path proxy; Marketing room types map to distinct `campaign` furniture from persisted floorplan data
 - [x] Room detail — `GET /api/v1/headquarters/rooms/{id}` returns persisted tasks, staff, deliverables, simulated costs and related decisions; desk list/tiles open that panel; missing rooms fail closed
 - [x] Consultant inbox: findings, evidence, approve/reject/revise (API + desk list)
 - [x] Corporate HQ Phase 1 — runtime department/position editing and revision history
@@ -398,9 +399,10 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Track A is complete at 0.3.58:** remote pull agents default to mock completion and may
-opt into fail-closed container execution with `--network none` plus a host-token gateway
-relay. No remote egress is enabled.
+**Track C is complete on `feature/marketing-layout` at 0.3.59:** FastAPI serves the public
+cosmic-glass `/welcome` landing, fs-dev Caddy proxies that exact path, and Marketing rooms
+render persisted `campaign` furniture in the desk HQ. The companion remains at `/`; no
+Alembic revision was added.
 
-Next: **Track C — marketing layout**. Track B (automatic remote-host placement / ADR-043)
-may still exist on a separate branch or stash and is not part of this release.
+Next: recover and review **Track B automatic remote-host placement** if it remains in a stash
+or on `feature/auto-remote-placement`; otherwise the owner selects the next roadmap item.
