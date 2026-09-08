@@ -70,6 +70,7 @@ export function FinancePanel(props: FinancePanelProps) {
   const [periodEnd, setPeriodEnd] = useState("");
   const [periodLimit, setPeriodLimit] = useState("500000");
   const periodStartRef = useRef<HTMLInputElement>(null);
+  const expandedInvoiceIdRef = useRef("");
 
   const loadAll = useCallback(async () => {
     try {
@@ -109,15 +110,20 @@ export function FinancePanel(props: FinancePanelProps) {
 
   async function toggleInvoice(invoiceId: string) {
     if (expandedInvoiceId === invoiceId) {
+      expandedInvoiceIdRef.current = "";
       setExpandedInvoiceId("");
       setExpandedInvoice(null);
       return;
     }
+    expandedInvoiceIdRef.current = invoiceId;
     setExpandedInvoiceId(invoiceId);
     setExpandedInvoice(null);
     try {
-      setExpandedInvoice(await api.financeInvoice(invoiceId));
+      const detail = await api.financeInvoice(invoiceId);
+      if (expandedInvoiceIdRef.current !== invoiceId) return;
+      setExpandedInvoice(detail);
     } catch (error) {
+      if (expandedInvoiceIdRef.current !== invoiceId) return;
       setExpandedInvoice({
         error: error instanceof Error ? error.message : String(error),
       });
