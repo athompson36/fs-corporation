@@ -1,8 +1,9 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.53**. State: **P3 durable finance on `feature/p3-durable-finance`.**
+Date: 2026-09-08. Version: **0.3.53**. State: **P3 durable finance merged to `main`,
+pushing, and deploying to fs-dev.**
 
-## P3 Durable finance (this branch)
+## P3 Durable finance (on main)
 
 - Alembic `0025_durable_finance`: `invoices`, `finance_adjustments`, `budget_period_closures`.
 - APIs under `/api/v1/finance/*`; `status().billed_cost_cents` is **net** (ADR-038).
@@ -15,11 +16,11 @@ Date: 2026-09-08. Version: **0.3.53**. State: **P3 durable finance on `feature/p
 
 ## Verification
 
-- Run full unittest + companion build before merge.
+- `.venv/bin/python -m unittest discover -s tests`: **403 passed**
+- `cd companion && npm run build`: passed
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Merge/push/deploy when owner requests.
-2. Smoke Finance tab on fs-dev.
-3. **P4 Scale and presence** or thin P3 follow-on (benchmarks / work-order replay).
+1. Smoke Finance tab on https://192.168.4.100.
+2. **P4 Scale and presence** or thin P3 follow-on (benchmarks / work-order replay).
