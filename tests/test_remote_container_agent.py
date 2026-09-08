@@ -97,6 +97,12 @@ class GatewayRelayTests(unittest.TestCase):
 
     def test_gateway_unknown_op_denied(self):
         claimed = self._claimed()
+        old_expiry = (now() + timedelta(seconds=5)).isoformat()
+        with self.c.tx():
+            self.c.db.execute(
+                "UPDATE remote_worker_jobs SET lease_expires_at=? WHERE id=?",
+                (old_expiry, claimed["id"]),
+            )
         with self.assertRaises(PermissionError):
             relay_gateway(
                 self.c,
@@ -104,6 +110,40 @@ class GatewayRelayTests(unittest.TestCase):
                 self.token,
                 claimed["id"],
                 {"op": "delete_database"},
+            )
+        row = self.c.db.execute(
+            "SELECT lease_expires_at FROM remote_worker_jobs WHERE id=?",
+            (claimed["id"],),
+        ).fetchone()
+        self.assertEqual(row["lease_expires_at"], old_expiry)
+
+    def test_gateway_rejects_task_id_mismatch(self):
+        claimed = self._claimed()
+        with self.assertRaises(PermissionError):
+            relay_gateway(
+                self.c,
+                self.host_id,
+                self.token,
+                claimed["id"],
+                {
+                    "op": "gateway_check",
+                    "actor": "head",
+                    "project": "app",
+                    "action": "draft",
+                    "cost": 10,
+                    "task_id": "gw-other-task",
+                },
+            )
+
+    def test_gateway_rejects_missing_op_as_invalid(self):
+        claimed = self._claimed()
+        with self.assertRaises(ValueError):
+            relay_gateway(
+                self.c,
+                self.host_id,
+                self.token,
+                claimed["id"],
+                {},
             )
 
     def test_renew_extends_lease(self):
