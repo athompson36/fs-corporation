@@ -1,9 +1,8 @@
 # Current handoff
 
-Date: 2026-09-07. Version: **0.3.53**. State: **P2 live ops on `feature/p2-live-ops`
-(feeds + Models + ChatDev egress allowlist + secrets VAPID file honesty + consultant reviews read).**
+Date: 2026-09-08. Version: **0.3.53**. State: **P2 live ops merged to `main`, pushing, and deploying to fs-dev.**
 
-## P2 on this branch
+## P2 Live ops (on main)
 
 - Feed pause/revoke + companion Settings → Feeds (watchlists remain template-only).
 - Companion Settings → Models (read-only profiles; global cents via Runtime).
@@ -19,12 +18,12 @@ Date: 2026-09-07. Version: **0.3.53**. State: **P2 live ops on `feature/p2-live-
 
 ## Verification
 
-- Targeted: `tests.test_feed_lifecycle`, `tests.test_chatdev_egress`, companion feed source test,
-  `npm run build` — run full suite before merge.
+- `.venv/bin/python -m unittest discover -s tests`: **396 passed**
+- `cd companion && npm run build`: passed
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Merge/push `feature/p2-live-ops` when owner requests; deploy to fs-dev.
-2. On fs-dev ChatDev egress: create restricted Docker network + allowlist file before enabling mode.
-3. **P3 Durable finance** (invoice/refunds/period rollover) — see production build-out plan.
+1. Smoke companion Settings → Feeds / Models / Secrets on https://192.168.4.100.
+2. ChatDev egress on fs-dev only after restricted Docker network + allowlist file exist.
+3. **P3 Durable finance** (invoice/refunds/period rollover).
