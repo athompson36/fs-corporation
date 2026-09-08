@@ -171,6 +171,20 @@ def delete_worker_host(company, actor: str, host_id: str) -> dict:
     return {"deleted": True, "id": host_id}
 
 
+def require_host_token(company, host_id: str, token: str):
+    """Validate host heartbeat token; return host row. Fail closed."""
+    row = company.db.execute(
+        "SELECT * FROM worker_hosts WHERE id=?", (host_id,)
+    ).fetchone()
+    if not row:
+        raise PermissionError("Unknown worker host")
+    if hash_worker_host_token(token) != row["heartbeat_token_hash"]:
+        raise PermissionError("Invalid worker host token")
+    if not row["enabled"]:
+        raise PermissionError("Worker host disabled")
+    return row
+
+
 def record_worker_host_heartbeat(
     company, host_id: str, token: str, meta: dict | None = None
 ) -> dict:

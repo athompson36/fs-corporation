@@ -398,5 +398,5 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**P5 UI chrome is complete at 0.3.55** (shared tokens, version chrome, HQ keyboard). Next:
-owner-directed follow-ons (marketing layout, remote worker agent, photoreal art).
+**Remote pull agent is complete at 0.3.56** (explicit `worker_host_id`, lease + mock complete).
+Next: remote container-on-agent, auto placement, or marketing layout.

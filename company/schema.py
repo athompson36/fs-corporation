@@ -320,6 +320,19 @@ CREATE TABLE IF NOT EXISTS worker_hosts(
   last_heartbeat_meta TEXT,
   created_at TEXT NOT NULL,
   created_by TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS remote_worker_jobs(
+  id TEXT PRIMARY KEY,
+  host_id TEXT NOT NULL,
+  task_id TEXT NOT NULL,
+  worker_run_id TEXT,
+  status TEXT NOT NULL,
+  lease_owner TEXT,
+  lease_expires_at TEXT,
+  attempts INTEGER NOT NULL,
+  result_json TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  created_by TEXT NOT NULL);
 """
 
 SLO_DEFINITIONS = (

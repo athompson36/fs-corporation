@@ -30,6 +30,9 @@ listed scope can still receive 403 from those routes.
 | POST /worker-hosts/{id}/enable\|disable | CEO enable/disable | company.pause + CEO |
 | DELETE /worker-hosts/{id} | CEO delete | company.pause + CEO |
 | POST /worker-hosts/{id}/heartbeat | Host token auth (`Bearer` or `X-Worker-Host-Token`); optional meta JSON | host token |
+| GET /worker-hosts/{id}/jobs | List jobs for this host (`status` query, default queued) | host token |
+| POST /worker-hosts/{id}/jobs/{job_id}/claim | Claim lease; returns job + queue payload | host token |
+| POST /worker-hosts/{id}/jobs/{job_id}/complete | Body `{status, result?}` → completed/failed | host token |
 | POST /projects/{id}/dispatch-brief | Dispatch project brief to department heads | project.enroll |
 | GET /projects/{id}/dispatch-options | Parameter key: templates, presets, max_cents, department statuses | project.enroll |
 | POST /projects/{id}/dispatch-recommend | Advisory mock→live recommend/autofill payload (never dispatches) | project.enroll |
@@ -54,7 +57,7 @@ listed scope can still receive 403 from those routes.
 | GET /projects/{id}/skills | Platform, skill gaps, learning assignments | company.read |
 | POST /projects/{id}/tasks | Queue a scoped task | task.create |
 | POST /tasks/{id}/dispatch | Dispatch authorized mock execution in-process | task.dispatch |
-| POST /tasks/{id}/dispatch-worker | Isolated worker dispatch. Payload: `worker_id`, `scratch_root`, `runtime`, `approval` — all optional; `runtime` defaults from `FS_CORP_DEFAULT_WORKER_RUNTIME` and fails closed with 422 when container dispatch is not ready | task.dispatch |
+| POST /tasks/{id}/dispatch-worker | Isolated worker dispatch. Payload: `worker_id`, `scratch_root`, `runtime`, `approval`, optional `worker_host_id` (explicit remote enqueue when host is ready). Without `worker_host_id`, `runtime` defaults from `FS_CORP_DEFAULT_WORKER_RUNTIME` and fails closed with 422 when container dispatch is not ready | task.dispatch |
 | POST /tasks/{id}/quality-inspect | Quality Control pass/fail on the exact artifact | quality.inspect |
 | POST /tasks/{id}/accept | Accept exact artifact after a passing QC inspection | artifact.accept |
 | GET /hr/development | Learning assignments and acquired skills | organization.read |

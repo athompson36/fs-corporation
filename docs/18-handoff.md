@@ -1,19 +1,20 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.55**. State: **P5 merged to `main`, pushed, and
-deployed to fs-dev** (plus Caddy `/static/*` proxy so desk tokens load on the edge).
+Date: 2026-09-08. Version: **0.3.56**. State: **Remote pull agent on
+`feature/remote-worker-agent` (ready to merge when owner asks).**
 
-## On main / fs-dev
+## On this branch
 
-- Shared `assets/cosmic-glass-tokens.css` (ADR-041); desk version + HQ keyboard.
-- Caddy proxies `/static/*` to the API (same as `/desk`).
+- Alembic `0028_remote_worker_jobs`; explicit `worker_host_id` enqueue (ADR-042).
+- Host-token list/claim/complete; `scripts/remote_worker_agent.py` mock loop.
+- Same-host dispatch unchanged when `worker_host_id` omitted.
 
 ## Verification
 
-- Health **200**, version **0.3.55**.
-- Loopback `/static/cosmic-glass-tokens.css` **200**; edge after Caddy fix should match.
+- Run: `.venv/bin/python -m unittest discover -s tests`
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-1. Follow-ons: marketing layout, remote worker agent, or photoreal art.
+1. Merge / push / deploy when owner requests (migration `0028`).
+2. Follow-on: remote container gateway on agent; auto placement; marketing layout.

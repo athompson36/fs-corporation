@@ -43,6 +43,7 @@
 | ADR-039 | 2026-09-08 | choose_model may prefer best benchmark quality; work-order replay is append-only | Among eligible profiles, max `quality` for a role wins when benches exist; else ordered pick. `work_order_replays` freezes outcomes; identical digest replay returns prior result without ChatDev re-execution. |
 | ADR-040 | 2026-09-08 | Worker host registry without remote dispatch; SVG furniture from room_type | CEO registers remotes + heartbeat → ready/stale/disabled on `/workers/status`. Dispatch stays same-host. TailscaleKit stubbed. Desk furniture glyphs bind only to persisted room types. |
 | ADR-041 | 2026-09-08 | Shared cosmic-glass tokens for desk + companion | Single `assets/cosmic-glass-tokens.css` served at `/static` and imported by companion; M10-04 version chrome + HQ keyboard. |
+| ADR-042 | 2026-09-08 | Remote pull agent with explicit host routing; mock-complete v1 | `worker_host_id` enqueues `remote_worker_jobs`; agent claims/completes with host token. Default dispatch stays same-host. No remote Docker yet. |
 
 ### ADR-010 detail
 
@@ -514,5 +515,21 @@ HQ plan/iso tiles use tabindex + Enter/Space. Light polish is token-driven only.
 owner preference for a shared file. A npm design-system package was rejected as overkill.
 
 **Consequences.** Token edits land once; desk layout CSS and companion shell CSS stay local.
+
+### ADR-042 detail
+
+**Context.** P4 registered remote hosts with heartbeats but dispatch remained same-host.
+Operators need an honest path to run work off-box without inventing push/SSH trust.
+
+**Decision.** Explicit `worker_host_id` on `dispatch-worker` enqueues `remote_worker_jobs`
+only when the host is `ready`. A pull agent authenticates with the host token, claims a
+lease, and posts mock completion. Omitting `worker_host_id` keeps local subprocess/container
+dispatch. Remote Docker/file gateway is deferred.
+
+**Alternatives considered.** Auto host placement and push-to-`base_url` were rejected for v1
+(surprise routing / inbound trust). Full remote containers were deferred until leases work.
+
+**Consequences.** `scripts/remote_worker_agent.py` is the reference agent. Control plane
+never opens remote SSH.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

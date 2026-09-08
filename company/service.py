@@ -2325,7 +2325,14 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         scoped(ident, "task.dispatch")
         payload = envelope(ident, body)
         worker_id = payload.get("worker_id") or ident["principal_id"]
+        host_id = (payload.get("worker_host_id") or "").strip() or None
         scratch = payload.get("scratch_root") or os.environ.get("FS_CORP_WORKER_SCRATCH") or tempfile.mkdtemp(prefix="company-worker-")
+        if host_id:
+            return run(ident, idempotency_key, payload | {"task_id": task_id, "worker_host_id": host_id}, lambda: (
+                dict(company.dispatch_queued_isolated(
+                    worker_id, task_id, scratch, payload.get("approval"),
+                    runtime="remote_agent", worker_host_id=host_id,
+                    actor=ident["principal_id"])), 200))
         from company.worker_status import resolve_worker_runtime
         try:
             runtime = resolve_worker_runtime(payload.get("runtime"), company=company)
@@ -2911,6 +2918,55 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 meta = None
         try:
             return company.record_worker_host_heartbeat(host_id, token, meta=meta)
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    def _host_token(authorization: str | None, x_worker_host_token: str | None) -> str:
+        if x_worker_host_token:
+            return x_worker_host_token.strip()
+        if authorization and authorization.lower().startswith("bearer "):
+            return authorization.split(" ", 1)[1].strip()
+        raise HTTPException(status_code=401, detail="unauthenticated")
+
+    @app.get("/api/v1/worker-hosts/{host_id}/jobs")
+    def worker_host_jobs(
+            host_id: str,
+            status: str | None = "queued",
+            authorization: str | None = Header(default=None),
+            x_worker_host_token: str | None = Header(default=None, alias="X-Worker-Host-Token")):
+        token = _host_token(authorization, x_worker_host_token)
+        try:
+            return {"jobs": company.list_remote_host_jobs(host_id, token, status=status)}
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    @app.post("/api/v1/worker-hosts/{host_id}/jobs/{job_id}/claim")
+    def worker_host_job_claim(
+            host_id: str, job_id: str,
+            authorization: str | None = Header(default=None),
+            x_worker_host_token: str | None = Header(default=None, alias="X-Worker-Host-Token")):
+        token = _host_token(authorization, x_worker_host_token)
+        try:
+            return company.claim_remote_job(host_id, token, job_id)
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.post("/api/v1/worker-hosts/{host_id}/jobs/{job_id}/complete")
+    def worker_host_job_complete(
+            host_id: str, job_id: str, body: dict | None = None,
+            authorization: str | None = Header(default=None),
+            x_worker_host_token: str | None = Header(default=None, alias="X-Worker-Host-Token")):
+        token = _host_token(authorization, x_worker_host_token)
+        payload = body if isinstance(body, dict) else {}
+        status = payload.get("status") or "completed"
+        result = payload.get("result")
+        try:
+            return company.complete_remote_job(
+                host_id, token, job_id, status=status, result=result)
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:

@@ -1037,7 +1037,12 @@ class Company:
             self.db.execute("UPDATE queue SET status='done' WHERE task_id=?",(task_id,))
         return result
 
-    def dispatch_queued_isolated(self,worker_id,task_id,scratch_root,approval=None,runtime="subprocess"):
+    def dispatch_queued_isolated(self,worker_id,task_id,scratch_root,approval=None,runtime="subprocess",
+                                 worker_host_id=None, actor=None):
+        if worker_host_id:
+            from company.remote_jobs import enqueue_remote_job
+            return enqueue_remote_job(
+                self, actor or worker_id, host_id=worker_host_id, task_id=task_id, worker_id=worker_id)
         from .worker import ContainerWorkerRuntime, SubprocessWorkerRuntime
         row=self.db.execute("SELECT * FROM queue WHERE task_id=?",(task_id,)).fetchone()
         if not row:
@@ -1051,6 +1056,18 @@ class Company:
         if runtime!="subprocess":
             raise ValueError("Unknown worker runtime")
         return SubprocessWorkerRuntime().dispatch(self,worker_id,task_id,scratch_root,approval=approval)
+
+    def list_remote_host_jobs(self, host_id, token, status="queued"):
+        from company.remote_jobs import list_host_jobs
+        return list_host_jobs(self, host_id, token, status=status)
+
+    def claim_remote_job(self, host_id, token, job_id):
+        from company.remote_jobs import claim_job
+        return claim_job(self, host_id, token, job_id)
+
+    def complete_remote_job(self, host_id, token, job_id, *, status, result=None):
+        from company.remote_jobs import complete_job
+        return complete_job(self, host_id, token, job_id, status=status, result=result)
 
     def _start_worker_run(self,worker_id,task_id,runtime,scratch_root):
         rid=str(uuid.uuid4())
