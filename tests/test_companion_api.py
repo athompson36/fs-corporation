@@ -115,14 +115,26 @@ class CompanionApiTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1] / "companion" / "src"
         client = (root / "api" / "client.ts").read_text()
         app = (root / "App.tsx").read_text()
+        panel = (root / "FinancePanel.tsx").read_text()
+        money = (root / "financeMoney.ts").read_text()
         self.assertIn("/api/v1/finance/summary", client)
+        self.assertIn("financeBilledCosts", client)
+        self.assertIn("financeInvoice", client)
         self.assertIn("createFinanceInvoice", client)
         self.assertIn("postFinanceAdjustment", client)
         self.assertIn("closeFinanceBudgetPeriod", client)
         self.assertIn('["finance", "Finance"]', app)
         self.assertIn("tab === \"finance\"", app)
-        self.assertIn("invoice-start", app)
-        self.assertIn("adj-billed", app)
+        self.assertIn("FinancePanel", app)
+        self.assertIn("export function formatUsd", money)
+        self.assertIn("Overview", panel)
+        self.assertIn("Invoices", panel)
+        self.assertIn("Adjustments", panel)
+        self.assertIn("Periods", panel)
+        self.assertIn("financeBilledCosts", panel)
+        self.assertIn("remaining_creditable", panel)
+        self.assertIn("confirm(", panel)
+        self.assertNotIn("adj-billed", app)
 
     def test_companion_replaces_window_prompt_ops_forms(self):
         app = (

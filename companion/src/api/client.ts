@@ -181,6 +181,22 @@ export class ApiClient {
     return this.get<{ invoices: Record<string, unknown>[] }>("/api/v1/finance/invoices");
   }
 
+  financeInvoice(invoiceId: string) {
+    return this.get<Record<string, unknown>>(
+      `/api/v1/finance/invoices/${encodeURIComponent(invoiceId)}`,
+    );
+  }
+
+  financeBilledCosts(opts?: { includeFullyCredited?: boolean; limit?: number }) {
+    const q = new URLSearchParams();
+    if (opts?.includeFullyCredited) q.set("include_fully_credited", "true");
+    if (opts?.limit != null) q.set("limit", String(opts.limit));
+    const suffix = q.toString() ? `?${q}` : "";
+    return this.get<{ billed_costs: Record<string, unknown>[] }>(
+      `/api/v1/finance/billed-costs${suffix}`,
+    );
+  }
+
   createFinanceInvoice(periodStart: string, periodEnd: string) {
     return this.post(
       "/api/v1/finance/invoices",
