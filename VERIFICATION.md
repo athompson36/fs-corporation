@@ -1,7 +1,7 @@
 # Verification record
 
-Updated 2026-09-08 for **0.3.60** (opt-in auto remote placement; public `/welcome`; marketing
-`campaign` furniture; remote container-on-agent; P5; P4)
+Updated 2026-09-08 for **0.3.61** (remote ChatDev egress policy on claims; opt-in auto remote
+placement; public `/welcome`; marketing `campaign` furniture; remote container-on-agent; P5; P4)
 and Corporate HQ Phases 1–8.
 Prior: 0.3.58 remote container-on-agent; 0.3.52 runtime department editing; 0.3.51 desk + companion organization/head handoff UI; 0.3.50 local-repos +
 Diagnostics; 0.3.49 GitHub assign; 0.3.48 billed
@@ -13,16 +13,16 @@ Earlier records: 0.2.0 ZIP (2026-09-01, Python 3.12.13) and 0.3.13 cosmic-glass 
 
 ## Verified in this workspace
 
-- **463 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`, including
-  opt-in auto remote placement, public `/welcome` content and Caddy routing, Marketing `campaign`
-  furniture, remote claim envelopes, host-token gateway allowlisting and lease renewal, runtime
-  completion recording, fail-closed agent container setup, and prior organization behavior.
+- **471 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`, including
+  claim egress policy/coercion, allowlisted-network agent readiness, fail-closed unready egress,
+  mock egress isolation, opt-in auto remote placement, public `/welcome` content and Caddy
+  routing, remote claim envelopes, host-token gateway allowlisting and prior behavior.
 - `python3 scripts/check_bundle.py` reaches the pre-existing nested local repository and
   fails on `local repos/service-department/README.md` → missing `./LICENSE`; no Task 7
   bundle link/config failure was reported before that point.
 - Alembic revision chain is linear and single-headed: `0001_initial` through
-  `0028_remote_worker_jobs`; 0.3.60 adds no migration.
-- Companion **0.3.60** build completes (`generateSW`) and emits the production PWA assets.
+  `0028_remote_worker_jobs`; 0.3.61 adds no migration.
+- Companion **0.3.61** build completes (`generateSW`) and emits the production PWA assets.
 
 ## Verified on the fs-dev host (owner-operated, not reproducible from CI)
 

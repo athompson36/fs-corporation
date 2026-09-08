@@ -47,6 +47,7 @@
 | ADR-043 | 2026-09-08 | Opt-in prefer remotes; fail closed if none ready | `FS_CORP_PREFER_REMOTE_WORKERS` auto-picks first ready host by label/id when `worker_host_id` omitted. Explicit id wins. |
 | ADR-044 | 2026-09-08 | Opt-in remote container with host-token gateway relay | Remote agents may opt into container execution with `--network none`; the agent relays allowlisted gateway operations. Default remains mock-complete. No remote egress this slice. |
 | ADR-045 | 2026-09-08 | Public `/welcome` landing and marketing campaign furniture | FastAPI serves a cosmic-glass landing while the companion remains at `/`; desk HQ maps persisted marketing room types to `campaign` furniture. |
+| ADR-046 | 2026-09-08 | Remote claim embeds fail-closed ChatDev egress policy | Agents attach allowlisted Docker networks only when locally ready; forbidden names coerce to none at claim; no hostnames cross the wire. |
 
 ### ADR-010 detail
 
@@ -594,5 +595,28 @@ Photoreal art and a marketing wing were rejected because neither is backed by pe
 routes it to FastAPI while `/` remains the companion. Marketing rooms gain a distinct desk SVG
 mark without changing floorplans, occupancy, or companion behavior. No Alembic revision is
 required.
+
+### ADR-046 detail
+
+**Context.** ADR-044 allowed opt-in remote container execution but fixed every container to
+`--network none`. Remote ChatDev workers need the same company egress policy as same-host
+workers without distributing allowlist hostnames or silently weakening fail-closed behavior.
+
+**Decision.** Every remote job claim embeds an `egress` object with `mode` and
+`docker_network`, derived from the company ChatDev egress setting. Allowlist mode carries only
+the configured Docker network name. Missing, blank, `bridge`, or `host` names coerce to
+`mode=none` and `docker_network=null` at claim. A container agent uses the named network only
+when its local allowlist has at least one host and Docker reports that network; otherwise it
+completes the job as failed. Mock execution ignores egress.
+
+**Alternatives considered.** Sending hostnames or allowlist file contents on claims was
+rejected because policy data belongs on each managed host. Silent fallback from an unready
+allowlist to `--network none` was rejected because it disguises configuration failures.
+Permitting Docker's default `bridge` or `host` networks was rejected because they bypass the
+named allowlist boundary.
+
+**Consequences.** Remote policy follows the control plane while readiness remains locally
+enforced by the agent. Claims never expose allowlist hostnames. Existing none-mode containers
+still run with `--network none`, and no Alembic revision is required.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
