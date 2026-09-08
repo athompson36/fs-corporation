@@ -45,6 +45,7 @@
 | ADR-041 | 2026-09-08 | Shared cosmic-glass tokens for desk + companion | Single `assets/cosmic-glass-tokens.css` served at `/static` and imported by companion; M10-04 version chrome + HQ keyboard. |
 | ADR-042 | 2026-09-08 | Remote pull agent with explicit host routing; mock-complete v1 | `worker_host_id` enqueues `remote_worker_jobs`; agent claims/completes with host token. Default dispatch stays same-host. No remote Docker yet. |
 | ADR-044 | 2026-09-08 | Opt-in remote container with host-token gateway relay | Remote agents may opt into container execution with `--network none`; the agent relays allowlisted gateway operations. Default remains mock-complete. No remote egress this slice. |
+| ADR-045 | 2026-09-08 | Public `/welcome` landing and marketing campaign furniture | FastAPI serves a cosmic-glass landing while the companion remains at `/`; desk HQ maps persisted marketing room types to `campaign` furniture. |
 
 ### ADR-010 detail
 
@@ -555,6 +556,28 @@ plane. The relay permits only gateway checks, mock execution, and artifact stora
 invocation remains local-only. Failed remote completion releases non-cancelled queue work for
 redispatch, and pre-start failures retain the `remote_agent` runtime. Auto placement, registry
 control, and remote ChatDev/provider egress remain separate work. No Alembic revision is
+required.
+
+### ADR-045 detail
+
+**Context.** Track C needed a public entry point without moving or authentication-gating the
+companion, plus an honest visual distinction for persisted Marketing rooms in the desk HQ.
+The landing must not invent company statistics, activity, occupancy, or operational state.
+
+**Decision.** Serve `GET /welcome` as unauthenticated FastAPI HTML styled with the shared
+cosmic-glass tokens. Keep the companion at `/` and the CEO desk at `/desk`; the landing links
+to both. Exempt `/welcome` from rate limiting and proxy that exact path through Caddy before
+the companion SPA catch-all. In the desk projection, room types containing `market` map to
+the distinct geometric `campaign` furniture kind, using persisted room data only.
+
+**Alternatives considered.** Moving the companion away from `/` was rejected because it would
+break the established same-origin mobile entry point. Serving a static landing from Caddy was
+rejected because the existing FastAPI HTML/static-token path is smaller and directly tested.
+Photoreal art and a marketing wing were rejected because neither is backed by persisted state.
+
+**Consequences.** `/welcome` is a public read-only shell with no company data. The Caddy edge
+routes it to FastAPI while `/` remains the companion. Marketing rooms gain a distinct desk SVG
+mark without changing floorplans, occupancy, or companion behavior. No Alembic revision is
 required.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
