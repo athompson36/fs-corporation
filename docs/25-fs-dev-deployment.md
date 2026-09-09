@@ -240,6 +240,32 @@ Or set **`FS_CORP_WORKER_CHATDEV=1`** before `install.sh` / `run-install.sh` to 
 
 The reserved NIC **`192.168.4.101`** is the **same-host worker plane** (identity + optional API egress). Same-host dispatch does not bind Docker to that address. A dedicated **second physical host** for workers remains optional and is not required by this plane.
 
+## Remote worker agent (second host)
+
+When a worker runs on a **separate machine** from the control plane, register it from the companion **Workers** tab (CEO + `company.pause`): provide a label and an https `base_url` reachable from that host (LAN or tailnet). The create response includes a **one-time token** — copy it immediately; list and GET never return it again. If the token is lost, delete the host and recreate.
+
+On the worker host, set:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `FS_CORP_CONTROL_URL` | yes | Control-plane base URL (e.g. `https://192.168.4.100`) |
+| `FS_CORP_WORKER_HOST_ID` | yes | Host id from companion create |
+| `FS_CORP_WORKER_HOST_TOKEN` | yes* | One-time token from create (*or `FS_CORP_WORKER_HOST_TOKEN_FILE`) |
+| `FS_CORP_REMOTE_WORKER_RUNTIME` | no | Set to `container` for Docker execution on the agent |
+| `FS_CORP_WORKER_IMAGE` | no | Docker image (default `fs-corporation-worker:local`) |
+
+The agent does **not** open the company database. TailscaleKit remains stubbed; off-LAN phone access still uses clipboard auth key + the system Tailscale app (see [24-mobile-companion.md](24-mobile-companion.md)).
+
+```bash
+export FS_CORP_CONTROL_URL=https://192.168.4.100
+export FS_CORP_WORKER_HOST_ID=wh-abc123
+export FS_CORP_WORKER_HOST_TOKEN=your-one-time-token
+# optional container runtime on the agent:
+export FS_CORP_REMOTE_WORKER_RUNTIME=container
+export FS_CORP_WORKER_IMAGE=fs-corporation-worker:local
+python3 scripts/remote_worker_agent.py
+```
+
 ## Environment variable reference
 
 Complete list of `FS_CORP_*` variables read by code in `company/`, `scripts/`, and
@@ -329,9 +355,9 @@ Companion assets are rebuilt; systemd restarts the API. Reload Caddy if the Cadd
 
 ## Phase 2 follow-on (optional)
 
-Same-host container default, `.101` **worker plane** status (`worker_plane`), and `.101` **API egress** are implemented. Still optional:
+Same-host container default, `.101` **worker plane** status (`worker_plane`), and `.101` **API egress** are implemented. Companion **Workers** tab + remote-agent runbook (0.3.63) cover second-host registration and ops. Still optional:
 
-- Dedicated **second host** for workers (separate from this control plane)
+- Further TailscaleKit / native VPN embedding (stub unchanged)
 - Further owner live credential hardening beyond `/etc/fs-corporation/secrets.env`
 - PostgreSQL or HA control plane (still deferred; SQLite remains the store)
 

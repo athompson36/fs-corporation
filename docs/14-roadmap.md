@@ -256,6 +256,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Mobile PWA in `companion/`; thin Expo shell in `companion-native/`
 - [x] Push notifications — `register_push_subscription` / `notify_push` (HTTPS only; live VAPID send when keys configured); owner-inbox create attempts delivery
 - [x] QR pairing with access levels (`read_only`, `user`, `admin`); desk issues QR; companion auto-redeems `#fs-pair`; optional Tailscale auth key on redeem
+- [x] Workers tab — primary tab lists remote worker hosts (API `state`); create with one-time token; enable/disable/delete when CEO + `company.pause` (0.3.63); runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md)
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -399,8 +400,7 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Companion Finance UX polish shipped at 0.3.62** on `feature/finance-ux-polish`: Finance
-sub-tabs (Overview · Invoices · Adjustments · Periods), display-only `formatUsd`, invoice line
-detail, `GET /finance/billed-costs` picker for refunds, and clearer period close flow. P3 durable
-finance (invoices, adjustments, period close) was already on `main` at 0.3.61. No Alembic
-revision. Next: **TailscaleKit / second-host polish**, then deeper marketing redesign.
+**Companion Workers tab shipped at 0.3.63** on `feature/workers-tab-runbook`: primary **Workers**
+tab lists remote hosts with API `state`; create shows a one-time token; enable/disable/delete
+when CEO + `company.pause`; remote-agent runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md).
+No new routes; no Alembic. Next: **deeper marketing redesign**.

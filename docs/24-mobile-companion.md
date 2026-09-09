@@ -83,7 +83,7 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 
 ## Features
 
-Bottom navigation is five tabs — Home, Projects, Org, Corporate, More — sized for a 320px
+Bottom navigation is six tabs — Home, Projects, Org, Corporate, Workers, More — sized for a 320px
 iPhone. **More** holds Decisions, Inbox, Diagnostics and Settings behind a segmented switcher and
 carries a badge with the pending decision plus owner-request count. Every write reports its
 outcome on an inline status line next to the control, not only at the top of the page.
@@ -94,6 +94,7 @@ outcome on an inline status line next to the control, not only at the top of the
 | Projects | List/detail; local candidates + enroll; assign GitHub by upstream address; dispatch with Recommend / templates / budget chips / Valid values when `project.enroll` |
 | Org | Catalog and roster; departments, heads, positions, assignments, reorder, activation and worker card when `organization.write` |
 | Corporate | Scorecard, objectives, industry packs, divisions, promotions, staffing proposals, cross-department requests, activity, default floorplan |
+| Workers | List remote worker hosts (API `state`); create host (one-time token shown once); enable/disable/delete when `company.pause` + CEO |
 | More → Decisions | Approve/reject when `policy.approve` or `consultant.decide` |
 | More → Inbox | Respond when `company.pause`; escalate when `owner.escalate` |
 | More → Diagnostics | Parallel live probes: health, workers, model, github, push, chatdev, feeds, slos, local-repos |
@@ -119,6 +120,10 @@ outcome on an inline status line next to the control, not only at the top of the
 - `GET /api/v1/feeds`, `POST /api/v1/feeds`, `POST /api/v1/feeds/{id}/pause`, `POST /api/v1/feeds/{id}/revoke`, `POST /api/v1/feeds/{id}/poll`
 - `GET /api/v1/model-profiles`
 - `GET /api/v1/finance/summary`, `billed-costs`, invoices, adjustments, budget-periods (+ create/close)
+- `GET /api/v1/worker-hosts` — list registered remote hosts with computed `state`
+- `POST /api/v1/worker-hosts` — create host (`label`, https `base_url`); response includes one-time `token` (CEO + `company.pause`)
+- `POST /api/v1/worker-hosts/{id}/enable`, `POST /api/v1/worker-hosts/{id}/disable` — CEO enable/disable
+- `DELETE /api/v1/worker-hosts/{id}` — CEO delete host
 
 ## Security
 

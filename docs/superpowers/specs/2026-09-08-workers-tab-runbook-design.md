@@ -1,6 +1,6 @@
 # Design: Companion Workers tab + remote agent runbook
 
-Date: 2026-09-08. Status: **approved design** (implement as v0.3.63).
+Date: 2026-09-08. Status: **implemented** in v0.3.63.
 
 ## Goal
 
