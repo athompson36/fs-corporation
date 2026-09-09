@@ -1,6 +1,6 @@
 # Design: Deeper marketing redesign (welcome + campaign furniture)
 
-Date: 2026-09-09. Status: **approved design** (implement as v0.3.64).
+Date: 2026-09-09. Status: **implemented** in v0.3.64.
 
 ## Goal
 

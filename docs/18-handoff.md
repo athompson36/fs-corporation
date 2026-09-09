@@ -1,26 +1,23 @@
 # Current handoff
 
-Date: 2026-09-09. Version: **0.3.63**. State: **Companion Workers tab merged to
-`main`, pushed, and deployed to fs-dev** (health `0.3.63`).
+Date: 2026-09-09. Version: **0.3.64**. State: **Deeper marketing redesign on
+`feature/deeper-marketing-redesign`** (Task 1 + Task 2 complete; not yet merged to `main`).
 
-## On main / fs-dev
+## On feature/deeper-marketing-redesign
 
-- Companion primary **Workers** tab: list remote worker hosts with API `state`; create host
-  (one-time token shown once); enable/disable/delete when `company.pause` + CEO.
-- Client methods: `workerHosts`, `createWorkerHost`, `enableWorkerHost`,
-  `disableWorkerHost`, `deleteWorkerHost`.
-- Remote-agent runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md):
-  `FS_CORP_CONTROL_URL` must be reachable from the agent; `base_url` is identification only.
-- Existing `/api/v1/worker-hosts*` only; TailscaleKit unchanged; no Alembic
-  (head `0028_remote_worker_jobs`).
+- Public `/welcome`: self-hosted Syne/Manrope woff2 fonts via `assets/welcome.css`; full-bleed
+  constellation motif; intentional motion with `prefers-reduced-motion` respected; vertical scroll
+  so CTAs stay reachable on small viewports.
+- Desk HQ: `campaign` furniture glyph upgraded to podium + banner (persisted `market*` room types
+  only).
+- Companion remains at `/`; no Alembic (head `0028_remote_worker_jobs`).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **476 tests passed**.
+- `.venv/bin/python -m unittest discover -s tests`: **478 tests passed**.
 - `cd companion && npm run build`: **OK**.
-- fs-dev health: **0.3.63**.
 - Do not commit `local repos/service-department/`.
 
 ## Next
 
-**Deeper marketing redesign**.
+**Owner-directed backlog** — roadmap is clear; ask the owner for the next priority.

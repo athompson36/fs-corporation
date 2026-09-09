@@ -197,6 +197,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Growth credit once per unique accepted project; replay/retry cannot farm credits
 - [x] Art/isometric animation — CEO desk isometric SVG from the same `headquarters()` rooms; rise animation respects `prefers-reduced-motion`; no invented occupancy; cosmic-glass chrome adopted; **P4 SVG furniture glyphs** from persisted `room_type` (photoreal art packs still deferred)
 - [x] Track C marketing layout (0.3.59) — public token-styled `/welcome` landing with companion/desk CTAs; Caddy exact-path proxy; Marketing room types map to distinct `campaign` furniture from persisted floorplan data
+- [x] Deeper marketing redesign (0.3.64) — self-hosted woff2 fonts, constellation motif, intentional motion with reduced-motion respect on `/welcome`; desk `campaign` furniture upgraded to podium + banner; no CDN fonts, photoreal art, or invented wings
 - [x] Room detail — `GET /api/v1/headquarters/rooms/{id}` returns persisted tasks, staff, deliverables, simulated costs and related decisions; desk list/tiles open that panel; missing rooms fail closed
 - [x] Consultant inbox: findings, evidence, approve/reject/revise (API + desk list)
 - [x] Corporate HQ Phase 1 — runtime department/position editing and revision history
@@ -400,7 +401,7 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Companion Workers tab shipped at 0.3.63** on `feature/workers-tab-runbook`: primary **Workers**
-tab lists remote hosts with API `state`; create shows a one-time token; enable/disable/delete
-when CEO + `company.pause`; remote-agent runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md).
-No new routes; no Alembic. Next: **deeper marketing redesign**.
+**Deeper marketing redesign shipped at 0.3.64** on `feature/deeper-marketing-redesign`:
+self-hosted fonts and constellation motif on `/welcome`; desk `campaign` furniture is podium +
+banner; companion stays at `/`. No new routes; no Alembic. Next: **owner-directed backlog**
+(roadmap clear — ask the owner for the next priority).

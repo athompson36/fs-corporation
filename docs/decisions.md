@@ -596,7 +596,9 @@ Photoreal art and a marketing wing were rejected because neither is backed by pe
 **Consequences.** `/welcome` is a public read-only shell with no company data. The Caddy edge
 routes it to FastAPI while `/` remains the companion. Marketing rooms gain a distinct desk SVG
 mark without changing floorplans, occupancy, or companion behavior. No Alembic revision is
-required.
+required. In v0.3.64 the welcome page gained self-hosted display/text fonts, a constellation
+background motif, and stronger motion (reduced-motion respected). Desk `campaign` furniture
+became a podium + banner mark. Photoreal art and invented wings remain out of scope.
 
 ### ADR-046 detail
 
