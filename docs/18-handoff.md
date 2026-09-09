@@ -1,27 +1,24 @@
 # Current handoff
 
-Date: 2026-09-08. Version: **0.3.63**. State: **Companion Workers tab on
-`feature/workers-tab-runbook`**.
+Date: 2026-09-09. Version: **0.3.63**. State: **Companion Workers tab merged to
+`main`, pushed, and deployed to fs-dev** (health `0.3.63`).
 
-## On branch / pending merge
+## On main / fs-dev
 
 - Companion primary **Workers** tab: list remote worker hosts with API `state`; create host
   (one-time token shown once); enable/disable/delete when `company.pause` + CEO.
-- Client methods on `ApiClient`: `workerHosts`, `createWorkerHost`, `enableWorkerHost`,
+- Client methods: `workerHosts`, `createWorkerHost`, `enableWorkerHost`,
   `disableWorkerHost`, `deleteWorkerHost`.
-- Nav test expects **5** primary tabs (Home, Projects, Org, Corporate, Workers) plus More.
-- Remote-agent runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md); companion
-  screen table in [24-mobile-companion.md](24-mobile-companion.md).
-- Runbook clarifies that remote agents dial `FS_CORP_CONTROL_URL`, while worker-host
-  `base_url` is identification metadata only.
-- Worker-token Copy reports success/failure through inline action status and selects the token
-  for manual copy when the Clipboard API is unavailable. Narrow tab labels may wrap at 320px.
-- Uses existing `/api/v1/worker-hosts*` only; TailscaleKit unchanged; no Alembic.
+- Remote-agent runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md):
+  `FS_CORP_CONTROL_URL` must be reachable from the agent; `base_url` is identification only.
+- Existing `/api/v1/worker-hosts*` only; TailscaleKit unchanged; no Alembic
+  (head `0028_remote_worker_jobs`).
 
 ## Verification
 
 - `.venv/bin/python -m unittest discover -s tests`: **476 tests passed**.
 - `cd companion && npm run build`: **OK**.
+- fs-dev health: **0.3.63**.
 - Do not commit `local repos/service-department/`.
 
 ## Next
