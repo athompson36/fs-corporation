@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-08. Version: **0.3.63**. State: **Companion Workers tab on
-`feature/workers-tab-runbook`** (HEAD de2f057).
+`feature/workers-tab-runbook`** (HEAD 137d81a).
 
 ## On branch / pending merge
 
