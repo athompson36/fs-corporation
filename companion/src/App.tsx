@@ -26,6 +26,7 @@ import {
 import { ensureWebPushRegistration } from "./push";
 import { normalizeSettingDraft, settingDraftDiffers } from "./settingsDraft";
 import { FinancePanel } from "./FinancePanel";
+import { WorkersPanel } from "./WorkersPanel";
 import {
   canApprove,
   canEnroll,
@@ -41,18 +42,20 @@ type Tab =
   | "projects"
   | "organization"
   | "corporate"
+  | "workers"
   | "decisions"
   | "inbox"
   | "diagnostics"
   | "finance"
   | "settings";
 
-/** Four primary tabs fit an iPhone width; the rest live behind "More". */
+/** Primary navigation; secondary sections live behind "More". */
 const PRIMARY_TABS: [Tab, string][] = [
   ["dashboard", "Home"],
   ["projects", "Projects"],
   ["organization", "Org"],
   ["corporate", "Corporate"],
+  ["workers", "Workers"],
 ];
 
 const MORE_TABS: [Tab, string][] = [
@@ -1664,6 +1667,19 @@ export default function App() {
           ))}
           {!activityItems.length && <p className="muted">No open activity sessions.</p>}
         </section>
+      )}
+
+      {tab === "workers" && (
+        <WorkersPanel
+          api={api}
+          hasToken={Boolean(settings.token)}
+          canPause={canPause(scopes)}
+          scopeNotice={scopeNotice}
+          runAction={async (key, okMessage, run) => {
+            await runAction(key, okMessage, run);
+          }}
+          status={status}
+        />
       )}
 
       {tab === "decisions" && (

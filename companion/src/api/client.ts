@@ -73,6 +73,16 @@ export class ApiClient {
     return r.json();
   }
 
+  async delete<T>(path: string, idempotency?: string): Promise<T> {
+    const r = await fetch(this.url(path), {
+      method: "DELETE",
+      headers: headers(this.settings.token, idempotency),
+    });
+    if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+    const text = await r.text();
+    return (text ? JSON.parse(text) : {}) as T;
+  }
+
   dashboard() {
     return this.get<Record<string, unknown>>("/api/v1/dashboard");
   }
@@ -226,6 +236,50 @@ export class ApiClient {
       `/api/v1/finance/budget-periods/${encodeURIComponent(periodId)}/close`,
       {},
       `finance-close-${periodId}-${Date.now()}`,
+    );
+  }
+
+  workerHosts() {
+    return this.get<{ hosts: Record<string, unknown>[] }>("/api/v1/worker-hosts");
+  }
+
+  createWorkerHost(label: string, baseUrl: string) {
+    return this.post<{
+      result: {
+        id: string;
+        label: string;
+        base_url: string;
+        token: string;
+        enabled?: boolean;
+        state?: string;
+      };
+    }>(
+      "/api/v1/worker-hosts",
+      { label, base_url: baseUrl },
+      `worker-host-create-${Date.now()}`,
+    );
+  }
+
+  enableWorkerHost(hostId: string) {
+    return this.post(
+      `/api/v1/worker-hosts/${encodeURIComponent(hostId)}/enable`,
+      {},
+      `worker-host-enable-${hostId}-${Date.now()}`,
+    );
+  }
+
+  disableWorkerHost(hostId: string) {
+    return this.post(
+      `/api/v1/worker-hosts/${encodeURIComponent(hostId)}/disable`,
+      {},
+      `worker-host-disable-${hostId}-${Date.now()}`,
+    );
+  }
+
+  deleteWorkerHost(hostId: string) {
+    return this.delete(
+      `/api/v1/worker-hosts/${encodeURIComponent(hostId)}`,
+      `worker-host-delete-${hostId}-${Date.now()}`,
     );
   }
 

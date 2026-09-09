@@ -146,6 +146,23 @@ class CompanionApiTests(unittest.TestCase):
         self.assertNotIn("scopes={scopes || []}", app)
         self.assertNotIn("adj-billed", app)
 
+    def test_companion_wires_worker_hosts(self):
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        client = (root / "api" / "client.ts").read_text()
+        app = (root / "App.tsx").read_text()
+        panel = (root / "WorkersPanel.tsx").read_text()
+        self.assertIn("workerHosts", client)
+        self.assertIn("createWorkerHost", client)
+        self.assertIn("enableWorkerHost", client)
+        self.assertIn("disableWorkerHost", client)
+        self.assertIn("deleteWorkerHost", client)
+        self.assertIn('["workers", "Workers"]', app)
+        self.assertIn("tab === \"workers\"", app)
+        self.assertIn("WorkersPanel", app)
+        self.assertIn("shown once", panel)
+        self.assertIn("confirm(", panel)
+        self.assertIn("workerHosts", panel)
+
     def test_companion_replaces_window_prompt_ops_forms(self):
         app = (
             Path(__file__).resolve().parents[1] / "companion" / "src" / "App.tsx"
@@ -302,7 +319,8 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("const PRIMARY_TABS", app_source)
         self.assertIn("const MORE_TABS", app_source)
         primary = re.search(r"const PRIMARY_TABS[^=]*= \[(.*?)\];", app_source, re.S).group(1)
-        self.assertEqual(len(re.findall(r'\["', primary)), 4)
+        self.assertEqual(len(re.findall(r'\["', primary)), 5)
+        self.assertIn('["workers", "Workers"]', primary)
         self.assertIn('className="segmented"', app_source)
         self.assertIn("setTab(lastMoreTab)", app_source)
 
