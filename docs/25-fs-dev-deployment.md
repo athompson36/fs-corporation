@@ -242,7 +242,7 @@ The reserved NIC **`192.168.4.101`** is the **same-host worker plane** (identity
 
 ## Remote worker agent (second host)
 
-When a worker runs on a **separate machine** from the control plane, register it from the companion **Workers** tab (CEO + `company.pause`): provide a label and an https `base_url` reachable from that host (LAN or tailnet). The create response includes a **one-time token** — copy it immediately; list and GET never return it again. If the token is lost, delete the host and recreate.
+When a worker runs on a **separate machine** from the control plane, register it from the companion **Workers** tab (CEO + `company.pause`): provide a label and an https `base_url`. Today `base_url` is identification metadata only; nothing dials `base_url`. The agent pulls work from the control plane, so `FS_CORP_CONTROL_URL` must be reachable from the agent host (LAN or tailnet). The create response includes a **one-time token** — copy it immediately; list and GET never return it again. If the token is lost, delete the host and recreate.
 
 On the worker host, set:
 
@@ -258,7 +258,7 @@ The agent does **not** open the company database. TailscaleKit remains stubbed; 
 
 ```bash
 export FS_CORP_CONTROL_URL=https://192.168.4.100
-export FS_CORP_WORKER_HOST_ID=wh-abc123
+export FS_CORP_WORKER_HOST_ID=00000000-0000-4000-8000-000000000000
 export FS_CORP_WORKER_HOST_TOKEN=your-one-time-token
 # optional container runtime on the agent:
 export FS_CORP_REMOTE_WORKER_RUNTIME=container

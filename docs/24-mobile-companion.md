@@ -83,10 +83,12 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 
 ## Features
 
-Bottom navigation is six tabs — Home, Projects, Org, Corporate, Workers, More — sized for a 320px
-iPhone. **More** holds Decisions, Inbox, Diagnostics and Settings behind a segmented switcher and
-carries a badge with the pending decision plus owner-request count. Every write reports its
-outcome on an inline status line next to the control, not only at the top of the page.
+Bottom navigation is six tabs — Home, Projects, Org, Corporate, Workers, More. At narrow widths
+(including 320px), labels use compact type and may wrap to reduce truncation; exact rendering still
+depends on the browser's font metrics. **More** holds Decisions, Inbox, Diagnostics and Settings
+behind a segmented switcher and carries a badge with the pending decision plus owner-request count.
+Every write reports its outcome on an inline status line next to the control, not only at the top
+of the page.
 
 | Screen | Actions (scope-gated) |
 |---|---|

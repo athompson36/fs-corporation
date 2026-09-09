@@ -29,3 +29,20 @@ Date: 2026-09-08
 - Companion verification: `cd companion && npm run build` — OK; TypeScript and Vite
   production build completed with 35 modules transformed.
 - Existing untracked `local repos/service-department/` content was preserved and excluded.
+
+## Workers tab/runbook whole-branch final fixes
+
+Date: 2026-09-08
+
+- Corrected the remote-agent runbook: worker-host `base_url` is identification metadata and is
+  not dialed; `FS_CORP_CONTROL_URL` must be reachable from the agent host. Replaced the host-id
+  example with a UUID-shaped placeholder.
+- Made the six-tab narrow layout honest and more resilient by allowing compact labels to wrap,
+  while documenting that exact 320px rendering depends on browser font metrics.
+- Routed worker-token Copy through inline action status; Clipboard API failures select the token
+  text for manual copy and report the failure.
+- Regression verification: three focused tests failed before the fixes and passed afterward.
+- Full-suite verification: `.venv/bin/python -m unittest discover -s tests` — 476 passed.
+- Companion verification: `cd companion && npm run build` — OK; TypeScript and Vite production
+  build completed with 36 modules transformed.
+- Existing untracked `local repos/service-department/` content was preserved and excluded.

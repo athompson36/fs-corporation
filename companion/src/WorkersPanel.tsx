@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { ApiClient } from "./api/client";
 
 type WorkersPanelProps = {
@@ -23,6 +23,7 @@ export function WorkersPanel(props: WorkersPanelProps) {
   const [label, setLabel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [issuedToken, setIssuedToken] = useState<IssuedToken | null>(null);
+  const tokenCodeRef = useRef<HTMLElement>(null);
 
   const loadAll = useCallback(async (isCancelled: () => boolean = () => false) => {
     if (!hasToken) return;
@@ -84,6 +85,25 @@ export function WorkersPanel(props: WorkersPanelProps) {
     });
   }
 
+  async function copyIssuedToken() {
+    await runAction("worker-host-token-copy", "Worker host token copied.", async () => {
+      if (!issuedToken) return;
+      try {
+        await navigator.clipboard.writeText(issuedToken.token);
+      } catch {
+        const code = tokenCodeRef.current;
+        if (code) {
+          const range = document.createRange();
+          range.selectNodeContents(code);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }
+        throw new Error("Clipboard unavailable; the token has been selected for manual copy.");
+      }
+    });
+  }
+
   return (
     <section>
       <p className="lede">Registered remote worker hosts from persisted control-plane state.</p>
@@ -94,17 +114,18 @@ export function WorkersPanel(props: WorkersPanelProps) {
           <h2>Worker host token</h2>
           <p className="error">This token is shown once — copy now.</p>
           <p className="muted">{issuedToken.label} · {issuedToken.hostId}</p>
-          <code>{issuedToken.token}</code>
+          <code ref={tokenCodeRef}>{issuedToken.token}</code>
           <div className="actions">
             <button
               className="primary"
               type="button"
-              onClick={() => void navigator.clipboard.writeText(issuedToken.token)}
+              onClick={() => void copyIssuedToken()}
             >
               Copy
             </button>
             <button type="button" onClick={() => setIssuedToken(null)}>Dismiss</button>
           </div>
+          {status("worker-host-token-copy")}
         </div>
       )}
 

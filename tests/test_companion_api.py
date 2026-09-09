@@ -162,6 +162,11 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("shown once", panel)
         self.assertIn("confirm(", panel)
         self.assertIn("workerHosts", panel)
+        self.assertIn('runAction("worker-host-token-copy"', panel)
+        self.assertIn("try {", panel)
+        self.assertIn("navigator.clipboard.writeText", panel)
+        self.assertIn("document.createRange()", panel)
+        self.assertIn('status("worker-host-token-copy")', panel)
 
     def test_companion_replaces_window_prompt_ops_forms(self):
         app = (
@@ -332,6 +337,17 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("font-size: 16px", css)
         self.assertIn("min-height: 44px", css)
         self.assertIn("env(safe-area-inset-bottom)", css)
+        narrow = re.search(r"@media \(max-width: 360px\) \{(.*?)\n\}", css, re.S).group(1)
+        self.assertIn("white-space: normal", narrow)
+        self.assertIn("overflow-wrap: anywhere", narrow)
+
+    def test_remote_worker_runbook_describes_actual_reachability(self):
+        runbook = (
+            Path(__file__).resolve().parents[1] / "docs" / "25-fs-dev-deployment.md"
+        ).read_text()
+        self.assertIn("nothing dials `base_url`", runbook)
+        self.assertIn("`FS_CORP_CONTROL_URL` must be reachable from the agent host", runbook)
+        self.assertNotIn("wh-abc123", runbook)
 
     def test_native_shell_injects_scopes_without_clobbering(self):
         native = (

@@ -257,10 +257,16 @@ button.chip {
 }
 .badge-dormant { color: #f0b429; }
 
-/* iPhone SE width: shrink the labels and wrap the switcher so nothing is
-   truncated or hidden behind a horizontal scroll. */
+/* At iPhone SE widths, compact primary labels and permit wrapping to reduce
+   truncation risk with six tabs. The secondary switcher wraps instead of scrolling. */
 @media (max-width: 360px) {
-  nav.tabs button { font-size: 0.68rem; padding: 0.35rem 0.05rem; }
+  nav.tabs button {
+    font-size: 0.64rem;
+    line-height: 1.05;
+    padding: 0.35rem 0.05rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   .segmented { flex-wrap: wrap; overflow-x: visible; }
   .segmented button { flex: 1 1 45%; font-size: 0.78rem; }
 }
