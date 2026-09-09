@@ -25,6 +25,25 @@ class WelcomeTests(unittest.TestCase):
         from company.rate_limit import EXEMPT_PATHS
         self.assertIn("/welcome", EXEMPT_PATHS)
 
+    def test_welcome_deeper_craft(self):
+        r = self.client.get("/welcome")
+        text = r.text
+        self.assertIn("/static/welcome.css", text)
+        self.assertIn("/static/fonts/", text)
+        self.assertIn("constellation", text.lower())
+        self.assertIn("FS-Corporation", text)
+        self.assertIn('href="/"', text)
+        self.assertIn('href="/desk"', text)
+
+        css = self.client.get("/static/welcome.css")
+        self.assertEqual(css.status_code, 200)
+        self.assertIn("prefers-reduced-motion", css.text)
+
+    def test_welcome_font_files_exist(self):
+        root = Path(__file__).resolve().parents[1] / "assets" / "fonts"
+        woffs = list(root.glob("*.woff2"))
+        self.assertGreaterEqual(len(woffs), 2, "need display + text woff2")
+
 
 class WelcomeCaddyTests(unittest.TestCase):
     def test_caddyfile_proxies_welcome(self):

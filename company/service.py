@@ -1402,15 +1402,29 @@ function drawFurniture(g, kind, ix, iy) {
     rack.setAttribute('fill', '#64748b');
     g.appendChild(rack);
   } else if (kind === 'campaign') {
-    const desk = ns('rect');
-    desk.setAttribute('x', ix - 5); desk.setAttribute('y', iy + 7);
-    desk.setAttribute('width', '10'); desk.setAttribute('height', '3');
-    desk.setAttribute('fill', '#78716c');
-    const board = ns('rect');
-    board.setAttribute('x', ix + 2); board.setAttribute('y', iy + 1);
-    board.setAttribute('width', '3'); board.setAttribute('height', '7');
-    board.setAttribute('fill', '#38bdf8');
-    g.appendChild(desk); g.appendChild(board);
+    const podium = ns('path');
+    podium.setAttribute('class', 'campaign-podium');
+    podium.setAttribute(
+      'd',
+      `M ${ix-7} ${iy+8} L ${ix} ${iy+5} L ${ix+7} ${iy+8} L ${ix} ${iy+12} Z`
+    );
+    podium.setAttribute('fill', '#64748b');
+    podium.setAttribute('stroke', '#cbd5e1');
+    podium.setAttribute('stroke-width', '0.5');
+    const pole = ns('rect');
+    pole.setAttribute('x', ix + 4); pole.setAttribute('y', iy - 5);
+    pole.setAttribute('width', '1'); pole.setAttribute('height', '14');
+    pole.setAttribute('fill', '#cbd5e1');
+    const banner = ns('path');
+    banner.setAttribute('class', 'campaign-banner');
+    banner.setAttribute(
+      'd',
+      `M ${ix+5} ${iy-5} L ${ix+13} ${iy-2} L ${ix+10} ${iy+1} L ${ix+13} ${iy+4} L ${ix+5} ${iy+2} Z`
+    );
+    banner.setAttribute('fill', '#38bdf8');
+    banner.setAttribute('stroke', '#bae6fd');
+    banner.setAttribute('stroke-width', '0.5');
+    g.appendChild(podium); g.appendChild(pole); g.appendChild(banner);
   } else {
     const desk = ns('rect');
     desk.setAttribute('x', ix - 5); desk.setAttribute('y', iy + 7);
@@ -1485,41 +1499,41 @@ WELCOME_HTML = """<!DOCTYPE html>
 <meta charset="utf-8"/>
 <title>FS-Corporation</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="theme-color" content="#070b14"/>
 <link rel="stylesheet" href="/static/cosmic-glass-tokens.css"/>
-<style>
-/* page-local hero only — use token vars; respect prefers-reduced-motion */
-body {
-  margin: 0; min-height: 100vh; color: var(--soft);
-  font-family: "Segoe UI", system-ui, sans-serif;
-  background:
-    radial-gradient(1000px 500px at 80% 0%, rgba(59,130,246,0.25), transparent 55%),
-    radial-gradient(800px 400px at 10% 100%, rgba(52,211,153,0.12), transparent 50%),
-    var(--midnight);
-  display: grid; place-items: center;
-}
-.hero { text-align: center; padding: 2rem 1.25rem; max-width: 36rem; }
-.brand {
-  font-size: clamp(2.4rem, 8vw, 3.6rem); font-weight: 700;
-  letter-spacing: 0.06em; margin: 0 0 0.75rem;
-  animation: rise 0.7s ease-out;
-}
-h1 { font-size: clamp(1.15rem, 3vw, 1.45rem); font-weight: 600; margin: 0 0 0.75rem; }
-.support { color: var(--muted); margin: 0 0 1.5rem; line-height: 1.45; }
-.ctas { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
-.ctas a {
-  color: var(--soft); text-decoration: none;
-  border: 1px solid var(--glass-border); background: var(--glass);
-  border-radius: var(--radius-glass); padding: 0.65rem 1.1rem;
-  animation: rise 0.9s ease-out;
-}
-.ctas a.primary { border-color: var(--cosmic); background: rgba(59,130,246,0.22); }
-@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) {
-  .brand, .ctas a { animation: none; }
-}
-</style>
+<link rel="preload" href="/static/fonts/syne-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin/>
+<link rel="preload" href="/static/fonts/manrope-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin/>
+<link rel="stylesheet" href="/static/welcome.css"/>
 </head>
 <body data-theme="cosmic-glass">
+<svg class="constellation" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="constellation-grid" width="72" height="72" patternUnits="userSpaceOnUse">
+      <path class="constellation-grid" d="M 72 0 L 0 0 0 72"/>
+    </pattern>
+    <linearGradient id="constellation-glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset=".52" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="760" fill="url(#constellation-grid)"/>
+  <g class="constellation-lines">
+    <path d="M72 166 214 98 338 202 492 126 638 232 814 138 964 236 1136 142"/>
+    <path d="M36 556 190 474 350 584 520 456 684 572 866 444 1042 548 1184 462"/>
+    <path d="M214 98 190 474M492 126 520 456M814 138 866 444M964 236 1042 548"/>
+  </g>
+  <g class="constellation-stars">
+    <circle cx="72" cy="166" r="2.2"/><circle cx="214" cy="98" r="3.2"/>
+    <circle cx="338" cy="202" r="1.8"/><circle cx="492" cy="126" r="2.6"/>
+    <circle cx="638" cy="232" r="1.9"/><circle cx="814" cy="138" r="3"/>
+    <circle cx="964" cy="236" r="2.1"/><circle cx="1136" cy="142" r="2.7"/>
+    <circle cx="36" cy="556" r="1.8"/><circle cx="190" cy="474" r="2.8"/>
+    <circle cx="350" cy="584" r="2.2"/><circle cx="520" cy="456" r="3.1"/>
+    <circle cx="684" cy="572" r="1.8"/><circle cx="866" cy="444" r="2.6"/>
+    <circle cx="1042" cy="548" r="2.1"/><circle cx="1184" cy="462" r="2.8"/>
+  </g>
+</svg>
 <main class="hero">
   <p class="brand">FS-Corporation</p>
   <h1>A persistent AI company built on ChatDev</h1>

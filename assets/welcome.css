@@ -1,0 +1,229 @@
+@font-face {
+  font-family: "Syne";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/fonts/syne-latin-700-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/manrope-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/fonts/manrope-latin-600-normal.woff2") format("woff2");
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 20rem;
+  background: var(--midnight);
+}
+
+body {
+  min-height: 100svh;
+  margin: 0;
+  overflow: hidden;
+  color: var(--soft);
+  font-family: "Manrope", system-ui, sans-serif;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(59, 130, 246, 0.13), transparent 32rem),
+    radial-gradient(circle at 8% 92%, rgba(52, 211, 153, 0.1), transparent 30rem),
+    radial-gradient(circle at 95% 2%, rgba(139, 92, 246, 0.14), transparent 35rem),
+    var(--midnight);
+}
+
+.constellation {
+  position: fixed;
+  inset: -5%;
+  z-index: 0;
+  width: 110%;
+  height: 110%;
+  pointer-events: none;
+  opacity: 0.74;
+  animation: constellation-drift 18s ease-in-out infinite alternate;
+}
+
+.constellation-grid {
+  fill: none;
+  stroke: rgba(120, 170, 255, 0.08);
+  stroke-width: 0.45;
+}
+
+.constellation-lines {
+  fill: none;
+  stroke: url("#constellation-glow");
+  stroke-width: 0.7;
+  stroke-dasharray: 2 5;
+}
+
+.constellation-stars circle {
+  fill: var(--soft);
+  filter: drop-shadow(0 0 4px rgba(147, 197, 253, 0.9));
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: star-pulse 4.5s ease-in-out infinite;
+}
+
+.constellation-stars circle:nth-child(2n) {
+  animation-delay: -1.5s;
+}
+
+.constellation-stars circle:nth-child(3n) {
+  animation-delay: -3s;
+}
+
+.hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: 100svh;
+  place-content: center;
+  justify-items: center;
+  width: min(100%, 78rem);
+  margin: 0 auto;
+  padding: clamp(2rem, 7vw, 6rem) clamp(1.25rem, 5vw, 4rem);
+  text-align: center;
+}
+
+.brand {
+  margin: 0;
+  font-family: "Syne", "Arial Black", sans-serif;
+  font-size: clamp(3.4rem, 11vw, 9rem);
+  font-weight: 700;
+  line-height: 0.84;
+  letter-spacing: -0.075em;
+  color: transparent;
+  background: linear-gradient(105deg, #ffffff 8%, #bcd6ff 48%, #adf3dc 96%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  filter: drop-shadow(0 1.1rem 3rem rgba(59, 130, 246, 0.23));
+  animation: brand-rise 900ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+h1 {
+  max-width: 36rem;
+  margin: clamp(1.8rem, 4vw, 3rem) 0 0;
+  font-family: "Syne", "Arial Black", sans-serif;
+  font-size: clamp(1.35rem, 2.7vw, 2.25rem);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+}
+
+.support {
+  max-width: 40rem;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: clamp(0.9rem, 1.5vw, 1.05rem);
+  line-height: 1.65;
+}
+
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: clamp(1.75rem, 4vw, 2.5rem);
+  animation: cta-fade 700ms 500ms ease-out both;
+}
+
+.ctas a {
+  min-width: 9.5rem;
+  padding: 0.8rem 1.2rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-chip);
+  color: var(--soft);
+  background: rgba(12, 18, 32, 0.62);
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.22);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  text-decoration: none;
+  text-transform: uppercase;
+  backdrop-filter: blur(14px);
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.ctas a:hover {
+  border-color: rgba(173, 243, 220, 0.62);
+  background: rgba(29, 78, 216, 0.24);
+  transform: translateY(-2px);
+}
+
+.ctas .primary {
+  border-color: rgba(120, 170, 255, 0.6);
+  background: linear-gradient(120deg, rgba(29, 78, 216, 0.66), rgba(139, 92, 246, 0.44));
+}
+
+@keyframes brand-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes constellation-drift {
+  to {
+    transform: translate3d(-1.2%, 1.4%, 0) scale(1.015);
+  }
+}
+
+@keyframes star-pulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.65);
+  }
+}
+
+@keyframes cta-fade {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 36rem) {
+  .brand {
+    font-size: clamp(3rem, 17vw, 5rem);
+  }
+
+  .ctas {
+    width: 100%;
+  }
+
+  .ctas a {
+    flex: 1 1 9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand,
+  .constellation,
+  .constellation-stars circle,
+  .ctas {
+    animation: none;
+  }
+
+  .ctas a {
+    transition: none;
+  }
+}

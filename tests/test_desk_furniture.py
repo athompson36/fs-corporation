@@ -15,6 +15,8 @@ class DeskFurnitureTests(unittest.TestCase):
         self.assertIn("campaign", DESK_HTML)
         self.assertIn("market", DESK_HTML)  # match in furnitureKind
         self.assertIn("data-furniture", DESK_HTML)
+        self.assertIn("campaign-podium", DESK_HTML)
+        self.assertIn("campaign-banner", DESK_HTML)
         # Must bind to room fields, not invent workers
         self.assertIn("room.room_type", DESK_HTML)
         self.assertNotIn("inventedOccupancy", DESK_HTML)
