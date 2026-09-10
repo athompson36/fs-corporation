@@ -243,6 +243,10 @@ export function FinancePanel(props: FinancePanelProps) {
 
   return (
     <section>
+      <p className="lede">
+        Overview and lists are read from persisted finance state. Create invoice, adjustment,
+        and period actions stay on their tabs — not a second Browse/Manage layer.
+      </p>
       <div className="segmented" role="tablist" aria-label="Finance sections">
         {SUB_TABS.map(([t, label]) => (
           <button
