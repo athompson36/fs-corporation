@@ -322,12 +322,22 @@ class CompanionApiTests(unittest.TestCase):
             Path(__file__).resolve().parents[1] / "companion" / "src" / "App.tsx"
         ).read_text()
         self.assertIn("const PRIMARY_TABS", app_source)
+        self.assertIn("const WORK_TABS", app_source)
         self.assertIn("const MORE_TABS", app_source)
         primary = re.search(r"const PRIMARY_TABS[^=]*= \[(.*?)\];", app_source, re.S).group(1)
-        self.assertEqual(len(re.findall(r'\["', primary)), 5)
-        self.assertIn('["workers", "Workers"]', primary)
-        self.assertIn('className="segmented"', app_source)
+        self.assertEqual(len(re.findall(r'\["', primary)), 4)
+        self.assertIn('["dashboard", "Home"]', primary)
+        self.assertIn('["work", "Work"]', primary)
+        self.assertIn('["people", "People"]', primary)
+        self.assertIn('["money", "Money"]', primary)
+        self.assertNotIn('["workers", "Workers"]', primary)
+        self.assertIn('["projects", "Projects"]', app_source)  # inside WORK_TABS
+        self.assertIn('tab === "finance"', app_source)
+        self.assertNotIn('["finance", "Finance"]', re.search(r"const MORE_TABS[^=]*= \[(.*?)\];", app_source, re.S).group(1))
+        self.assertIn("setTab(lastWorkTab)", app_source)
         self.assertIn("setTab(lastMoreTab)", app_source)
+        self.assertIn("HomePanel", app_source)
+        self.assertIn("Needs you", app_source)
 
     def test_companion_styles_size_every_field_for_touch(self):
         css = (
