@@ -100,6 +100,8 @@ export function HomePanel(props: HomePanelProps) {
           <p className="muted">Nothing needs you right now.</p>
         )}
         {decisions.length > 0 && !canApprove(scopes) && scopeNotice("decide proposals", "policy.approve")}
+        {inbox.length > 0 && !canRespondInbox(scopes)
+          && scopeNotice("respond to owner requests", "company.pause")}
       </div>
 
       <div className="card">
