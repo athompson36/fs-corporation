@@ -157,11 +157,6 @@ export function CorporatePanel(props: CorporatePanelProps) {
                       runAction(`division-${division.id}`, "Division activated.", () =>
                         api.activateDivision(division.id))}>Activate</button>
                   )}
-                  {division.status === "active" && (
-                    <button type="button" className="danger" onClick={() =>
-                      runAction(`division-${division.id}`, "Division deactivated.", () =>
-                        api.deactivateDivision(division.id))}>Deactivate</button>
-                  )}
                 </div>
               )}
               {status(`division-${division.id}`)}
