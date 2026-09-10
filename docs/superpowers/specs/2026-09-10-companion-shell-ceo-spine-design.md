@@ -40,7 +40,7 @@ and a desk IA rewrite are follow-ups.
 | **Work** | Segmented: Projects · Corporate · Workers |
 | **People** | Organization (catalog, heads, assignments, worker card, head inbox) |
 | **Money** | Existing `FinancePanel` (Overview · Invoices · Adjustments · Periods) |
-| **More** | Segmented: Diagnostics · Settings · Decisions · Inbox (full-list overflow) |
+| **More** | Segmented: Decisions · Inbox · Diagnostics · Settings (full-list overflow) |
 
 ### Rules
 
