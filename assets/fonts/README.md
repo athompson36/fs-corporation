@@ -1,6 +1,7 @@
-# Fonts for /welcome
+# Shared brand fonts
 
-Self-hosted for the public landing (no CDN at runtime).
+Self-hosted for the public landing and operational surfaces, including the CEO desk and
+mobile companion (no CDN at runtime).
 
 | File | Family | Weight | License |
 |---|---|---|---|

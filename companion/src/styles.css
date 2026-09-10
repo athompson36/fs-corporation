@@ -1,8 +1,9 @@
 @import "../../assets/cosmic-glass-tokens.css";
+@import "../../assets/brand-fonts.css";
 
 :root {
-  font-family: system-ui, -apple-system, sans-serif;
-  background: radial-gradient(900px 480px at 20% -20%, #12203a 0%, var(--midnight) 50%);
+  font-family: var(--font-body);
+  background: var(--wash);
   color: var(--soft);
   line-height: 1.4;
 }
@@ -10,6 +11,10 @@
 * { box-sizing: border-box; }
 
 body { margin: 0; min-height: 100dvh; }
+
+h1, h2, .brand-title {
+  font-family: var(--font-display);
+}
 
 .app {
   max-width: 32rem;
@@ -34,6 +39,20 @@ h2 { font-size: 0.95rem; margin: 0 0 0.35rem; }
   padding: 0.85rem;
   margin: 0.55rem 0;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.nested-card {
+  margin: 0.5rem 0;
+  box-shadow: none;
 }
 
 .error { color: #f8a8a8; }

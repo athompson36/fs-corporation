@@ -32,7 +32,7 @@ Set company name and owner → choose CEO mode → set root limits → enable in
 
 ## Design direction
 
-Official visual system: **cosmic restraint** — midnight background, cosmic blue primary, ultraviolet secondary, aurora success, soft-white type, subtle glass cards, clear hierarchy. The CEO desk uses a sidebar and metric cards. The companion uses the same tokens with a bottom tab bar. Metrics pad real counts (including zero); they never invent occupancy, rooms, or workload. Isometric rooms show small SVG furniture glyphs from persisted `room_type`; photoreal art packs remain deferred.
+Official visual system: **cosmic restraint** — midnight background, cosmic blue primary, ultraviolet secondary, aurora success, soft-white type, subtle glass cards, clear hierarchy. Syne display type and Manrope body type are shared across companion, desk and welcome. The CEO desk uses a sidebar and metric cards. The companion bottom bar has five domain tabs — **Home · Work · People · Money · More**. Home is the Needs-you queue assembled only from persisted pending decisions and owner-inbox requests, with scope-gated inline actions; Work groups Projects/Corporate/Workers, People opens Organization, Money opens Finance, and More retains the full Decisions/Inbox plus Diagnostics/Settings views. Metrics pad real counts (including zero); they never invent occupancy, rooms, or workload. Isometric rooms show small SVG furniture glyphs from persisted `room_type`; photoreal art packs remain deferred.
 
 ## Current status
 

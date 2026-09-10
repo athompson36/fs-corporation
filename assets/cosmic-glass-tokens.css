@@ -12,6 +12,9 @@
   --soft: #e8eef8;
   --muted: #9aa8c0;
   --warning: #f5b942;
+  --font-display: "Syne", system-ui, sans-serif;
+  --font-body: "Manrope", system-ui, sans-serif;
+  --wash: radial-gradient(900px 480px at 20% -20%, #12203a 0%, var(--midnight) 55%);
   --focus-ring: 0 0 0 2px var(--midnight), 0 0 0 4px var(--cosmic);
   --radius-glass: 1rem;
   --radius-chip: 999px;
