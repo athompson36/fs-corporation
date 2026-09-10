@@ -41,6 +41,20 @@ h2 { font-size: 0.95rem; margin: 0 0 0.35rem; }
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
 }
 
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.nested-card {
+  margin: 0.5rem 0;
+  box-shadow: none;
+}
+
 .error { color: #f8a8a8; }
 .offline {
   background: rgba(245, 185, 66, 0.12);

@@ -26,6 +26,7 @@ import {
 import { ensureWebPushRegistration } from "./push";
 import { normalizeSettingDraft, settingDraftDiffers } from "./settingsDraft";
 import { FinancePanel } from "./FinancePanel";
+import { HomePanel } from "./HomePanel";
 import { WorkersPanel } from "./WorkersPanel";
 import {
   canApprove,
@@ -49,11 +50,16 @@ type Tab =
   | "finance"
   | "settings";
 
-/** Primary navigation; secondary sections live behind "More". */
-const PRIMARY_TABS: [Tab, string][] = [
+/** Primary bar labels. `work`/`people`/`money` are group sentinels for the bar only. */
+const PRIMARY_TABS: [string, string][] = [
   ["dashboard", "Home"],
+  ["work", "Work"],
+  ["people", "People"],
+  ["money", "Money"],
+];
+
+const WORK_TABS: [Tab, string][] = [
   ["projects", "Projects"],
-  ["organization", "Org"],
   ["corporate", "Corporate"],
   ["workers", "Workers"],
 ];
@@ -62,7 +68,6 @@ const MORE_TABS: [Tab, string][] = [
   ["decisions", "Decisions"],
   ["inbox", "Inbox"],
   ["diagnostics", "Diagnostics"],
-  ["finance", "Finance"],
   ["settings", "Settings"],
 ];
 
@@ -163,6 +168,7 @@ export default function App() {
   const [feedApproveId, setFeedApproveId] = useState("");
   const [feedApproveUrl, setFeedApproveUrl] = useState("https://");
   const [modelProfiles, setModelProfiles] = useState<Record<string, unknown>[]>([]);
+  const [lastWorkTab, setLastWorkTab] = useState<Tab>("projects");
   const [lastMoreTab, setLastMoreTab] = useState<Tab>("decisions");
   const [formStatus, setFormStatus] = useState<Record<string, FormStatus>>({});
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
@@ -374,6 +380,7 @@ export default function App() {
 
   useEffect(() => {
     if (MORE_TABS.some(([t]) => t === tab)) setLastMoreTab(tab);
+    if (WORK_TABS.some(([t]) => t === tab)) setLastWorkTab(tab);
   }, [tab]);
 
   useEffect(() => {
@@ -472,11 +479,11 @@ export default function App() {
     if (!response) {
       setFormStatus((prev) => ({
         ...prev,
-        [`owner-${req.id}`]: { ok: false, text: "Enter a response before submitting." },
+        [`respond-${req.id}`]: { ok: false, text: "Enter a response before submitting." },
       }));
       return;
     }
-    const ok = await runAction(`owner-${req.id}`, "Response recorded.", () =>
+    const ok = await runAction(`respond-${req.id}`, "Response recorded.", () =>
       api.respondOwner(req.id, response));
     if (ok) {
       setOwnerResponseDrafts((prev) => {
@@ -569,7 +576,6 @@ export default function App() {
   }
 
   const company = (dashboard?.company ?? {}) as Record<string, unknown>;
-  const pad = (n: number) => String(n).padStart(2, "0");
   const accessBadge = settings.access_level === "read_only"
     ? "Read only"
     : settings.label || (settings.access_level ? settings.access_level : null);
@@ -577,6 +583,7 @@ export default function App() {
   const canEditSettings = canPause(scopes);
   const canApproveFeeds = canEnroll(scopes);
   const canOperateFeeds = canPause(scopes);
+  const isWorkTab = WORK_TABS.some(([t]) => t === tab);
   const isMoreTab = MORE_TABS.some(([t]) => t === tab);
   const moreCount = decisions.length + inbox.length;
 
@@ -645,9 +652,28 @@ export default function App() {
 
   return (
     <div className="app" data-theme="cosmic-glass">
-      <h1>FS-Corporation {accessBadge && <span className="tag tag-proposal">{accessBadge}</span>}</h1>
+      {tab !== "dashboard" && (
+        <h1>FS-Corporation {accessBadge && <span className="tag tag-proposal">{accessBadge}</span>}</h1>
+      )}
       {offline && <div className="offline">Cannot reach control service</div>}
       {error && <p className="error">{error}</p>}
+
+      {isWorkTab && (
+        <div className="segmented" role="tablist" aria-label="Work sections">
+          {WORK_TABS.map(([t, label]) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              className={tab === t ? "active" : ""}
+              onClick={() => setTab(t)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isMoreTab && (
         <div className="segmented" role="tablist" aria-label="More sections">
@@ -667,34 +693,26 @@ export default function App() {
       )}
 
       {tab === "dashboard" && (
-        <section>
-          <p className="lede">CEO companion — reads persisted state only.</p>
-          <div className="metrics">
-            <div className="card metric"><h2>Projects</h2><div className="value">{pad(projects.length)}</div></div>
-            <div className="card metric"><h2>Decisions</h2><div className="value">{pad(decisions.length)}</div></div>
-            <div className="card metric"><h2>Inbox</h2><div className="value">{pad(Number(dashboard?.owner_inbox_open ?? inbox.length))}</div></div>
-          </div>
-          <div className="card">
-            <div>Policy v{String(company.policy_version ?? "?")}</div>
-            <div>Paused: {String(company.paused ?? false)}</div>
-            <div>Simulated spend: {String(company.simulated_spend_cents ?? 0)}¢</div>
-            <div>Reserved: {String(company.reserved_cents ?? 0)}¢</div>
-            <div>Open owner inbox: {String(dashboard?.owner_inbox_open ?? 0)}</div>
-            <div>Pending decisions: {String((dashboard?.pending_decisions as unknown[])?.length ?? 0)}</div>
-            <div className="actions">
-              {canResume(scopes) && (
-                <button className="primary" type="button" onClick={() => api.resume().then(refresh)}>Resume</button>
-              )}
-              {canPause(scopes) && (
-                <button className="danger" type="button" onClick={() => api.pause().then(refresh)}>Pause</button>
-              )}
-              <button type="button" onClick={refresh}>Refresh</button>
-            </div>
-          </div>
-          {(dashboard?.department_queues as { name: string; open_count: number }[] | undefined)?.map((d) => (
-            <div key={d.name} className="card muted">{d.name}: {d.open_count} queued</div>
-          ))}
-        </section>
+        // HomePanel owns the "Needs you" queue and the only Home page title.
+        <HomePanel
+          scopes={scopes}
+          decisions={decisions}
+          inbox={inbox}
+          company={company}
+          dashboard={dashboard}
+          ownerResponseDrafts={ownerResponseDrafts}
+          setOwnerResponseDrafts={setOwnerResponseDrafts}
+          onDecide={decide}
+          onRespond={respond}
+          onPause={() => { void api.pause().then(refresh); }}
+          onResume={() => { void api.resume().then(refresh); }}
+          onRefresh={refresh}
+          onOpenDecisions={() => setTab("decisions")}
+          onOpenInbox={() => setTab("inbox")}
+          status={status}
+          scopeNotice={scopeNotice}
+          accessBadge={accessBadge}
+        />
       )}
 
       {tab === "projects" && (
@@ -1763,7 +1781,7 @@ export default function App() {
                   </div>
                 </form>
               )}
-              {status(`owner-${req.id}`)}
+              {status(`respond-${req.id}`)}
             </div>
           ))}
           {!inbox.length && <p className="muted">No open owner requests.</p>}
@@ -2102,18 +2120,37 @@ export default function App() {
         {backendVersion ? `v${backendVersion}` : ""}
       </p>
       <nav className="tabs" aria-label="Primary">
-        {PRIMARY_TABS.map(([t, label]) => (
-          <button key={t} type="button" className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
-            {label}
-          </button>
-        ))}
+        <button type="button" className={tab === "dashboard" ? "active" : ""} onClick={() => setTab("dashboard")}>
+          {PRIMARY_TABS[0][1]}
+          {moreCount > 0 && <span className="tab-badge">{moreCount}</span>}
+        </button>
+        <button
+          type="button"
+          className={isWorkTab ? "active" : ""}
+          onClick={() => setTab(lastWorkTab)}
+        >
+          {PRIMARY_TABS[1][1]}
+        </button>
+        <button
+          type="button"
+          className={tab === "organization" ? "active" : ""}
+          onClick={() => setTab("organization")}
+        >
+          {PRIMARY_TABS[2][1]}
+        </button>
+        <button
+          type="button"
+          className={tab === "finance" ? "active" : ""}
+          onClick={() => setTab("finance")}
+        >
+          {PRIMARY_TABS[3][1]}
+        </button>
         <button
           type="button"
           className={isMoreTab ? "active" : ""}
           onClick={() => setTab(lastMoreTab)}
         >
           More
-          {moreCount > 0 && <span className="tab-badge">{moreCount}</span>}
         </button>
       </nav>
     </div>
