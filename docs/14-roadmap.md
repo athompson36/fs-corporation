@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.41 local status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, and the fs-dev deployment are all in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable.
+**v0.3.66 local status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, fs-dev deployment, and companion Work/People Browse–Manage structure are in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health remains 0.3.65 until this local release is merged and installed.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials are owner-supplied per environment; a clone without them still runs every local check.
 
@@ -261,6 +261,9 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Companion shell + CEO spine (0.3.65) — five-domain Home · Work · People · Money · More
       navigation; Home Needs-you queue reuses persisted decisions and owner inbox with scoped
       inline actions; shared Syne/Manrope brand fonts align companion, desk and welcome
+- [x] Work/People/Money structure (0.3.66) — Projects, Corporate, Workers and Organization
+      default to local Browse views and group create/enroll/configure controls under Manage;
+      Finance retains Overview · Invoices · Adjustments · Periods without a nested mode layer
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -404,8 +407,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Companion shell + CEO spine shipped at 0.3.65** on
-`feature/companion-shell-ceo-spine`: five-domain companion navigation, a persisted Needs-you
-Home queue with existing scope-gated actions, and shared Syne/Manrope fonts across companion,
-desk and welcome. No new API routes or Alembic revision. Next: deep layout polish inside
-Work/People/Money, or align the desk information architecture to the five domains.
+**Work/People/Money Browse–Manage implemented locally for 0.3.66** on
+`feature/work-people-money-browse-manage`: extracted Projects, Corporate and Organization
+panels plus Workers use local Browse/Manage modes; Finance keeps its existing sub-tabs. No new
+API routes or Alembic revision. Next: owner review and merge/deploy 0.3.66, then deep visual
+polish/master-detail project UX or desk information-architecture alignment to the five domains.

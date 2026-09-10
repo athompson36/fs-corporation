@@ -49,6 +49,7 @@
 | ADR-045 | 2026-09-08 | Public `/welcome` landing and marketing campaign furniture | FastAPI serves a cosmic-glass landing while the companion remains at `/`; desk HQ maps persisted marketing room types to `campaign` furniture. |
 | ADR-046 | 2026-09-08 | Remote claim embeds fail-closed ChatDev egress policy | Agents attach allowlisted Docker networks only when locally ready; forbidden names coerce to none at claim; no hostnames cross the wire. |
 | ADR-047 | 2026-09-10 | Companion domain shell and CEO Needs-you spine | Five primary domains regroup existing capabilities; Home projects persisted decisions/inbox only; shared Syne/Manrope fonts unify companion, desk and welcome. |
+| ADR-048 | 2026-09-10 | Local Browse/Manage modes for companion Work and People | Persisted lists/details and in-row actions default to Browse; create/enroll/configure controls move to Manage; Finance retains its existing sub-tabs without a second mode layer. |
 
 ### ADR-010 detail
 
@@ -651,5 +652,31 @@ self-hosted asset.
 provides one persisted attention queue and an honest empty state. Read-only and missing-scope
 behavior remains fail-closed. Deep layout polish inside Work, People and Money, and desk
 information-architecture alignment remain follow-ups. No schema migration is required.
+
+### ADR-048 detail
+
+**Context.** After ADR-047 grouped the companion into five CEO-facing domains, Work and People
+still mixed persisted lists, row decisions and creation/configuration forms in long panels. Money
+already had a clear four-tab Finance structure. The owner selected a structure-first pass across
+all three domains without new APIs, metrics or a desk redesign.
+
+**Decision.** Give Projects, Corporate, Workers and Organization a reusable, panel-local
+**Browse / Manage** segmented control that defaults to Browse. Browse owns persisted lists,
+details and in-row actions; Manage owns create, enroll, assign and configure flows. Project
+details and dispatch remain reachable from Browse. Finance keeps **Overview · Invoices ·
+Adjustments · Periods** and its create flows on those tabs, with no nested Browse/Manage layer.
+Mode is ephemeral React state, and existing server-side scope enforcement and inline missing-scope
+notices remain authoritative.
+
+**Alternatives considered.** URL-backed modes were deferred because no cross-session mode
+identity is required. A nested Finance mode was rejected because it would duplicate its existing
+navigation. Moving every write into Manage was rejected because contextual row actions such as
+decide, accept, enable/disable and dispatch belong with the records they affect.
+
+**Consequences.** The companion gains a consistent scan-versus-configure hierarchy while
+preserving every existing API contract and persisted-data rule. Large Work and People surfaces
+are isolated in `ProjectsPanel`, `CorporatePanel`, `WorkersPanel` and `OrgPanel`; `App` retains
+data loading and orchestration. No Alembic revision is required. Deeper visual polish,
+master-detail project UX and desk five-domain alignment remain follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

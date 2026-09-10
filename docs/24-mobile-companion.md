@@ -88,7 +88,11 @@ Needs-you queue built from persisted pending decisions and owner-inbox requests,
 approve/reject/respond actions when scopes allow; creating an escalation remains under **More →
 Inbox**. **Work** groups Projects, Corporate and Workers. **People** opens Organization. **Money**
 opens Finance. **More** groups Decisions, Inbox, Diagnostics and Settings behind a segmented
-switcher. The Home badge is the pending-decision plus owner-request count. At narrow widths
+switcher. Projects, Corporate, Workers and People each default to a local **Browse** surface for
+persisted lists/details and in-row actions, with create/enroll/configure controls grouped under
+**Manage**. Money deliberately keeps its existing **Overview · Invoices · Adjustments · Periods**
+sub-tabs instead of adding a second mode layer. The Home badge is the pending-decision plus
+owner-request count. At narrow widths
 (including 320px), labels use compact type and may wrap to reduce truncation; exact rendering still
 depends on the browser's font metrics. Every write reports its outcome on an inline status line
 next to the control, not only at the top of the page.
@@ -96,11 +100,11 @@ next to the control, not only at the top of the page.
 | Screen | Actions (scope-gated) |
 |---|---|
 | Home | Needs-you queue; persisted status strip; pause/resume when `company.pause` / `company.resume` |
-| Work → Projects | List/detail; local candidates + enroll; assign GitHub by upstream address; dispatch with Recommend / templates / budget chips / Valid values when `project.enroll` |
-| Work → Corporate | Scorecard, objectives, industry packs, divisions, promotions, staffing proposals, cross-department requests, activity, default floorplan |
-| Work → Workers | List remote worker hosts (API `state`); create host (one-time token shown once); enable/disable/delete when `company.pause` + CEO |
-| People | Organization catalog and roster; departments, heads, positions, assignments, reorder, activation and worker card when `organization.write` |
-| Money | Finance sub-tabs **Overview · Invoices · Adjustments · Periods**; summary (gross/net/adjustments/revenue); create invoices with expandable line detail; void/partial-credit refunds via billed-cost picker (`GET /finance/billed-costs`); set/close budget periods with confirm + next-period prefill (CEO + `company.pause`). Dollar amounts use display-only `formatUsd`; API payloads stay integer cents. |
+| Work → Projects | **Browse:** list/detail and dispatch. **Manage:** local candidates + enroll and GitHub assign by upstream address. Dispatch retains Recommend / templates / budget chips / Valid values when `project.enroll`. |
+| Work → Corporate | **Browse:** scorecard, objectives, industry packs, divisions, promotions, staffing proposals, cross-department requests and activity. **Manage:** create/propose/request forms, staffing scan and default floorplan. |
+| Work → Workers | **Browse:** remote worker hosts (API `state`) and enable/disable/delete when `company.pause` + CEO. **Manage:** create host and show its one-time token. |
+| People | **Browse:** organization catalog/roster and head-inbox assignment. **Manage:** departments, heads, positions, reorder, vacate/release, activation and worker-card loading when `organization.write`. |
+| Money | No nested Browse/Manage switch. Finance sub-tabs remain **Overview · Invoices · Adjustments · Periods**; summary (gross/net/adjustments/revenue); create invoices with expandable line detail; void/partial-credit refunds via billed-cost picker (`GET /finance/billed-costs`); set/close budget periods with confirm + next-period prefill (CEO + `company.pause`). Dollar amounts use display-only `formatUsd`; API payloads stay integer cents. |
 | More → Decisions | Approve/reject when `policy.approve` or `consultant.decide` |
 | More → Inbox | Respond when `company.pause`; escalate when `owner.escalate` |
 | More → Diagnostics | Parallel live probes: health, workers, model, github, push, chatdev, feeds, slos, local-repos |
