@@ -76,13 +76,13 @@ class CompanionApiTests(unittest.TestCase):
     def test_companion_wires_dispatch_recommend(self):
         root = Path(__file__).resolve().parents[1] / "companion" / "src"
         client = (root / "api" / "client.ts").read_text()
-        app = (root / "App.tsx").read_text()
+        projects_panel = (root / "ProjectsPanel.tsx").read_text()
         self.assertIn("/dispatch-options", client)
         self.assertIn("/dispatch-recommend", client)
         self.assertIn("dispatchRecommend", client)
-        self.assertIn("Recommend for this project", app)
-        self.assertIn("dispatch-brief-template", app)
-        self.assertIn("Valid values", app)
+        self.assertIn("Recommend for this project", projects_panel)
+        self.assertIn("dispatch-brief-template", projects_panel)
+        self.assertIn("Valid values", projects_panel)
 
     def test_companion_wires_company_settings(self):
         root = Path(__file__).resolve().parents[1] / "companion" / "src"
@@ -169,11 +169,11 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn('status("worker-host-token-copy")', panel)
 
     def test_companion_replaces_window_prompt_ops_forms(self):
-        app = (
-            Path(__file__).resolve().parents[1] / "companion" / "src" / "App.tsx"
-        ).read_text()
-        self.assertNotIn("window.prompt", app)
-        self.assertIn('id="enroll-project-id"', app)
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        app = (root / "App.tsx").read_text()
+        projects_panel = (root / "ProjectsPanel.tsx").read_text()
+        self.assertNotIn("window.prompt", app + projects_panel)
+        self.assertIn('id="enroll-project-id"', projects_panel)
         self.assertIn('id="escalate-department"', app)
         self.assertIn("owner-response-", app)
 
@@ -193,6 +193,7 @@ class CompanionApiTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1] / "companion" / "src"
         client_source = (root / "api" / "client.ts").read_text()
         app_source = (root / "App.tsx").read_text()
+        projects_panel = (root / "ProjectsPanel.tsx").read_text()
         self.assertIn('"/api/v1/org"', client_source)
         self.assertIn("appointHead(", client_source)
         self.assertIn('"/api/v1/org/heads"', client_source)
@@ -208,8 +209,8 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn('htmlFor="vacate-head-department"', app_source)
         self.assertIn('htmlFor="assign-position-id"', app_source)
         self.assertIn('htmlFor="release-assignment-id"', app_source)
-        self.assertIn("Department budget (¢)", app_source)
-        self.assertNotIn("[s.trim(), 500]", app_source)
+        self.assertIn("Department budget (¢)", projects_panel)
+        self.assertNotIn("[s.trim(), 500]", app_source + projects_panel)
 
     def test_desk_surfaces_org_appointment_and_assignment_forms(self):
         desk_source = (
