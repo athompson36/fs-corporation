@@ -35,7 +35,6 @@ import {
   canPause,
   canManageOrganization,
   canRespondInbox,
-  canResume,
 } from "./scopes";
 
 type Tab =
@@ -57,6 +56,8 @@ const PRIMARY_TABS: [string, string][] = [
   ["people", "People"],
   ["money", "Money"],
 ];
+
+const primaryLabel = Object.fromEntries(PRIMARY_TABS) as Record<string, string>;
 
 const WORK_TABS: [Tab, string][] = [
   ["projects", "Projects"],
@@ -2121,7 +2122,7 @@ export default function App() {
       </p>
       <nav className="tabs" aria-label="Primary">
         <button type="button" className={tab === "dashboard" ? "active" : ""} onClick={() => setTab("dashboard")}>
-          {PRIMARY_TABS[0][1]}
+          {primaryLabel.dashboard}
           {moreCount > 0 && <span className="tab-badge">{moreCount}</span>}
         </button>
         <button
@@ -2129,21 +2130,21 @@ export default function App() {
           className={isWorkTab ? "active" : ""}
           onClick={() => setTab(lastWorkTab)}
         >
-          {PRIMARY_TABS[1][1]}
+          {primaryLabel.work}
         </button>
         <button
           type="button"
           className={tab === "organization" ? "active" : ""}
           onClick={() => setTab("organization")}
         >
-          {PRIMARY_TABS[2][1]}
+          {primaryLabel.people}
         </button>
         <button
           type="button"
           className={tab === "finance" ? "active" : ""}
           onClick={() => setTab("finance")}
         >
-          {PRIMARY_TABS[3][1]}
+          {primaryLabel.money}
         </button>
         <button
           type="button"

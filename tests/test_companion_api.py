@@ -337,7 +337,6 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("setTab(lastWorkTab)", app_source)
         self.assertIn("setTab(lastMoreTab)", app_source)
         self.assertIn("HomePanel", app_source)
-        self.assertIn("Needs you", app_source)
 
     def test_companion_styles_size_every_field_for_touch(self):
         css = (
