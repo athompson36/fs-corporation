@@ -76,13 +76,13 @@ class CompanionApiTests(unittest.TestCase):
     def test_companion_wires_dispatch_recommend(self):
         root = Path(__file__).resolve().parents[1] / "companion" / "src"
         client = (root / "api" / "client.ts").read_text()
-        app = (root / "App.tsx").read_text()
+        projects_panel = (root / "ProjectsPanel.tsx").read_text()
         self.assertIn("/dispatch-options", client)
         self.assertIn("/dispatch-recommend", client)
         self.assertIn("dispatchRecommend", client)
-        self.assertIn("Recommend for this project", app)
-        self.assertIn("dispatch-brief-template", app)
-        self.assertIn("Valid values", app)
+        self.assertIn("Recommend for this project", projects_panel)
+        self.assertIn("dispatch-brief-template", projects_panel)
+        self.assertIn("Valid values", projects_panel)
 
     def test_companion_wires_company_settings(self):
         root = Path(__file__).resolve().parents[1] / "companion" / "src"
@@ -169,11 +169,11 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn('status("worker-host-token-copy")', panel)
 
     def test_companion_replaces_window_prompt_ops_forms(self):
-        app = (
-            Path(__file__).resolve().parents[1] / "companion" / "src" / "App.tsx"
-        ).read_text()
-        self.assertNotIn("window.prompt", app)
-        self.assertIn('id="enroll-project-id"', app)
+        root = Path(__file__).resolve().parents[1] / "companion" / "src"
+        app = (root / "App.tsx").read_text()
+        projects_panel = (root / "ProjectsPanel.tsx").read_text()
+        self.assertNotIn("window.prompt", app + projects_panel)
+        self.assertIn('id="enroll-project-id"', projects_panel)
         self.assertIn('id="escalate-department"', app)
         self.assertIn("owner-response-", app)
 
@@ -193,6 +193,8 @@ class CompanionApiTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1] / "companion" / "src"
         client_source = (root / "api" / "client.ts").read_text()
         app_source = (root / "App.tsx").read_text()
+        org_panel = (root / "OrgPanel.tsx").read_text()
+        projects_panel = (root / "ProjectsPanel.tsx").read_text()
         self.assertIn('"/api/v1/org"', client_source)
         self.assertIn("appointHead(", client_source)
         self.assertIn('"/api/v1/org/heads"', client_source)
@@ -204,12 +206,12 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("/dispatches/${dispatchId}/assign", client_source)
         self.assertIn("/departments/${departmentId}/activate", client_source)
         self.assertIn('"organization"', app_source)
-        self.assertIn('htmlFor="appoint-head-department"', app_source)
-        self.assertIn('htmlFor="vacate-head-department"', app_source)
-        self.assertIn('htmlFor="assign-position-id"', app_source)
-        self.assertIn('htmlFor="release-assignment-id"', app_source)
-        self.assertIn("Department budget (¢)", app_source)
-        self.assertNotIn("[s.trim(), 500]", app_source)
+        self.assertIn('htmlFor="appoint-head-department"', org_panel)
+        self.assertIn('htmlFor="vacate-head-department"', org_panel)
+        self.assertIn('htmlFor="assign-position-id"', org_panel)
+        self.assertIn('htmlFor="release-assignment-id"', org_panel)
+        self.assertIn("Department budget (¢)", projects_panel)
+        self.assertNotIn("[s.trim(), 500]", app_source + org_panel + projects_panel)
 
     def test_desk_surfaces_org_appointment_and_assignment_forms(self):
         desk_source = (
@@ -229,6 +231,8 @@ class CompanionApiTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1] / "companion" / "src"
         client_source = (root / "api" / "client.ts").read_text()
         app_source = (root / "App.tsx").read_text()
+        corporate_panel = (root / "CorporatePanel.tsx").read_text()
+        org_panel = (root / "OrgPanel.tsx").read_text()
         for needle in (
             'id="default-floorplan-btn"',
             "'/api/v1/floorplans/default'",
@@ -263,15 +267,21 @@ class CompanionApiTests(unittest.TestCase):
             self.assertIn(needle, client_source)
         for needle in (
             '"corporate"',
+        ):
+            self.assertIn(needle, app_source)
+        for needle in (
             'htmlFor="create-pos-dept"',
             'htmlFor="reorder-items"',
             'htmlFor="worker-lookup-id"',
+        ):
+            self.assertIn(needle, org_panel)
+        for needle in (
             'htmlFor="objective-title"',
             'htmlFor="xd-project"',
             "Scan staffing gaps",
             "Create default floorplan",
         ):
-            self.assertIn(needle, app_source)
+            self.assertIn(needle, corporate_panel)
 
     def test_dashboard_unauthenticated(self):
         self.assertEqual(self.client.get("/api/v1/dashboard").status_code, 401)

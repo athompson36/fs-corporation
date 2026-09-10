@@ -25,8 +25,11 @@ import {
 } from "./api/client";
 import { ensureWebPushRegistration } from "./push";
 import { normalizeSettingDraft, settingDraftDiffers } from "./settingsDraft";
+import { CorporatePanel } from "./CorporatePanel";
 import { FinancePanel } from "./FinancePanel";
 import { HomePanel } from "./HomePanel";
+import { OrgPanel } from "./OrgPanel";
+import { ProjectsPanel, type LocalCandidate } from "./ProjectsPanel";
 import { WorkersPanel } from "./WorkersPanel";
 import {
   canApprove,
@@ -73,14 +76,6 @@ const MORE_TABS: [Tab, string][] = [
 ];
 
 type FormStatus = { ok: boolean; text: string };
-
-type LocalCandidate = {
-  id: string;
-  path: string;
-  has_git: boolean;
-  remote_url: string | null;
-  enrolled: boolean;
-};
 
 type DiagBlock = { label: string; ok: boolean; data?: unknown; error?: string };
 
@@ -588,31 +583,6 @@ export default function App() {
   const isMoreTab = MORE_TABS.some(([t]) => t === tab);
   const moreCount = decisions.length + inbox.length;
 
-  function departmentBudgetsFromSelection(): Record<string, number> {
-    return Object.fromEntries(
-      Object.entries(dispatchDeptSelection)
-        .filter(([, row]) => row.checked && Number.isInteger(row.budget) && row.budget >= 0)
-        .map(([id, row]) => [id, row.budget]),
-    );
-  }
-
-  function departmentBudgetsFromLines(raw: string): Record<string, number> {
-    return Object.fromEntries(
-      raw.split(/\n/)
-        .map((line) => {
-          const [id, amount] = line.split("=");
-          return [id?.trim(), Number(amount?.trim())] as const;
-        })
-        .filter(([id, amount]) => Boolean(id) && Number.isInteger(amount) && amount >= 0),
-    );
-  }
-
-  const dispatchBlockedByDormant = Object.entries(dispatchDeptSelection).some(([id, row]) => {
-    if (!row.checked) return false;
-    const dept = dispatchOptions?.departments.find((item) => item.id === id);
-    return Boolean(dept && !dept.dispatchable);
-  });
-
   if (!settings.token) {
     return (
       <div className="app" data-theme="cosmic-glass">
@@ -717,975 +687,111 @@ export default function App() {
       )}
 
       {tab === "projects" && (
-        <section>
-          {!selectedProject ? (
-            <>
-              {projects.map((p) => (
-                <div key={String(p.id)} className="card">
-                  <strong>{String(p.id)}</strong>
-                  <div className="muted">{String(p.brief)}</div>
-                  <div className="muted">Blockers: {(p.blockers as string[])?.join(", ") || "none"}</div>
-                  <div className="actions">
-                    <button type="button" onClick={() => setSelectedProject(String(p.id))}>Details</button>
-                  </div>
-                </div>
-              ))}
-              <div className="card">
-                <h2>Local candidates</h2>
-                <p className="muted">
-                  Folders under {localReposRoot || "local repos/"}. Tap Enroll to create a company project.
-                </p>
-                {localCandidates.map((c) => (
-                  <div key={c.id} style={{ marginBottom: "0.75rem" }}>
-                    <strong>{c.id}</strong>
-                    <div className="muted">
-                      {c.enrolled ? "enrolled" : "not enrolled"}
-                      {c.has_git ? " · git" : ""}
-                      {c.remote_url ? ` · ${c.remote_url}` : ""}
-                    </div>
-                    {canEnroll(scopes) && !c.enrolled && (
-                      <div className="actions">
-                        <button
-                          className="primary"
-                          type="button"
-                          onClick={() => runAction(`enroll-${c.id}`, "Project enrolled.", () =>
-                            api.enrollProject(c.id, c.remote_url || `Local repo ${c.path}`))}
-                        >
-                          Enroll
-                        </button>
-                      </div>
-                    )}
-                    {status(`enroll-${c.id}`)}
-                  </div>
-                ))}
-                {!localCandidates.length && (
-                  <p className="muted">No local folders found (add directories under local repos/).</p>
-                )}
-                {!canEnroll(scopes) && scopeNotice("enroll projects", "project.enroll")}
-              </div>
-              {canEnroll(scopes) && (
-                <div className="card">
-                  <h2>Assign GitHub by address</h2>
-                  <p className="muted">Paste upstream only. Creates same-owner {"{repo}"}-corp for writes.</p>
-                  <label className="muted" htmlFor="gh-upstream">Upstream (owner/repo or github.com URL)</label>
-                  <input
-                    id="gh-upstream"
-                    type="text"
-                    value={ghUpstream}
-                    placeholder="owner/repo"
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setGhUpstream(v);
-                      const m = v.trim().replace(/\.git\/?$/, "").match(/github\.com\/([^/\s]+)\/([^/\s]+)|([^/\s]+)\/([^/\s]+)/);
-                      if (m && !ghProjectId) {
-                        const name = (m[2] || m[4] || "").replace(/\.git$/, "");
-                        if (name) setGhProjectId(name);
-                      }
-                    }}
-                  />
-                  <label className="muted" htmlFor="gh-project">Company project id</label>
-                  <input
-                    id="gh-project"
-                    type="text"
-                    value={ghProjectId}
-                    placeholder="project-id"
-                    onChange={(e) => setGhProjectId(e.target.value)}
-                  />
-                  <div className="actions">
-                    <button
-                      className="primary"
-                      type="button"
-                      disabled={ghBusy || !ghUpstream.trim() || !ghProjectId.trim()}
-                      onClick={async () => {
-                        setGhBusy(true);
-                        setGhResult(null);
-                        await runAction("github-assign", "GitHub assigned.", async () => {
-                          const out = await api.assignGithub(ghProjectId.trim(), ghUpstream.trim()) as {
-                            result?: {
-                              upstream?: { full_name?: string; id?: string };
-                              write_repo?: { full_name?: string; id?: string };
-                              created_write_repo?: boolean;
-                            };
-                          };
-                          const r = out.result || out;
-                          setGhResult(
-                            `Upstream ${(r as {upstream?:{full_name?:string}}).upstream?.full_name} → write ` +
-                            `${(r as {write_repo?:{full_name?:string}}).write_repo?.full_name}` +
-                            `${(r as {created_write_repo?:boolean}).created_write_repo ? " (created)" : " (existing)"}`,
-                          );
-                        });
-                        setGhBusy(false);
-                      }}
-                    >
-                      Assign GitHub
-                    </button>
-                  </div>
-                  {status("github-assign")}
-                  {ghResult && <p className="muted">{ghResult}</p>}
-                </div>
-              )}
-              {canEnroll(scopes) && (
-                <form className="card" onSubmit={async (event) => {
-                  event.preventDefault();
-                  const id = enrollProjectId.trim();
-                  const brief = enrollBrief.trim();
-                  if (!id || !brief) {
-                    setFormStatus((prev) => ({
-                      ...prev,
-                      "enroll-manual": { ok: false, text: "Project id and brief are required." },
-                    }));
-                    return;
-                  }
-                  const ok = await runAction("enroll-manual", "Project enrolled.", () =>
-                    api.enrollProject(id, brief));
-                  if (ok) {
-                    setEnrollProjectId("");
-                    setEnrollBrief("");
-                  }
-                }}>
-                  <h3>Enroll project</h3>
-                  <label htmlFor="enroll-project-id">Project id</label>
-                  <input
-                    id="enroll-project-id"
-                    type="text"
-                    required
-                    value={enrollProjectId}
-                    onChange={(e) => setEnrollProjectId(e.target.value)}
-                  />
-                  <label htmlFor="enroll-project-brief">Brief</label>
-                  <textarea
-                    id="enroll-project-brief"
-                    required
-                    value={enrollBrief}
-                    onChange={(e) => setEnrollBrief(e.target.value)}
-                  />
-                  <div className="actions">
-                    <button className="primary" type="submit">Enroll project</button>
-                  </div>
-                  {status("enroll-manual")}
-                </form>
-              )}
-            </>
-          ) : projectDetail && (
-            <div className="card">
-              <div className="actions">
-                <button type="button" onClick={() => setSelectedProject(null)}>← Back</button>
-              </div>
-              <h2>{selectedProject}</h2>
-              <p>{String(projectDetail.brief)}</p>
-              <p className="muted">Departments: {(projectDetail.departments as string[])?.join(", ") || "none"}</p>
-              {projectDetail.github != null && (
-                <p className="muted">
-                  GitHub upstream id {String((projectDetail.github as {upstream_repo_id?: string}).upstream_repo_id)}
-                  {" · "}write id {String((projectDetail.github as {fork_repo_id?: string}).fork_repo_id)}
-                </p>
-              )}
-              {canEnroll(scopes) && (
-                <form onSubmit={async (event) => {
-                  event.preventDefault();
-                  const fromSelection = departmentBudgetsFromSelection();
-                  const departmentBudgets = Object.keys(fromSelection).length
-                    ? fromSelection
-                    : departmentBudgetsFromLines(dispatchBudgets);
-                  if (!Object.keys(departmentBudgets).length) {
-                    setFormStatus((prev) => ({
-                      ...prev,
-                      dispatch: { ok: false, text: "Select at least one department with a budget." },
-                    }));
-                    return;
-                  }
-                  if (dispatchBlockedByDormant) {
-                    setFormStatus((prev) => ({
-                      ...prev,
-                      dispatch: { ok: false, text: "Activate dormant departments before dispatch." },
-                    }));
-                    return;
-                  }
-                  const ok = await runAction("dispatch", "Dispatched to heads.", () =>
-                    api.dispatchBrief(
-                      selectedProject,
-                      dispatchBrief.trim() || String(projectDetail.brief),
-                      departmentBudgets,
-                      dispatchCriteria.trim(),
-                    ));
-                  if (!ok) return;
-                  setDispatchBrief("");
-                  setDispatchCriteria("");
-                  setDispatchBudgets("");
-                  setDispatchBriefTemplate("");
-                  setDispatchCriteriaTemplate("");
-                  setDispatchRecommendSource(null);
-                  setSelectedProject(null);
-                }}>
-                  <h3>Dispatch to heads</h3>
-                  <div className="actions">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const ok = await runAction(
-                          "dispatch-recommend",
-                          "Recommendation applied.",
-                          async () => {
-                            const wrapped = await api.dispatchRecommend(selectedProject, true);
-                            const body = wrapped.result ?? wrapped;
-                            setDispatchBrief(body.brief || "");
-                            setDispatchCriteria(body.acceptance_criteria || "");
-                            setDispatchRecommendSource(
-                              `${body.source}${body.notes?.length ? ` (${body.notes.join(", ")})` : ""}`,
-                            );
-                            setDispatchDeptSelection((prev) => {
-                              const next = { ...prev };
-                              for (const id of Object.keys(next)) {
-                                next[id] = { ...next[id], checked: false };
-                              }
-                              for (const dept of body.departments || []) {
-                                next[dept.id] = {
-                                  checked: Boolean(dept.recommended),
-                                  budget: dept.budget_cents,
-                                };
-                              }
-                              return next;
-                            });
-                            const lines = (body.departments || [])
-                              .filter((d) => d.recommended)
-                              .map((d) => `${d.id}=${d.budget_cents}`);
-                            setDispatchBudgets(lines.join("\n"));
-                          },
-                        );
-                        if (ok) {
-                          /* status line from runAction */
-                        }
-                      }}
-                    >
-                      Recommend for this project
-                    </button>
-                  </div>
-                  {status("dispatch-recommend")}
-                  {dispatchRecommendSource && (
-                    <p className="muted">Recommendation source: {dispatchRecommendSource}</p>
-                  )}
-                  <label htmlFor="dispatch-brief-template">Brief template</label>
-                  <select
-                    id="dispatch-brief-template"
-                    value={dispatchBriefTemplate}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setDispatchBriefTemplate(id);
-                      const template = dispatchOptions?.fields.brief.templates.find((t) => t.id === id);
-                      if (template) setDispatchBrief(template.body);
-                    }}
-                  >
-                    <option value="">Custom / free text</option>
-                    {(dispatchOptions?.fields.brief.templates || []).map((template) => (
-                      <option key={template.id} value={template.id}>{template.label}</option>
-                    ))}
-                  </select>
-                  <label htmlFor="dispatch-brief">Brief for heads</label>
-                  <textarea id="dispatch-brief" value={dispatchBrief}
-                    placeholder={String(projectDetail.brief)}
-                    onChange={(e) => setDispatchBrief(e.target.value)} />
-                  <label htmlFor="dispatch-criteria-template">Acceptance criteria template</label>
-                  <select
-                    id="dispatch-criteria-template"
-                    value={dispatchCriteriaTemplate}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setDispatchCriteriaTemplate(id);
-                      const template = dispatchOptions?.fields.acceptance_criteria.templates
-                        .find((t) => t.id === id);
-                      if (template) setDispatchCriteria(template.body);
-                    }}
-                  >
-                    <option value="">Custom / free text</option>
-                    {(dispatchOptions?.fields.acceptance_criteria.templates || []).map((template) => (
-                      <option key={template.id} value={template.id}>{template.label}</option>
-                    ))}
-                  </select>
-                  <label htmlFor="dispatch-criteria">Acceptance criteria</label>
-                  <textarea id="dispatch-criteria" required value={dispatchCriteria}
-                    onChange={(e) => setDispatchCriteria(e.target.value)} />
-                  <div className="dispatch-dept-list">
-                    {(dispatchOptions?.departments || []).map((dept) => {
-                      const row = dispatchDeptSelection[dept.id] || { checked: false, budget: 0 };
-                      const maxCents = dispatchOptions?.fields.department_budgets.max_cents ?? 0;
-                      const presets = (dispatchOptions?.fields.department_budgets.presets_cents || [])
-                        .filter((preset) => preset <= maxCents);
-                      return (
-                        <div key={dept.id} className="dispatch-dept-row">
-                          <label htmlFor={`dispatch-dept-${dept.id}`}>
-                            <input
-                              id={`dispatch-dept-${dept.id}`}
-                              type="checkbox"
-                              checked={row.checked}
-                              onChange={(e) => setDispatchDeptSelection((prev) => ({
-                                ...prev,
-                                [dept.id]: { ...row, checked: e.target.checked },
-                              }))}
-                            />
-                            {" "}{dept.name}
-                            <span className={dept.dispatchable ? "badge-active" : "badge-dormant"}>
-                              {dept.status}{dept.dispatchable ? "" : " — Activate first"}
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={maxCents}
-                            value={row.budget}
-                            aria-label={`${dept.name} budget cents`}
-                            onChange={(e) => {
-                              const budget = Number(e.target.value);
-                              setDispatchDeptSelection((prev) => ({
-                                ...prev,
-                                [dept.id]: {
-                                  checked: true,
-                                  budget: Number.isFinite(budget) ? Math.max(0, Math.min(maxCents, Math.trunc(budget))) : 0,
-                                },
-                              }));
-                            }}
-                          />
-                          <div className="chip-row">
-                            {presets.map((preset) => (
-                              <button
-                                key={preset}
-                                type="button"
-                                className="chip"
-                                onClick={() => setDispatchDeptSelection((prev) => ({
-                                  ...prev,
-                                  [dept.id]: { checked: true, budget: preset },
-                                }))}
-                              >
-                                {preset}
-                              </button>
-                            ))}
-                          </div>
-                          {!dept.dispatchable && row.checked && (
-                            <button
-                              type="button"
-                              onClick={() => runAction(
-                                `activate-${dept.id}`,
-                                "Department activated.",
-                                () => api.activateDepartment(selectedProject, dept.id),
-                              ).then((ok) => {
-                                if (ok) {
-                                  return api.dispatchOptions(selectedProject).then(setDispatchOptions);
-                                }
-                                return undefined;
-                              })}
-                            >
-                              Activate {dept.id}
-                            </button>
-                          )}
-                          {status(`activate-${dept.id}`)}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <label htmlFor="dispatch-budgets">Department budget (¢), advanced fallback</label>
-                  <textarea id="dispatch-budgets" value={dispatchBudgets}
-                    placeholder={"engineering=500\nproduct=300"}
-                    onChange={(e) => setDispatchBudgets(e.target.value)} />
-                  <details>
-                    <summary>Valid values</summary>
-                    <pre className="muted">
-                      {dispatchOptions
-                        ? [
-                          `max_cents=${dispatchOptions.fields.department_budgets.max_cents}`,
-                          `presets_cents=${JSON.stringify(dispatchOptions.fields.department_budgets.presets_cents)}`,
-                          `departments=${dispatchOptions.departments.map(
-                            (d) => `${d.id}:${d.status}${d.dispatchable ? ":ok" : ":dormant"}`,
-                          ).join(", ")}`,
-                        ].join("\n")
-                        : "Loading options…"}
-                    </pre>
-                  </details>
-                  <div className="actions">
-                    <button className="primary" type="submit" disabled={dispatchBlockedByDormant}>
-                      Dispatch to heads
-                    </button>
-                  </div>
-                  {dispatchBlockedByDormant && (
-                    <p className="error">Activate dormant departments before dispatch.</p>
-                  )}
-                  {status("dispatch")}
-                </form>
-              )}
-            </div>
-          )}
-        </section>
+        <ProjectsPanel
+          api={api}
+          scopes={scopes}
+          projects={projects}
+          selectedProject={selectedProject}
+          setSelectedProject={setSelectedProject}
+          projectDetail={projectDetail}
+          localCandidates={localCandidates}
+          localReposRoot={localReposRoot}
+          ghUpstream={ghUpstream}
+          setGhUpstream={setGhUpstream}
+          ghProjectId={ghProjectId}
+          setGhProjectId={setGhProjectId}
+          ghBusy={ghBusy}
+          setGhBusy={setGhBusy}
+          ghResult={ghResult}
+          setGhResult={setGhResult}
+          enrollProjectId={enrollProjectId}
+          setEnrollProjectId={setEnrollProjectId}
+          enrollBrief={enrollBrief}
+          setEnrollBrief={setEnrollBrief}
+          dispatchBrief={dispatchBrief}
+          setDispatchBrief={setDispatchBrief}
+          dispatchCriteria={dispatchCriteria}
+          setDispatchCriteria={setDispatchCriteria}
+          dispatchBudgets={dispatchBudgets}
+          setDispatchBudgets={setDispatchBudgets}
+          dispatchOptions={dispatchOptions}
+          setDispatchOptions={setDispatchOptions}
+          dispatchBriefTemplate={dispatchBriefTemplate}
+          setDispatchBriefTemplate={setDispatchBriefTemplate}
+          dispatchCriteriaTemplate={dispatchCriteriaTemplate}
+          setDispatchCriteriaTemplate={setDispatchCriteriaTemplate}
+          dispatchDeptSelection={dispatchDeptSelection}
+          setDispatchDeptSelection={setDispatchDeptSelection}
+          dispatchRecommendSource={dispatchRecommendSource}
+          setDispatchRecommendSource={setDispatchRecommendSource}
+          setFormStatus={setFormStatus}
+          runAction={runAction}
+          status={status}
+          scopeNotice={scopeNotice}
+        />
       )}
 
       {tab === "organization" && (
-        <section>
-          <p className="lede">Catalog, persisted seat status, and roster. Vacant and dormant seats are not healthy workers.</p>
-          {organization.map((department) => (
-            <div key={department.id} className="card">
-              <strong>{department.id} · {department.name}</strong>
-              <div className="muted">
-                Head seat: {department.seat.status} · {department.seat.principal_id || "vacant"}
-              </div>
-              <div className="muted">
-                Roster: {department.assignments.length
-                  ? department.assignments.map(
-                    (a) => `${a.principal_id} (${a.position_id}; assignment ${a.id})`,
-                  ).join(", ")
-                  : "none"}
-              </div>
-            </div>
-          ))}
-          {!organization.length && <p className="muted">No organization catalog returned.</p>}
-          {!canManageOrg && scopeNotice("edit the organization")}
-          {canManageOrg && (
-            <>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                const ok = await runAction("create-dept", "Department created.", () =>
-                  api.createDepartment({
-                    id: String(data.get("id") || "").trim(),
-                    name: String(data.get("name") || "").trim(),
-                    head_title: String(data.get("head_title") || "").trim(),
-                    mission: String(data.get("mission") || "").trim(),
-                    room_type: String(data.get("room_type") || "boardroom").trim(),
-                    measures: [],
-                    initially_active: data.get("initially_active") === "on",
-                    default_model_profile: "mock-text",
-                  }));
-                if (ok) form.reset();
-              }}>
-                <h2>Create department</h2>
-                <label htmlFor="create-dept-id">Id</label>
-                <input id="create-dept-id" name="id" type="text" required />
-                <label htmlFor="create-dept-name">Name</label>
-                <input id="create-dept-name" name="name" type="text" required />
-                <label htmlFor="create-dept-head">Head title</label>
-                <input id="create-dept-head" name="head_title" type="text" required />
-                <label htmlFor="create-dept-mission">Mission</label>
-                <input id="create-dept-mission" name="mission" type="text" required />
-                <label htmlFor="create-dept-room">Room type</label>
-                <input id="create-dept-room" name="room_type" type="text" defaultValue="boardroom" required />
-                <label className="check" htmlFor="create-dept-active">
-                  <input id="create-dept-active" name="initially_active" type="checkbox" /> Initially active
-                </label>
-                <div className="actions"><button className="primary" type="submit">Create department</button></div>
-                {status("create-dept")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("appoint-head", "Head appointed.", () =>
-                  api.appointHead(appointHeadDepartment.trim(), appointHeadPrincipal.trim()));
-                if (!ok) return;
-                setAppointHeadDepartment("");
-                setAppointHeadPrincipal("");
-              }}>
-                <h2>Appoint department head</h2>
-                <label htmlFor="appoint-head-department">Department id</label>
-                <input id="appoint-head-department" type="text" required value={appointHeadDepartment}
-                  onChange={(e) => setAppointHeadDepartment(e.target.value)} />
-                <label htmlFor="appoint-head-principal">Principal id</label>
-                <input id="appoint-head-principal" type="text" required value={appointHeadPrincipal}
-                  onChange={(e) => setAppointHeadPrincipal(e.target.value)} />
-                <div className="actions"><button className="primary" type="submit">Appoint head</button></div>
-                {status("appoint-head")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("vacate-head", "Head vacated.", () =>
-                  api.vacateHead(vacateHeadDepartment.trim()));
-                if (ok) setVacateHeadDepartment("");
-              }}>
-                <h2>Vacate department head</h2>
-                <label htmlFor="vacate-head-department">Department id</label>
-                <input id="vacate-head-department" type="text" required value={vacateHeadDepartment}
-                  onChange={(e) => setVacateHeadDepartment(e.target.value)} />
-                <div className="actions"><button className="danger" type="submit">Vacate head</button></div>
-                {status("vacate-head")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("assign-position", "Position assigned.", () =>
-                  api.assignPosition(
-                    positionId.trim(),
-                    positionPrincipal.trim(),
-                    positionReportsTo.trim() || undefined,
-                  ));
-                if (!ok) return;
-                setPositionId("");
-                setPositionPrincipal("");
-                setPositionReportsTo("");
-              }}>
-                <h2>Assign position</h2>
-                <label htmlFor="assign-position-id">Position id</label>
-                <input id="assign-position-id" type="text" required value={positionId}
-                  placeholder="engineering:Developer"
-                  onChange={(e) => setPositionId(e.target.value)} />
-                <label htmlFor="assign-position-principal">Principal id</label>
-                <input id="assign-position-principal" type="text" required value={positionPrincipal}
-                  onChange={(e) => setPositionPrincipal(e.target.value)} />
-                <label htmlFor="assign-position-reports-to">Reports-to seat id (optional)</label>
-                <input id="assign-position-reports-to" type="text" value={positionReportsTo}
-                  placeholder="seat:engineering"
-                  onChange={(e) => setPositionReportsTo(e.target.value)} />
-                <div className="actions"><button className="primary" type="submit">Assign position</button></div>
-                {status("assign-position")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("release-assignment", "Assignment released.", () =>
-                  api.releaseAssignment(releaseAssignmentId.trim()));
-                if (ok) setReleaseAssignmentId("");
-              }}>
-                <h2>Release assignment</h2>
-                <label htmlFor="release-assignment-id">Assignment id</label>
-                <input id="release-assignment-id" type="text" required value={releaseAssignmentId}
-                  onChange={(e) => setReleaseAssignmentId(e.target.value)} />
-                <div className="actions"><button className="danger" type="submit">Release assignment</button></div>
-                {status("release-assignment")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                const ok = await runAction("create-position", "Position created.", () =>
-                  api.createPosition(
-                    String(data.get("department_id") || "").trim(),
-                    String(data.get("title") || "").trim(),
-                  ));
-                if (ok) form.reset();
-              }}>
-                <h2>Create position</h2>
-                <label htmlFor="create-pos-dept">Department id</label>
-                <input id="create-pos-dept" name="department_id" type="text" required />
-                <label htmlFor="create-pos-title">Title</label>
-                <input id="create-pos-title" name="title" type="text" required />
-                <div className="actions"><button className="primary" type="submit">Create position</button></div>
-                {status("create-position")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                let items: { id: string; display_order: number }[];
-                try {
-                  items = JSON.parse(String(data.get("items") || "[]"));
-                } catch {
-                  setFormStatus((prev) => ({
-                    ...prev,
-                    "reorder-departments": { ok: false, text: "Items must be valid JSON." },
-                  }));
-                  return;
-                }
-                const ok = await runAction("reorder-departments", "Departments reordered.", () =>
-                  api.reorderDepartments(items));
-                if (ok) form.reset();
-              }}>
-                <h2>Reorder departments</h2>
-                <label htmlFor="reorder-items">Items JSON</label>
-                <textarea
-                  id="reorder-items"
-                  name="items"
-                  required
-                  placeholder='[{"id":"engineering","display_order":10}]'
-                />
-                <div className="actions"><button className="primary" type="submit">Reorder</button></div>
-                {status("reorder-departments")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("activate-department", "Department activated.", () =>
-                  api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim()));
-                if (!ok) return;
-                setActivateProjectId("");
-                setActivateDepartmentId("");
-              }}>
-                <h2>Activate dormant department for project</h2>
-                <label htmlFor="activate-project">Project id</label>
-                <input id="activate-project" type="text" required value={activateProjectId}
-                  onChange={(e) => setActivateProjectId(e.target.value)} />
-                <label htmlFor="activate-department">Department id</label>
-                <input id="activate-department" type="text" required value={activateDepartmentId}
-                  onChange={(e) => setActivateDepartmentId(e.target.value)} />
-                <div className="actions"><button className="primary" type="submit">Activate</button></div>
-                {status("activate-department")}
-              </form>
-            </>
-          )}
-          <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            await runAction("worker-card", "Card loaded.", async () => {
-              try {
-                setWorkerCard(await api.workerCard(workerLookupId.trim()));
-              } catch (e) {
-                setWorkerCard(null);
-                throw e;
-              }
-            });
-          }}>
-            <h2>Worker card</h2>
-            <label htmlFor="worker-lookup-id">Employee id</label>
-            <input id="worker-lookup-id" type="text" required value={workerLookupId}
-              onChange={(e) => setWorkerLookupId(e.target.value)} />
-            <div className="actions"><button className="primary" type="submit">Load card</button></div>
-            {status("worker-card")}
-            {workerCard && (
-              <div className="muted" style={{ marginTop: "0.75rem" }}>
-                <strong>{workerCard.identity.display_name}</strong>
-                <div>{workerCard.identity.headline || "No headline"}</div>
-                <div>Position: {workerCard.identity.position_id}</div>
-                <div>Sprite: {workerCard.sprite?.sprite_set || workerCard.sprite_placeholder.label}</div>
-              </div>
-            )}
-          </form>
-          <h2>Head inbox</h2>
-          {headInbox.map((dispatch) => (
-            <div key={dispatch.id} className="card">
-              <strong>{dispatch.project_id} · {dispatch.department_id}</strong>
-              <div className="muted">{dispatch.status} · budget {dispatch.budget_cents}¢</div>
-              <p>{dispatch.brief}</p>
-              <p className="muted">Acceptance: {dispatch.acceptance_criteria}</p>
-              {canManageOrg && dispatch.status === "queued_for_head" && (
-                <div className="actions">
-                  <button type="button" onClick={() => setAssignDispatchId(dispatch.id)}>Assign</button>
-                </div>
-              )}
-            </div>
-          ))}
-          {!headInbox.length && <p className="muted">No open head dispatches.</p>}
-          {canManageOrg && assignDispatchId && (
-            <form className="card" onSubmit={async (event) => {
-              event.preventDefault();
-              const ok = await runAction("assign-dispatch", "Assignment queued.", () =>
-                api.assignDispatch(
-                  assignDispatchId,
-                  assignAssignee.trim(),
-                  assignAction.trim(),
-                  Number(assignCost),
-                ));
-              if (!ok) return;
-              setAssignDispatchId("");
-              setAssignAssignee("");
-              setAssignAction("");
-              setAssignCost("");
-            }}>
-              <h2>Assign dispatch</h2>
-              <label htmlFor="assign-assignee">Assignee principal</label>
-              <input id="assign-assignee" type="text" required value={assignAssignee}
-                onChange={(e) => setAssignAssignee(e.target.value)} />
-              <label htmlFor="assign-action">Action</label>
-              <input id="assign-action" type="text" required value={assignAction}
-                onChange={(e) => setAssignAction(e.target.value)} />
-              <label htmlFor="assign-cost">Cost (¢)</label>
-              <input id="assign-cost" required type="number" inputMode="numeric" min="0" value={assignCost}
-                onChange={(e) => setAssignCost(e.target.value)} />
-              <div className="actions">
-                <button className="primary" type="submit">Queue assignment</button>
-                <button type="button" onClick={() => setAssignDispatchId("")}>Cancel</button>
-              </div>
-              {status("assign-dispatch")}
-            </form>
-          )}
-        </section>
+        <OrgPanel
+          api={api}
+          organization={organization}
+          headInbox={headInbox}
+          canManage={canManageOrg}
+          activateProjectId={activateProjectId}
+          setActivateProjectId={setActivateProjectId}
+          activateDepartmentId={activateDepartmentId}
+          setActivateDepartmentId={setActivateDepartmentId}
+          appointHeadDepartment={appointHeadDepartment}
+          setAppointHeadDepartment={setAppointHeadDepartment}
+          appointHeadPrincipal={appointHeadPrincipal}
+          setAppointHeadPrincipal={setAppointHeadPrincipal}
+          vacateHeadDepartment={vacateHeadDepartment}
+          setVacateHeadDepartment={setVacateHeadDepartment}
+          positionId={positionId}
+          setPositionId={setPositionId}
+          positionPrincipal={positionPrincipal}
+          setPositionPrincipal={setPositionPrincipal}
+          positionReportsTo={positionReportsTo}
+          setPositionReportsTo={setPositionReportsTo}
+          releaseAssignmentId={releaseAssignmentId}
+          setReleaseAssignmentId={setReleaseAssignmentId}
+          assignDispatchId={assignDispatchId}
+          setAssignDispatchId={setAssignDispatchId}
+          assignAssignee={assignAssignee}
+          setAssignAssignee={setAssignAssignee}
+          assignAction={assignAction}
+          setAssignAction={setAssignAction}
+          assignCost={assignCost}
+          setAssignCost={setAssignCost}
+          workerLookupId={workerLookupId}
+          setWorkerLookupId={setWorkerLookupId}
+          workerCard={workerCard}
+          setWorkerCard={setWorkerCard}
+          setFormStatus={setFormStatus}
+          runAction={runAction}
+          status={status}
+          scopeNotice={scopeNotice}
+        />
       )}
 
       {tab === "corporate" && (
-        <section>
-          <p className="lede">Scorecard, staffing, packs, divisions, and cross-department work from persisted state.</p>
-          <div className="card">
-            <h2>CEO scorecard</h2>
-            <p className="muted">Measured from persisted operations — not simulated. HQ rooms: {hqRoomCount}</p>
-            <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem" }}>
-              {JSON.stringify(scorecardMetrics || {}, null, 2)}
-            </pre>
-            {canManageOrg && (
-              <div className="actions">
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() => runAction("default-floorplan", "Default floorplan created.", () =>
-                    api.createDefaultFloorplan())}
-                >
-                  Create default floorplan
-                </button>
-              </div>
-            )}
-            {status("default-floorplan")}
-            {!canManageOrg && scopeNotice("change headquarters or corporate records")}
-          </div>
-          <h2>Objectives</h2>
-          {objectives.map((objective) => (
-            <div key={objective.id} className="card">
-              <strong>{objective.title}</strong>
-              <div className="muted">{objective.status} · due {objective.due_at}</div>
-              {canManageOrg && objective.status === "open" && (
-                <div className="actions">
-                  <button
-                    type="button"
-                    onClick={() => runAction(`objective-${objective.id}`, "Objective closed.", () =>
-                      api.closeObjective(objective.id))}
-                  >
-                    Close
-                  </button>
-                </div>
-              )}
-              {status(`objective-${objective.id}`)}
-            </div>
-          ))}
-          {!objectives.length && <p className="muted">No objectives.</p>}
-          {canManageOrg && (
-            <form
-              className="card"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                const dueLocal = String(data.get("due_at") || "");
-                const payload: Record<string, unknown> = {
-                  title: String(data.get("title") || "").trim(),
-                  due_at: dueLocal ? new Date(dueLocal).toISOString() : "",
-                };
-                const division = String(data.get("division_id") || "").trim();
-                if (division) payload.division_id = division;
-                const targetRaw = String(data.get("target") || "").trim();
-                if (targetRaw) {
-                  try {
-                    payload.target = JSON.parse(targetRaw);
-                  } catch {
-                    setFormStatus((prev) => ({
-                      ...prev,
-                      "create-objective": { ok: false, text: "Target must be valid JSON." },
-                    }));
-                    return;
-                  }
-                }
-                const ok = await runAction("create-objective", "Objective created.", () =>
-                  api.createObjective(payload));
-                if (ok) form.reset();
-              }}
-            >
-              <h2>Create objective</h2>
-              <label htmlFor="objective-title">Title</label>
-              <input id="objective-title" name="title" type="text" required />
-              <label htmlFor="objective-due">Due at</label>
-              <input id="objective-due" name="due_at" type="datetime-local" required />
-              <label htmlFor="objective-division">Division id (optional)</label>
-              <input id="objective-division" name="division_id" type="text" />
-              <label htmlFor="objective-target">Target JSON (optional)</label>
-              <textarea id="objective-target" name="target" placeholder='{"accepted_artifacts": 5}' />
-              <div className="actions"><button className="primary" type="submit">Create</button></div>
-              {status("create-objective")}
-            </form>
-          )}
-          <h2>Industry packs</h2>
-          {industryPacks.map((pack) => (
-            <div key={pack.id} className="card muted">
-              {pack.id} — {pack.industry} — minimal {pack.minimal_departments.length} / full {pack.full_departments.length}
-            </div>
-          ))}
-          {!industryPacks.length && <p className="muted">No industry packs.</p>}
-          <h2>Divisions</h2>
-          {divisions.map((division) => (
-            <div key={division.id} className="card">
-              <strong>{division.name}</strong>
-              <div className="muted">{division.industry_pack_id} · {division.mode} · {division.status}</div>
-              {canManageOrg && division.status === "proposed" && (
-                <div className="actions">
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => runAction(`division-${division.id}`, "Division activated.", () =>
-                      api.activateDivision(division.id))}
-                  >
-                    Activate
-                  </button>
-                </div>
-              )}
-              {status(`division-${division.id}`)}
-            </div>
-          ))}
-          {!divisions.length && <p className="muted">No divisions.</p>}
-          {canManageOrg && (
-            <form
-              className="card"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                const ok = await runAction("propose-division", "Division proposed.", () =>
-                  api.proposeDivision(
-                    String(data.get("pack_id") || "").trim(),
-                    String(data.get("name") || "").trim(),
-                    String(data.get("mode") || "minimal"),
-                  ));
-                if (ok) form.reset();
-              }}
-            >
-              <h2>Propose division</h2>
-              <label htmlFor="division-pack">Industry pack id</label>
-              <input id="division-pack" name="pack_id" type="text" required />
-              <label htmlFor="division-name">Name</label>
-              <input id="division-name" name="name" type="text" required />
-              <label htmlFor="division-mode">Mode</label>
-              <select id="division-mode" name="mode" defaultValue="minimal">
-                <option value="minimal">Minimal</option>
-                <option value="full">Full</option>
-              </select>
-              <div className="actions"><button className="primary" type="submit">Propose</button></div>
-              {status("propose-division")}
-            </form>
-          )}
-          <h2>Pending promotions</h2>
-          {promotions.map((promotion) => (
-            <div key={promotion.id} className="card">
-              <strong>{promotion.employee_id}</strong>
-              <div className="muted">{promotion.from_level} → {promotion.to_level} · {promotion.status}</div>
-              {canManageOrg && (
-                <div className="actions">
-                  <button
-                    type="button"
-                    className="approve"
-                    onClick={() => runAction(`promotion-${promotion.id}`, "Promotion approved.", () =>
-                      api.decidePromotion(promotion.id, "approved"))}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => runAction(`promotion-${promotion.id}`, "Promotion rejected.", () =>
-                      api.decidePromotion(promotion.id, "rejected"))}
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-              {status(`promotion-${promotion.id}`)}
-            </div>
-          ))}
-          {!promotions.length && <p className="muted">No pending promotions.</p>}
-          <h2>Staffing proposals</h2>
-          {canManageOrg && (
-            <>
-              <div className="actions" style={{ marginBottom: "0.75rem" }}>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() => runAction("staffing-scan", "Scan complete.", () => api.scanStaffingGaps())}
-                >
-                  Scan staffing gaps
-                </button>
-              </div>
-              {status("staffing-scan")}
-            </>
-          )}
-          {staffingProposals.map((proposal) => (
-            <div key={proposal.id} className="card">
-              <strong>{proposal.kind} · {proposal.position_id}</strong>
-              <div className="muted">{proposal.cost_estimate_cents}¢ · {proposal.rationale}</div>
-              {canManageOrg && (
-                <div className="actions">
-                  <button
-                    type="button"
-                    className="approve"
-                    onClick={() => runAction(`staffing-${proposal.id}`, "Proposal approved.", () =>
-                      api.decideStaffingProposal(proposal.id, "approved"))}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => runAction(`staffing-${proposal.id}`, "Proposal rejected.", () =>
-                      api.decideStaffingProposal(proposal.id, "rejected"))}
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-              {status(`staffing-${proposal.id}`)}
-            </div>
-          ))}
-          {!staffingProposals.length && <p className="muted">No pending staffing proposals.</p>}
-          <h2>Cross-department requests</h2>
-          {crossDept.map((item) => (
-            <div key={item.id} className="card">
-              <strong>{item.subject}</strong>
-              <div className="muted">
-                {item.requesting_department_id} → {item.delivering_department_id} · {item.status}
-              </div>
-              {canManageOrg && item.status === "pending_acceptance" && (
-                <div className="actions">
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => runAction(`cross-dept-${item.id}`, "Request accepted.", () =>
-                      api.acceptCrossDepartmentRequest(item.id))}
-                  >
-                    Accept
-                  </button>
-                </div>
-              )}
-              {status(`cross-dept-${item.id}`)}
-            </div>
-          ))}
-          {!crossDept.length && <p className="muted">No cross-department requests.</p>}
-          {canManageOrg && (
-            <form
-              className="card"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                const dueLocal = String(data.get("due_at") || "");
-                const ok = await runAction("create-cross-dept", "Request created.", () =>
-                  api.createCrossDepartmentRequest({
-                    project_id: String(data.get("project_id") || "").trim(),
-                    requesting_department_id: String(data.get("requesting") || "").trim(),
-                    delivering_department_id: String(data.get("delivering") || "").trim(),
-                    subject: String(data.get("subject") || "").trim(),
-                    brief: String(data.get("brief") || "").trim(),
-                    acceptance_criteria: String(data.get("acceptance") || "").trim(),
-                    budget_owner: String(data.get("budget_owner") || "").trim(),
-                    budget_cents: Number(data.get("budget_cents") || 0),
-                    due_at: dueLocal ? new Date(dueLocal).toISOString() : "",
-                    escalation_path: String(data.get("escalation") || "owner").trim(),
-                  }));
-                if (ok) form.reset();
-              }}
-            >
-              <h2>Create cross-department request</h2>
-              <label htmlFor="xd-project">Project id</label>
-              <input id="xd-project" name="project_id" type="text" required />
-              <label htmlFor="xd-requesting">Requesting department</label>
-              <input id="xd-requesting" name="requesting" type="text" required />
-              <label htmlFor="xd-delivering">Delivering department</label>
-              <input id="xd-delivering" name="delivering" type="text" required />
-              <label htmlFor="xd-subject">Subject</label>
-              <input id="xd-subject" name="subject" type="text" required />
-              <label htmlFor="xd-brief">Brief</label>
-              <textarea id="xd-brief" name="brief" required />
-              <label htmlFor="xd-acceptance">Acceptance criteria</label>
-              <textarea id="xd-acceptance" name="acceptance" required />
-              <label htmlFor="xd-budget-owner">Budget owner</label>
-              <input id="xd-budget-owner" name="budget_owner" type="text" required />
-              <label htmlFor="xd-budget">Budget cents</label>
-              <input id="xd-budget" name="budget_cents" type="number" inputMode="numeric" min="0" required />
-              <label htmlFor="xd-due">Due at</label>
-              <input id="xd-due" name="due_at" type="datetime-local" required />
-              <label htmlFor="xd-escalation">Escalation path</label>
-              <input id="xd-escalation" name="escalation" type="text" defaultValue="owner" required />
-              <div className="actions"><button className="primary" type="submit">Create request</button></div>
-              {status("create-cross-dept")}
-            </form>
-          )}
-          <h2>Open activity</h2>
-          {activityItems.map((item) => (
-            <div key={item.id} className="card muted">
-              {item.kind} · {item.status}{item.room_id ? ` · room ${item.room_id}` : ""}
-            </div>
-          ))}
-          {!activityItems.length && <p className="muted">No open activity sessions.</p>}
-        </section>
+        <CorporatePanel
+          api={api}
+          scorecard={scorecardMetrics}
+          objectives={objectives}
+          packs={industryPacks}
+          divisions={divisions}
+          promotions={promotions}
+          staffing={staffingProposals}
+          crossDept={crossDept}
+          activity={activityItems}
+          hqRoomCount={hqRoomCount}
+          canManage={canManageOrg}
+          runAction={runAction}
+          setFormStatus={setFormStatus}
+          status={status}
+          scopeNotice={scopeNotice}
+        />
       )}
 
       {tab === "workers" && (
