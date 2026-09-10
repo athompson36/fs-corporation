@@ -34,12 +34,13 @@ DESK_HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <meta name="theme-color" content="#070b14"/>
 <link rel="stylesheet" href="/static/cosmic-glass-tokens.css"/>
+<link rel="stylesheet" href="/static/brand-fonts.css"/>
 <style>
 * { box-sizing: border-box; }
-body { font-family: system-ui, sans-serif; background: radial-gradient(1200px 600px at 10% -10%, #12203a 0%, var(--midnight) 55%); color: var(--soft); margin: 0; }
+body { font-family: var(--font-body); background: radial-gradient(1200px 600px at 10% -10%, #12203a 0%, var(--midnight) 55%); color: var(--soft); margin: 0; }
 .shell { display: grid; grid-template-columns: 13rem 1fr; min-height: 100vh; }
 .rail { background: var(--midnight-elev); border-right: 1px solid var(--glass-border); padding: 1.1rem 0.9rem; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; }
-.brand { font-weight: 700; letter-spacing: 0.04em; margin: 0 0 1rem; color: var(--soft); }
+.brand { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.04em; margin: 0 0 1rem; color: var(--soft); }
 .rail nav { display: flex; flex-direction: column; gap: var(--space-1, 0.25rem); flex: 1; }
 .desk-version { margin-top: auto; padding-top: var(--space-3, 0.75rem); font-size: 0.75rem; }
 .rail a { color: var(--soft); text-decoration: none; padding: 0.45rem 0.65rem; border-radius: 0.65rem; font-size: 0.92rem; }
@@ -51,7 +52,7 @@ body { font-family: system-ui, sans-serif; background: radial-gradient(1200px 60
 .desk-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 0.75rem; }
 .glass { background: var(--glass); backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: var(--radius-glass, 1rem); padding: 1rem; margin: 0 0 0.75rem; box-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 12px 40px rgba(0,0,0,0.28); }
 h1, h2, h3 { margin: 0 0 0.5rem; }
-h1 { font-size: 1.7rem; }
+h1 { font-family: var(--font-display); font-size: 1.7rem; }
 h2 { font-size: 1.05rem; }
 .muted { color: var(--muted); }
 .row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0 0 0.6rem; }
@@ -1501,6 +1502,7 @@ WELCOME_HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <meta name="theme-color" content="#070b14"/>
 <link rel="stylesheet" href="/static/cosmic-glass-tokens.css"/>
+<link rel="stylesheet" href="/static/brand-fonts.css"/>
 <link rel="preload" href="/static/fonts/syne-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin/>
 <link rel="preload" href="/static/fonts/manrope-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin/>
 <link rel="stylesheet" href="/static/welcome.css"/>
