@@ -28,6 +28,7 @@ import { normalizeSettingDraft, settingDraftDiffers } from "./settingsDraft";
 import { CorporatePanel } from "./CorporatePanel";
 import { FinancePanel } from "./FinancePanel";
 import { HomePanel } from "./HomePanel";
+import { OrgPanel } from "./OrgPanel";
 import { ProjectsPanel, type LocalCandidate } from "./ProjectsPanel";
 import { WorkersPanel } from "./WorkersPanel";
 import {
@@ -731,276 +732,46 @@ export default function App() {
       )}
 
       {tab === "organization" && (
-        <section>
-          <p className="lede">Catalog, persisted seat status, and roster. Vacant and dormant seats are not healthy workers.</p>
-          {organization.map((department) => (
-            <div key={department.id} className="card">
-              <strong>{department.id} · {department.name}</strong>
-              <div className="muted">
-                Head seat: {department.seat.status} · {department.seat.principal_id || "vacant"}
-              </div>
-              <div className="muted">
-                Roster: {department.assignments.length
-                  ? department.assignments.map(
-                    (a) => `${a.principal_id} (${a.position_id}; assignment ${a.id})`,
-                  ).join(", ")
-                  : "none"}
-              </div>
-            </div>
-          ))}
-          {!organization.length && <p className="muted">No organization catalog returned.</p>}
-          {!canManageOrg && scopeNotice("edit the organization")}
-          {canManageOrg && (
-            <>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                const ok = await runAction("create-dept", "Department created.", () =>
-                  api.createDepartment({
-                    id: String(data.get("id") || "").trim(),
-                    name: String(data.get("name") || "").trim(),
-                    head_title: String(data.get("head_title") || "").trim(),
-                    mission: String(data.get("mission") || "").trim(),
-                    room_type: String(data.get("room_type") || "boardroom").trim(),
-                    measures: [],
-                    initially_active: data.get("initially_active") === "on",
-                    default_model_profile: "mock-text",
-                  }));
-                if (ok) form.reset();
-              }}>
-                <h2>Create department</h2>
-                <label htmlFor="create-dept-id">Id</label>
-                <input id="create-dept-id" name="id" type="text" required />
-                <label htmlFor="create-dept-name">Name</label>
-                <input id="create-dept-name" name="name" type="text" required />
-                <label htmlFor="create-dept-head">Head title</label>
-                <input id="create-dept-head" name="head_title" type="text" required />
-                <label htmlFor="create-dept-mission">Mission</label>
-                <input id="create-dept-mission" name="mission" type="text" required />
-                <label htmlFor="create-dept-room">Room type</label>
-                <input id="create-dept-room" name="room_type" type="text" defaultValue="boardroom" required />
-                <label className="check" htmlFor="create-dept-active">
-                  <input id="create-dept-active" name="initially_active" type="checkbox" /> Initially active
-                </label>
-                <div className="actions"><button className="primary" type="submit">Create department</button></div>
-                {status("create-dept")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("appoint-head", "Head appointed.", () =>
-                  api.appointHead(appointHeadDepartment.trim(), appointHeadPrincipal.trim()));
-                if (!ok) return;
-                setAppointHeadDepartment("");
-                setAppointHeadPrincipal("");
-              }}>
-                <h2>Appoint department head</h2>
-                <label htmlFor="appoint-head-department">Department id</label>
-                <input id="appoint-head-department" type="text" required value={appointHeadDepartment}
-                  onChange={(e) => setAppointHeadDepartment(e.target.value)} />
-                <label htmlFor="appoint-head-principal">Principal id</label>
-                <input id="appoint-head-principal" type="text" required value={appointHeadPrincipal}
-                  onChange={(e) => setAppointHeadPrincipal(e.target.value)} />
-                <div className="actions"><button className="primary" type="submit">Appoint head</button></div>
-                {status("appoint-head")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("vacate-head", "Head vacated.", () =>
-                  api.vacateHead(vacateHeadDepartment.trim()));
-                if (ok) setVacateHeadDepartment("");
-              }}>
-                <h2>Vacate department head</h2>
-                <label htmlFor="vacate-head-department">Department id</label>
-                <input id="vacate-head-department" type="text" required value={vacateHeadDepartment}
-                  onChange={(e) => setVacateHeadDepartment(e.target.value)} />
-                <div className="actions"><button className="danger" type="submit">Vacate head</button></div>
-                {status("vacate-head")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("assign-position", "Position assigned.", () =>
-                  api.assignPosition(
-                    positionId.trim(),
-                    positionPrincipal.trim(),
-                    positionReportsTo.trim() || undefined,
-                  ));
-                if (!ok) return;
-                setPositionId("");
-                setPositionPrincipal("");
-                setPositionReportsTo("");
-              }}>
-                <h2>Assign position</h2>
-                <label htmlFor="assign-position-id">Position id</label>
-                <input id="assign-position-id" type="text" required value={positionId}
-                  placeholder="engineering:Developer"
-                  onChange={(e) => setPositionId(e.target.value)} />
-                <label htmlFor="assign-position-principal">Principal id</label>
-                <input id="assign-position-principal" type="text" required value={positionPrincipal}
-                  onChange={(e) => setPositionPrincipal(e.target.value)} />
-                <label htmlFor="assign-position-reports-to">Reports-to seat id (optional)</label>
-                <input id="assign-position-reports-to" type="text" value={positionReportsTo}
-                  placeholder="seat:engineering"
-                  onChange={(e) => setPositionReportsTo(e.target.value)} />
-                <div className="actions"><button className="primary" type="submit">Assign position</button></div>
-                {status("assign-position")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("release-assignment", "Assignment released.", () =>
-                  api.releaseAssignment(releaseAssignmentId.trim()));
-                if (ok) setReleaseAssignmentId("");
-              }}>
-                <h2>Release assignment</h2>
-                <label htmlFor="release-assignment-id">Assignment id</label>
-                <input id="release-assignment-id" type="text" required value={releaseAssignmentId}
-                  onChange={(e) => setReleaseAssignmentId(e.target.value)} />
-                <div className="actions"><button className="danger" type="submit">Release assignment</button></div>
-                {status("release-assignment")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                const ok = await runAction("create-position", "Position created.", () =>
-                  api.createPosition(
-                    String(data.get("department_id") || "").trim(),
-                    String(data.get("title") || "").trim(),
-                  ));
-                if (ok) form.reset();
-              }}>
-                <h2>Create position</h2>
-                <label htmlFor="create-pos-dept">Department id</label>
-                <input id="create-pos-dept" name="department_id" type="text" required />
-                <label htmlFor="create-pos-title">Title</label>
-                <input id="create-pos-title" name="title" type="text" required />
-                <div className="actions"><button className="primary" type="submit">Create position</button></div>
-                {status("create-position")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                let items: { id: string; display_order: number }[];
-                try {
-                  items = JSON.parse(String(data.get("items") || "[]"));
-                } catch {
-                  setFormStatus((prev) => ({
-                    ...prev,
-                    "reorder-departments": { ok: false, text: "Items must be valid JSON." },
-                  }));
-                  return;
-                }
-                const ok = await runAction("reorder-departments", "Departments reordered.", () =>
-                  api.reorderDepartments(items));
-                if (ok) form.reset();
-              }}>
-                <h2>Reorder departments</h2>
-                <label htmlFor="reorder-items">Items JSON</label>
-                <textarea
-                  id="reorder-items"
-                  name="items"
-                  required
-                  placeholder='[{"id":"engineering","display_order":10}]'
-                />
-                <div className="actions"><button className="primary" type="submit">Reorder</button></div>
-                {status("reorder-departments")}
-              </form>
-              <form className="card" onSubmit={async (event) => {
-                event.preventDefault();
-                const ok = await runAction("activate-department", "Department activated.", () =>
-                  api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim()));
-                if (!ok) return;
-                setActivateProjectId("");
-                setActivateDepartmentId("");
-              }}>
-                <h2>Activate dormant department for project</h2>
-                <label htmlFor="activate-project">Project id</label>
-                <input id="activate-project" type="text" required value={activateProjectId}
-                  onChange={(e) => setActivateProjectId(e.target.value)} />
-                <label htmlFor="activate-department">Department id</label>
-                <input id="activate-department" type="text" required value={activateDepartmentId}
-                  onChange={(e) => setActivateDepartmentId(e.target.value)} />
-                <div className="actions"><button className="primary" type="submit">Activate</button></div>
-                {status("activate-department")}
-              </form>
-            </>
-          )}
-          <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            await runAction("worker-card", "Card loaded.", async () => {
-              try {
-                setWorkerCard(await api.workerCard(workerLookupId.trim()));
-              } catch (e) {
-                setWorkerCard(null);
-                throw e;
-              }
-            });
-          }}>
-            <h2>Worker card</h2>
-            <label htmlFor="worker-lookup-id">Employee id</label>
-            <input id="worker-lookup-id" type="text" required value={workerLookupId}
-              onChange={(e) => setWorkerLookupId(e.target.value)} />
-            <div className="actions"><button className="primary" type="submit">Load card</button></div>
-            {status("worker-card")}
-            {workerCard && (
-              <div className="muted" style={{ marginTop: "0.75rem" }}>
-                <strong>{workerCard.identity.display_name}</strong>
-                <div>{workerCard.identity.headline || "No headline"}</div>
-                <div>Position: {workerCard.identity.position_id}</div>
-                <div>Sprite: {workerCard.sprite?.sprite_set || workerCard.sprite_placeholder.label}</div>
-              </div>
-            )}
-          </form>
-          <h2>Head inbox</h2>
-          {headInbox.map((dispatch) => (
-            <div key={dispatch.id} className="card">
-              <strong>{dispatch.project_id} · {dispatch.department_id}</strong>
-              <div className="muted">{dispatch.status} · budget {dispatch.budget_cents}¢</div>
-              <p>{dispatch.brief}</p>
-              <p className="muted">Acceptance: {dispatch.acceptance_criteria}</p>
-              {canManageOrg && dispatch.status === "queued_for_head" && (
-                <div className="actions">
-                  <button type="button" onClick={() => setAssignDispatchId(dispatch.id)}>Assign</button>
-                </div>
-              )}
-            </div>
-          ))}
-          {!headInbox.length && <p className="muted">No open head dispatches.</p>}
-          {canManageOrg && assignDispatchId && (
-            <form className="card" onSubmit={async (event) => {
-              event.preventDefault();
-              const ok = await runAction("assign-dispatch", "Assignment queued.", () =>
-                api.assignDispatch(
-                  assignDispatchId,
-                  assignAssignee.trim(),
-                  assignAction.trim(),
-                  Number(assignCost),
-                ));
-              if (!ok) return;
-              setAssignDispatchId("");
-              setAssignAssignee("");
-              setAssignAction("");
-              setAssignCost("");
-            }}>
-              <h2>Assign dispatch</h2>
-              <label htmlFor="assign-assignee">Assignee principal</label>
-              <input id="assign-assignee" type="text" required value={assignAssignee}
-                onChange={(e) => setAssignAssignee(e.target.value)} />
-              <label htmlFor="assign-action">Action</label>
-              <input id="assign-action" type="text" required value={assignAction}
-                onChange={(e) => setAssignAction(e.target.value)} />
-              <label htmlFor="assign-cost">Cost (¢)</label>
-              <input id="assign-cost" required type="number" inputMode="numeric" min="0" value={assignCost}
-                onChange={(e) => setAssignCost(e.target.value)} />
-              <div className="actions">
-                <button className="primary" type="submit">Queue assignment</button>
-                <button type="button" onClick={() => setAssignDispatchId("")}>Cancel</button>
-              </div>
-              {status("assign-dispatch")}
-            </form>
-          )}
-        </section>
+        <OrgPanel
+          api={api}
+          organization={organization}
+          headInbox={headInbox}
+          canManage={canManageOrg}
+          activateProjectId={activateProjectId}
+          setActivateProjectId={setActivateProjectId}
+          activateDepartmentId={activateDepartmentId}
+          setActivateDepartmentId={setActivateDepartmentId}
+          appointHeadDepartment={appointHeadDepartment}
+          setAppointHeadDepartment={setAppointHeadDepartment}
+          appointHeadPrincipal={appointHeadPrincipal}
+          setAppointHeadPrincipal={setAppointHeadPrincipal}
+          vacateHeadDepartment={vacateHeadDepartment}
+          setVacateHeadDepartment={setVacateHeadDepartment}
+          positionId={positionId}
+          setPositionId={setPositionId}
+          positionPrincipal={positionPrincipal}
+          setPositionPrincipal={setPositionPrincipal}
+          positionReportsTo={positionReportsTo}
+          setPositionReportsTo={setPositionReportsTo}
+          releaseAssignmentId={releaseAssignmentId}
+          setReleaseAssignmentId={setReleaseAssignmentId}
+          assignDispatchId={assignDispatchId}
+          setAssignDispatchId={setAssignDispatchId}
+          assignAssignee={assignAssignee}
+          setAssignAssignee={setAssignAssignee}
+          assignAction={assignAction}
+          setAssignAction={setAssignAction}
+          assignCost={assignCost}
+          setAssignCost={setAssignCost}
+          workerLookupId={workerLookupId}
+          setWorkerLookupId={setWorkerLookupId}
+          workerCard={workerCard}
+          setWorkerCard={setWorkerCard}
+          setFormStatus={setFormStatus}
+          runAction={runAction}
+          status={status}
+          scopeNotice={scopeNotice}
+        />
       )}
 
       {tab === "corporate" && (
