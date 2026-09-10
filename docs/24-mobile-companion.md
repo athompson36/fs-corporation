@@ -83,24 +83,27 @@ Pair via CEO desk QR, or paste a ticket manually on the first-run pairing screen
 
 ## Features
 
-Bottom navigation is six tabs — Home, Projects, Org, Corporate, Workers, More. At narrow widths
+Bottom navigation is five domain tabs — **Home · Work · People · Money · More**. **Home** is the
+Needs-you queue built from persisted pending decisions and owner-inbox requests, with inline
+approve/reject/respond actions when scopes allow; creating an escalation remains under **More →
+Inbox**. **Work** groups Projects, Corporate and Workers. **People** opens Organization. **Money**
+opens Finance. **More** groups Decisions, Inbox, Diagnostics and Settings behind a segmented
+switcher. The Home badge is the pending-decision plus owner-request count. At narrow widths
 (including 320px), labels use compact type and may wrap to reduce truncation; exact rendering still
-depends on the browser's font metrics. **More** holds Decisions, Inbox, Diagnostics and Settings
-behind a segmented switcher and carries a badge with the pending decision plus owner-request count.
-Every write reports its outcome on an inline status line next to the control, not only at the top
-of the page.
+depends on the browser's font metrics. Every write reports its outcome on an inline status line
+next to the control, not only at the top of the page.
 
 | Screen | Actions (scope-gated) |
 |---|---|
-| Home | Company stats; pause/resume when `company.pause` / `company.resume` |
-| Projects | List/detail; local candidates + enroll; assign GitHub by upstream address; dispatch with Recommend / templates / budget chips / Valid values when `project.enroll` |
-| Org | Catalog and roster; departments, heads, positions, assignments, reorder, activation and worker card when `organization.write` |
-| Corporate | Scorecard, objectives, industry packs, divisions, promotions, staffing proposals, cross-department requests, activity, default floorplan |
-| Workers | List remote worker hosts (API `state`); create host (one-time token shown once); enable/disable/delete when `company.pause` + CEO |
+| Home | Needs-you queue; persisted status strip; pause/resume when `company.pause` / `company.resume` |
+| Work → Projects | List/detail; local candidates + enroll; assign GitHub by upstream address; dispatch with Recommend / templates / budget chips / Valid values when `project.enroll` |
+| Work → Corporate | Scorecard, objectives, industry packs, divisions, promotions, staffing proposals, cross-department requests, activity, default floorplan |
+| Work → Workers | List remote worker hosts (API `state`); create host (one-time token shown once); enable/disable/delete when `company.pause` + CEO |
+| People | Organization catalog and roster; departments, heads, positions, assignments, reorder, activation and worker card when `organization.write` |
+| Money | Finance sub-tabs **Overview · Invoices · Adjustments · Periods**; summary (gross/net/adjustments/revenue); create invoices with expandable line detail; void/partial-credit refunds via billed-cost picker (`GET /finance/billed-costs`); set/close budget periods with confirm + next-period prefill (CEO + `company.pause`). Dollar amounts use display-only `formatUsd`; API payloads stay integer cents. |
 | More → Decisions | Approve/reject when `policy.approve` or `consultant.decide` |
 | More → Inbox | Respond when `company.pause`; escalate when `owner.escalate` |
 | More → Diagnostics | Parallel live probes: health, workers, model, github, push, chatdev, feeds, slos, local-repos |
-| More → Finance | Sub-tabs **Overview · Invoices · Adjustments · Periods**; summary (gross/net/adjustments/revenue); create invoices with expandable line detail; void/partial-credit refunds via billed-cost picker (`GET /finance/billed-costs`); set/close budget periods with confirm + next-period prefill (CEO + `company.pause`). Dollar amounts use display-only `formatUsd`; API payloads stay integer cents. |
 | More → Settings | Connection (API URL, token, session principal/scopes, clear to re-pair); **Runtime** editable overlays with source badge and restart notice when `restart_required`; **Feeds** approve/pause/revoke/poll (HTTPS only; watchlists template-only); **Models** read-only profiles + pointer to global cents setting; read-only **Host** (LAN IP, worker NIC, gateway egress); **Secrets** configured/missing list (no values). PATCH/reset when `company.pause` + CEO/admin companion |
 
 ## API endpoints

@@ -48,6 +48,7 @@
 | ADR-044 | 2026-09-08 | Opt-in remote container with host-token gateway relay | Remote agents may opt into container execution with `--network none`; the agent relays allowlisted gateway operations. Default remains mock-complete. No remote egress this slice. |
 | ADR-045 | 2026-09-08 | Public `/welcome` landing and marketing campaign furniture | FastAPI serves a cosmic-glass landing while the companion remains at `/`; desk HQ maps persisted marketing room types to `campaign` furniture. |
 | ADR-046 | 2026-09-08 | Remote claim embeds fail-closed ChatDev egress policy | Agents attach allowlisted Docker networks only when locally ready; forbidden names coerce to none at claim; no hostnames cross the wire. |
+| ADR-047 | 2026-09-10 | Companion domain shell and CEO Needs-you spine | Five primary domains regroup existing capabilities; Home projects persisted decisions/inbox only; shared Syne/Manrope fonts unify companion, desk and welcome. |
 
 ### ADR-010 detail
 
@@ -622,5 +623,33 @@ named allowlist boundary.
 **Consequences.** Remote policy follows the control plane while readiness remains locally
 enforced by the agent. Claims never expose allowlist hostnames. Existing none-mode containers
 still run with `--network none`, and no Alembic revision is required.
+
+### ADR-047 detail
+
+**Context.** The companion exposed six implementation-oriented tabs and made the CEO move between
+separate screens for pending decisions and owner requests. Its operational surfaces also lacked
+the Syne/Manrope brand type already established on `/welcome`. The owner selected delivery
+approach 1: ship the companion shell and CEO attention spine first, without rewriting every form
+or the desk information architecture.
+
+**Decision.** Regroup the companion under five primary domains: **Home · Work · People · Money ·
+More**. Home is a Needs-you queue projected from the existing pending-decision and owner-inbox
+lists, with the same scope-gated approve, reject and respond actions. Work contains Projects,
+Corporate and Workers; People opens Organization; Money opens Finance; More retains Decisions,
+Inbox, Diagnostics and Settings. Escalation creation remains only in More → Inbox. Share
+self-hosted Syne display and Manrope body fonts through `assets/brand-fonts.css` and the existing
+cosmic-glass tokens across companion, desk and welcome. No API contract or operational metric is
+added.
+
+**Alternatives considered.** A full companion form redesign and desk sidebar rewrite were
+deferred because they would broaden the release beyond the selected shell-first approach.
+Keeping six implementation-oriented tabs was rejected because it obscured the CEO's daily
+attention loop. Duplicating font declarations per surface was rejected in favor of one
+self-hosted asset.
+
+**Consequences.** Existing capabilities remain available under new domain groupings, while Home
+provides one persisted attention queue and an honest empty state. Read-only and missing-scope
+behavior remains fail-closed. Deep layout polish inside Work, People and Money, and desk
+information-architecture alignment remain follow-ups. No schema migration is required.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

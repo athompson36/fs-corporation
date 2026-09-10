@@ -123,7 +123,7 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn("createFinanceInvoice", client)
         self.assertIn("postFinanceAdjustment", client)
         self.assertIn("closeFinanceBudgetPeriod", client)
-        self.assertIn('["finance", "Finance"]', app)
+        self.assertIn('["money", "Money"]', app)
         self.assertIn("tab === \"finance\"", app)
         self.assertIn("FinancePanel", app)
         self.assertIn("export function formatUsd", money)

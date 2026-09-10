@@ -258,6 +258,9 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Push notifications — `register_push_subscription` / `notify_push` (HTTPS only; live VAPID send when keys configured); owner-inbox create attempts delivery
 - [x] QR pairing with access levels (`read_only`, `user`, `admin`); desk issues QR; companion auto-redeems `#fs-pair`; optional Tailscale auth key on redeem
 - [x] Workers tab — primary tab lists remote worker hosts (API `state`); create with one-time token; enable/disable/delete when CEO + `company.pause` (0.3.63); runbook in [25-fs-dev-deployment.md](25-fs-dev-deployment.md)
+- [x] Companion shell + CEO spine (0.3.65) — five-domain Home · Work · People · Money · More
+      navigation; Home Needs-you queue reuses persisted decisions and owner inbox with scoped
+      inline actions; shared Syne/Manrope brand fonts align companion, desk and welcome
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -401,7 +404,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Deeper marketing redesign shipped at 0.3.64** on `feature/deeper-marketing-redesign`:
-self-hosted fonts and constellation motif on `/welcome`; desk `campaign` furniture is podium +
-banner; companion stays at `/`. No new routes; no Alembic. Next: **owner-directed backlog**
-(roadmap clear — ask the owner for the next priority).
+**Companion shell + CEO spine shipped at 0.3.65** on
+`feature/companion-shell-ceo-spine`: five-domain companion navigation, a persisted Needs-you
+Home queue with existing scope-gated actions, and shared Syne/Manrope fonts across companion,
+desk and welcome. No new API routes or Alembic revision. Next: deep layout polish inside
+Work/People/Money, or align the desk information architecture to the five domains.
