@@ -106,13 +106,55 @@ export function ProjectsPanel(props: ProjectsPanelProps) {
   return (
     <section>
       <ModeSwitch mode={mode} onChange={setMode} label="Projects mode" />
-      {selectedProject ? (
-        projectDetail && (
-          <div className="card">
-            <div className="actions">
-              <button type="button" onClick={() => setSelectedProject(null)}>← Back</button>
+      {mode === "browse" ? (
+        /* Browse: project list and detail entry points. */
+        <div className="project-browse-split">
+          <div className="project-browse-list">
+            <div className="section-head">
+              <h2>Projects</h2>
             </div>
-            <h2>{selectedProject}</h2>
+            {!projects.length && (
+              <p className="panel-empty">No projects enrolled yet.</p>
+            )}
+            {projects.map((project) => {
+              const id = String(project.id);
+              const active = selectedProject === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className={active ? "list-row active" : "list-row"}
+                  aria-pressed={active}
+                  onClick={() => setSelectedProject(id)}
+                >
+                  <strong>{id}</strong>
+                  <div className="muted">{String(project.brief)}</div>
+                  <div className="muted">
+                    Blockers: {(project.blockers as string[])?.join(", ") || "none"}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="project-browse-detail">
+            {!selectedProject && (
+              <div className="card">
+                <p className="panel-empty">Select a project</p>
+              </div>
+            )}
+            {selectedProject && !projectDetail && (
+              <div className="card">
+                <p className="muted">Loading…</p>
+              </div>
+            )}
+            {selectedProject && projectDetail && (
+          <div className="card">
+            <div className="detail-toolbar">
+              <h2>{selectedProject}</h2>
+              <button type="button" onClick={() => setSelectedProject(null)}>
+                Clear selection
+              </button>
+            </div>
             <p>{String(projectDetail.brief)}</p>
             <p className="muted">Departments: {(projectDetail.departments as string[])?.join(", ") || "none"}</p>
             {projectDetail.github != null && (
@@ -351,28 +393,16 @@ export function ProjectsPanel(props: ProjectsPanelProps) {
               </form>
             )}
           </div>
-        )
-      ) : mode === "browse" ? (
-        /* Browse: project list and detail entry points. */
-        <>
-          {projects.map((project) => (
-            <div key={String(project.id)} className="card">
-              <strong>{String(project.id)}</strong>
-              <div className="muted">{String(project.brief)}</div>
-              <div className="muted">
-                Blockers: {(project.blockers as string[])?.join(", ") || "none"}
-              </div>
-              <div className="actions">
-                <button type="button" onClick={() => setSelectedProject(String(project.id))}>Details</button>
-              </div>
-            </div>
-          ))}
-        </>
+            )}
+          </div>
+        </div>
       ) : (
         /* Manage: enrollment and repository assignment. */
         <>
           <div className="card">
-            <h2>Local candidates</h2>
+            <div className="section-head">
+              <h2>Local candidates</h2>
+            </div>
             <p className="muted">
               Folders under {localReposRoot || "local repos/"}. Tap Enroll to create a company project.
             </p>
@@ -403,13 +433,15 @@ export function ProjectsPanel(props: ProjectsPanelProps) {
               </div>
             ))}
             {!localCandidates.length && (
-              <p className="muted">No local folders found (add directories under local repos/).</p>
+              <p className="panel-empty">No local folders found (add directories under local repos/).</p>
             )}
             {!canEnroll(scopes) && scopeNotice("enroll projects", "project.enroll")}
           </div>
           {canEnroll(scopes) && (
             <div className="card">
-              <h2>Assign GitHub by address</h2>
+              <div className="section-head">
+                <h2>Assign GitHub by address</h2>
+              </div>
               <p className="muted">Paste upstream only. Creates same-owner {"{repo}"}-corp for writes.</p>
               <label className="muted" htmlFor="gh-upstream">Upstream (owner/repo or github.com URL)</label>
               <input
