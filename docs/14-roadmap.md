@@ -408,8 +408,7 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Desk IA aligned to five companion domains for 0.3.67** on
-`feature/desk-ia-five-domains`: `/desk` rail and long-page sections follow Home · Work ·
-People · Money · More; hybrid Home keeps HQ high; Scorecard sits under Work. No ID
-renames, domain panes, new APIs or Alembic revision. Next: deep visual polish inside
-companion Browse/Manage (owner-directed) or deploy 0.3.67.
+**Desk IA 0.3.67 is on `main` and fs-dev.** `/desk` rail and long-page sections follow
+Home · Work · People · Money · More; hybrid Home keeps HQ high; Scorecard sits under Work.
+No ID renames, domain panes, new APIs or Alembic revision. Next: deep visual polish inside
+companion Browse/Manage (owner-directed).
