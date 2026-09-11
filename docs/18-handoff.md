@@ -1,29 +1,27 @@
 # Current handoff
 
-Date: 2026-09-11. Version: **0.3.68**. State: **Projects Browse split + medium
-shell polish implemented on `feature/projects-split-browse-polish`** (not yet
-merged or deployed).
+Date: 2026-09-11. Version: **0.3.68**. State: **Projects Browse split polish merged to
+`main`, pushed, and deployed to fs-dev** (health `0.3.68`).
 
-## On this branch
+## On main / fs-dev
 
-- Companion Projects Browse uses a responsive list|detail split
-  (`project-browse-split`): list beside the workspace at ≥720px, stacked on
-  narrow viewports.
-- Detail pane holds the existing project identity and dispatch workspace.
-  Empty detail copy is “Select a project”. **Clear selection** sets
-  `selectedProject` to null. Manage remains local enroll and GitHub assign.
-- Corporate, Workers and Organization received medium empty-state and
-  section-head polish. Finance tabs are unchanged (no ModeSwitch).
-- ADR-050; version **0.3.68** (Python package and companion `package.json`
-  lockstep). No new APIs, URL sync or Alembic.
-- Branch: `feature/projects-split-browse-polish`.
+- Companion Projects **Browse** is a responsive list|detail split (`project-browse-split`);
+  detail is the full project workspace (brief, GitHub, dispatch); **Clear selection**
+  replaces ← Back; Manage remains enroll/assign.
+- Medium empty/section polish on Corporate, Workers, Org. Finance still has no
+  Browse/Manage ModeSwitch.
+- ADR-050; version **0.3.68** (Python + companion lockstep). Desk five-domain IA from
+  0.3.67 unchanged.
+- Tip: `09a5aa8`.
 
 ## Verification
 
 - `.venv/bin/python -m unittest discover -s tests`: **501 tests passed**.
-- `cd companion && npm run build`: OK (package version 0.3.68).
+- fs-dev health: **0.3.68**; companion bundle includes `project-browse-split`,
+  `Select a project`, `Clear selection`.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: further Corporate polish, URL-synced project selection, or other.
+Owner-directed: further Corporate/Workers hierarchy polish, URL-synced project selection,
+or other companion/desk follow-ups from prior reviews.

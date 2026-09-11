@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.68 local status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, fs-dev deployment, companion Work/People Browse–Manage structure, desk IA aligned to five companion domains, and Projects Browse list|detail split with medium sibling-panel polish are in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health is **0.3.67** (desk five-domain IA installed); **0.3.68 is local** until merge and deploy.
+**v0.3.68 local status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, fs-dev deployment, companion Work/People Browse–Manage structure, desk IA aligned to five companion domains, and Projects Browse list|detail split with medium sibling-panel polish are in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health is **0.3.68** (Projects Browse split installed).
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials are owner-supplied per environment; a clone without them still runs every local check.
 
@@ -413,8 +413,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Projects Browse split 0.3.68 is on this branch (not yet on fs-dev).** Companion
-Projects Browse is a list|detail split; detail is the full project workspace with
-Clear selection; Manage remains enroll/assign; sibling panels have medium
-empty/section polish. No URL sync, Finance ModeSwitch, new APIs or Alembic
-revision. Next: owner-directed (further Corporate polish, URL sync, or other).
+**Projects Browse split 0.3.68 is on `main` and fs-dev.** Companion Projects Browse is a
+list|detail split; detail is the full project workspace with Clear selection; Manage
+remains enroll/assign; sibling panels have medium empty/section polish. No URL sync,
+Finance ModeSwitch, new APIs or Alembic revision. Next: owner-directed (further Corporate
+polish, URL sync, or other).
