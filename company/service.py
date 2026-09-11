@@ -45,6 +45,19 @@ body { font-family: var(--font-body); background: radial-gradient(1200px 600px a
 .desk-version { margin-top: auto; padding-top: var(--space-3, 0.75rem); font-size: 0.75rem; }
 .rail a { color: var(--soft); text-decoration: none; padding: 0.45rem 0.65rem; border-radius: 0.65rem; font-size: 0.92rem; }
 .rail a:hover, .rail a:focus-visible { background: rgba(59,130,246,0.16); box-shadow: inset 0 0 0 1px var(--cosmic); }
+.rail-group { display: flex; flex-direction: column; gap: 0.15rem; margin: 0 0 0.55rem; }
+.rail-group-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.15rem 0.65rem 0.2rem;
+}
+.rail-group a { padding-left: 0.9rem; font-size: 0.88rem; }
+@media (max-width: 840px) {
+  .rail-group { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.2rem; margin: 0 0 0.35rem; }
+  .rail-group-label { width: 100%; padding-bottom: 0; }
+}
 .workspace { padding: 1.25rem 1.5rem 2rem; }
 .lede { color: var(--muted); margin: 0 0 1rem; }
 .metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 0.75rem; margin-bottom: 0.75rem; }
@@ -88,20 +101,38 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <aside class="rail" id="sidebar">
 <p class="brand">FS-Corporation</p>
 <nav aria-label="Primary">
+<div class="rail-group">
+<span class="rail-group-label">Home</span>
 <a href="#desk">CEO desk</a>
-<a href="#scorecard">Scorecard</a>
+<a href="#decisions">Decisions</a>
+<a href="#consultant">Consultant</a>
 <a href="#hq">Headquarters</a>
+<a href="#status">Status</a>
+</div>
+<div class="rail-group">
+<span class="rail-group-label">Work</span>
+<a href="#scorecard">Scorecard</a>
 <a href="#projects">Projects</a>
-<a href="#departments">Departments</a>
 <a href="#cross-department">Cross-department</a>
 <a href="#corporate-upgrades">Corporate upgrades</a>
-<a href="#people">People</a>
-<a href="#intelligence">Intelligence</a>
-<a href="#decisions">Decisions</a>
+<a href="#people">People &amp; staffing</a>
+</div>
+<div class="rail-group">
+<span class="rail-group-label">People</span>
+<a href="#departments">Organization</a>
+<a href="#head-inbox">Head inbox</a>
+</div>
+<div class="rail-group">
+<span class="rail-group-label">Money</span>
 <a href="#budget">Budget</a>
+</div>
+<div class="rail-group">
+<span class="rail-group-label">More</span>
+<a href="#intelligence">Intelligence</a>
 <a href="#diagnostics">Diagnostics</a>
 <a href="#activity">Activity</a>
-<a href="#consultant">Consultant</a>
+<a href="#pairing">Phone pairing</a>
+</div>
 </nav>
 <p class="muted desk-version" id="desk-version" aria-live="polite"></p>
 </aside>
