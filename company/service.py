@@ -39,7 +39,7 @@ DESK_HTML = """<!DOCTYPE html>
 * { box-sizing: border-box; }
 body { font-family: var(--font-body); background: radial-gradient(1200px 600px at 10% -10%, #12203a 0%, var(--midnight) 55%); color: var(--soft); margin: 0; }
 .shell { display: grid; grid-template-columns: 13rem 1fr; min-height: 100vh; }
-.rail { background: var(--midnight-elev); border-right: 1px solid var(--glass-border); padding: 1.1rem 0.9rem; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; }
+.rail { background: var(--midnight-elev); border-right: 1px solid var(--glass-border); padding: 1.1rem 0.9rem; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
 .brand { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.04em; margin: 0 0 1rem; color: var(--soft); }
 .rail nav { display: flex; flex-direction: column; gap: var(--space-1, 0.25rem); flex: 1; }
 .desk-version { margin-top: auto; padding-top: var(--space-3, 0.75rem); font-size: 0.75rem; }
@@ -101,33 +101,33 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <aside class="rail" id="sidebar">
 <p class="brand">FS-Corporation</p>
 <nav aria-label="Primary">
-<div class="rail-group">
-<span class="rail-group-label">Home</span>
+<div class="rail-group" role="group" aria-labelledby="rail-home">
+<span id="rail-home" class="rail-group-label">Home</span>
 <a href="#desk">CEO desk</a>
 <a href="#decisions">Decisions</a>
 <a href="#consultant">Consultant</a>
 <a href="#hq">Headquarters</a>
 <a href="#status">Status</a>
 </div>
-<div class="rail-group">
-<span class="rail-group-label">Work</span>
+<div class="rail-group" role="group" aria-labelledby="rail-work">
+<span id="rail-work" class="rail-group-label">Work</span>
 <a href="#scorecard">Scorecard</a>
 <a href="#projects">Projects</a>
 <a href="#cross-department">Cross-department</a>
 <a href="#corporate-upgrades">Corporate upgrades</a>
 <a href="#people">People &amp; staffing</a>
 </div>
-<div class="rail-group">
-<span class="rail-group-label">People</span>
+<div class="rail-group" role="group" aria-labelledby="rail-people">
+<span id="rail-people" class="rail-group-label">People</span>
 <a href="#departments">Organization</a>
 <a href="#head-inbox">Head inbox</a>
 </div>
-<div class="rail-group">
-<span class="rail-group-label">Money</span>
+<div class="rail-group" role="group" aria-labelledby="rail-money">
+<span id="rail-money" class="rail-group-label">Money</span>
 <a href="#budget">Budget</a>
 </div>
-<div class="rail-group">
-<span class="rail-group-label">More</span>
+<div class="rail-group" role="group" aria-labelledby="rail-more">
+<span id="rail-more" class="rail-group-label">More</span>
 <a href="#intelligence">Intelligence</a>
 <a href="#diagnostics">Diagnostics</a>
 <a href="#activity">Activity</a>
