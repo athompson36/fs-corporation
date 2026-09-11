@@ -50,6 +50,7 @@
 | ADR-046 | 2026-09-08 | Remote claim embeds fail-closed ChatDev egress policy | Agents attach allowlisted Docker networks only when locally ready; forbidden names coerce to none at claim; no hostnames cross the wire. |
 | ADR-047 | 2026-09-10 | Companion domain shell and CEO Needs-you spine | Five primary domains regroup existing capabilities; Home projects persisted decisions/inbox only; shared Syne/Manrope fonts unify companion, desk and welcome. |
 | ADR-048 | 2026-09-10 | Local Browse/Manage modes for companion Work and People | Persisted lists/details and in-row actions default to Browse; create/enroll/configure controls move to Manage; Finance retains its existing sub-tabs without a second mode layer. |
+| ADR-049 | 2026-09-11 | Desk IA matches companion five domains | Desk rail grouped Home · Work · People · Money · More; page sections reordered; hybrid Home keeps HQ high; Scorecard under Work; no ID renames or domain panes. |
 
 ### ADR-010 detail
 
@@ -678,5 +679,29 @@ preserving every existing API contract and persisted-data rule. Large Work and P
 are isolated in `ProjectsPanel`, `CorporatePanel`, `WorkersPanel` and `OrgPanel`; `App` retains
 data loading and orchestration. No Alembic revision is required. Deeper visual polish,
 master-detail project UX and desk five-domain alignment remain follow-ups.
+
+### ADR-049 detail
+
+**Context.** After ADR-047 grouped the companion into five CEO-facing domains and ADR-048
+added Browse/Manage inside Work and People, the HTML CEO desk still used a flat sidebar
+and a section order that did not match those domains. The owner selected a desk
+information-architecture pass — nav plus long-page order — without new APIs, invented
+metrics or companion-style domain panes.
+
+**Decision.** Group the desk rail under **Home · Work · People · Money · More** with
+always-expanded nested anchors to existing section `id`s. Reorder the main column to the
+same map. Home is hybrid: metrics, Decisions and Consultant first, Headquarters kept high,
+Status last in Home. Scorecard moves under Work. More is the leftover rail (Intelligence,
+Diagnostics, Activity, Pairing). Domain labels are non-linking group headings. Section
+`id`s stay unchanged so bookmarks and existing tests remain valid.
+
+**Alternatives considered.** Domain show/hide panes were rejected because the desk remains
+one long scroll. Browse/Manage on desk and an HQ interaction redesign were out of scope.
+Renaming section `id`s was rejected to preserve deep links. Duplicating Decisions and
+Consultant under More was rejected so each surface appears once.
+
+**Consequences.** Desk and companion now share the same five-domain map. Pairing and
+head-inbox anchors are present on the rail. No Alembic revision or control-plane API
+change is required. Companion Browse/Manage visual polish remains the follow-up.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

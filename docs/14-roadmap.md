@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.66 local status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, fs-dev deployment, and companion Work/People Browse–Manage structure are in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health remains 0.3.65 until this local release is merged and installed.
+**v0.3.67 local status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, fs-dev deployment, companion Work/People Browse–Manage structure, and desk IA aligned to five companion domains are in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health remains 0.3.66 until this local release is merged and installed.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials are owner-supplied per environment; a clone without them still runs every local check.
 
@@ -188,7 +188,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 
 **Depends on M1 for reads; M3/M4 for real work. Maps to:** R10, R11, R15.
 
-**Navigation:** CEO desk, Headquarters, Projects, Departments, People/models, Intelligence, Decisions, Budget, Company rules, Activity.
+**Navigation:** CEO desk sidebar grouped **Home · Work · People · Money · More** with nested anchors (hybrid Home; Scorecard under Work).
 
 - [x] First UI slice: CEO desk against the loopback API — before decorative building art
 - [x] Views read persisted events; occupancy is not running-model count
@@ -208,6 +208,7 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Corporate HQ Phase 6 — migration `0021_staffing_proposals`, cooldown-limited evidence scans, pending-proposal deduplication, HR/CEO proposal authority, CEO/admin decisions, atomic approval-gated hires, authenticated APIs, and Desk approve/reject controls
 - [x] Corporate HQ Phase 7 — migration `0022_divisions`, four persisted industry packs, consultant/CEO/seated-head proposals, CEO/admin atomic activation, division departments/skills/floorplans, open-work deactivation gates, authenticated APIs, and Desk controls
 - [x] Corporate HQ Phase 8 — migration `0023_ceo_scorecard`, persisted-data-only CEO scorecard, optional snapshots, CEO/admin objective lifecycle, authenticated APIs, and Desk create/close controls
+- [x] Desk IA aligned to five companion domains (0.3.67) — rail grouped Home · Work · People · Money · More; page sections reordered; hybrid Home keeps HQ high; Scorecard under Work; no ID renames or domain panes
 
 **Acceptance:** one accepted project earns progress; justified expansion is approved and provisioned; a room opens real department data; restart/replay keeps room identity and count. Reduced-motion and list navigation work.
 
@@ -407,8 +408,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Work/People/Money Browse–Manage implemented locally for 0.3.66** on
-`feature/work-people-money-browse-manage`: extracted Projects, Corporate and Organization
-panels plus Workers use local Browse/Manage modes; Finance keeps its existing sub-tabs. No new
-API routes or Alembic revision. Next: owner review and merge/deploy 0.3.66, then deep visual
-polish/master-detail project UX or desk information-architecture alignment to the five domains.
+**Desk IA aligned to five companion domains for 0.3.67** on
+`feature/desk-ia-five-domains`: `/desk` rail and long-page sections follow Home · Work ·
+People · Money · More; hybrid Home keeps HQ high; Scorecard sits under Work. No ID
+renames, domain panes, new APIs or Alembic revision. Next: deep visual polish inside
+companion Browse/Manage (owner-directed) or deploy 0.3.67.

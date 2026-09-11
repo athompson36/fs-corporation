@@ -1,6 +1,6 @@
 # Design: Desk IA aligned to five companion domains
 
-Date: 2026-09-11. Status: **approved for planning** (not yet implemented).
+Date: 2026-09-11. Status: **implemented in v0.3.67**.
 
 ## Goal
 

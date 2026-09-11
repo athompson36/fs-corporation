@@ -1,26 +1,31 @@
 # Current handoff
 
-Date: 2026-09-10. Version: **0.3.66**. State: **Work/People/Money Browse–Manage merged to
-`main`, pushed, and deployed to fs-dev** (health `0.3.66`).
+Date: 2026-09-11. Version: **0.3.67**. State: **desk five-domain IA implemented locally**
+on `feature/desk-ia-five-domains` (not yet merged or deployed).
 
-## On main / fs-dev
+## On this branch
 
-- Companion panels use **Browse / Manage** for Projects, Corporate, Workers, and
-  Organization (People). Finance keeps Overview · Invoices · Adjustments · Periods with
-  clarifying lede (no nested Browse/Manage).
-- Extracted `ModeSwitch`, `ProjectsPanel`, `CorporatePanel`, `OrgPanel`; Workers wrapped
-  in place. `App.tsx` stays the data/wiring shell.
-- ADR-048; version **0.3.66**; no Alembic. Merge: `8d7679a`.
+- CEO desk `/desk` rail is grouped **Home · Work · People · Money · More** with
+  always-expanded nested anchors to existing section `id`s.
+- Main column follows the same map: hybrid Home (metrics + Decisions/Consultant + HQ
+  high + Status); Scorecard under Work; People = Organization + Head inbox; Money =
+  Budget; More = Intelligence · Diagnostics · Activity · Pairing.
+- Pairing and head-inbox anchors are on the rail. No ID renames, domain panes, new APIs
+  or Alembic.
+- ADR-049; version **0.3.67** (Python package and companion `package.json` kept in
+  lockstep). Companion Browse/Manage behavior from 0.3.66 is unchanged.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **491 tests passed**.
-- `cd companion && npm run build`: **OK**.
-- fs-dev health: **0.3.66**; `/`, `/welcome`, `/desk`, brand fonts **200**; live bundle
-  includes ModeSwitch / ProjectsPanel / Browse · Manage.
-- Do not commit `local repos/service-department/`.
+- `.venv/bin/python -m unittest discover -s tests`: **496 tests passed**.
+- Source contracts in `tests/test_desk_ia_five_domains.py` cover rail groups, section
+  order, preserved ids and `__version__ == "0.3.67"`.
+- Manual smoke (local or fs-dev after deploy): `GET /desk` — walk each nested rail link;
+  confirm Decisions/Consultant above HQ; Scorecard after Status; Pairing last;
+  pairing/dispatch/org forms still work.
+- Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: **desk information architecture alignment to the five companion domains**,
-or deeper visual polish inside the new Browse/Manage panels.
+Owner-directed: **deep visual polish inside companion Browse/Manage**, or fs-dev deploy
+of 0.3.67.
