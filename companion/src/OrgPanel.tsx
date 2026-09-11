@@ -88,9 +88,11 @@ export function OrgPanel(props: OrgPanelProps) {
               </div>
             </div>
           ))}
-          {!organization.length && <p className="muted">No organization catalog returned.</p>}
+          {!organization.length && <p className="panel-empty">No organization catalog returned.</p>}
 
-          <h2>Head inbox</h2>
+          <div className="section-head">
+            <h2>Head inbox</h2>
+          </div>
           {headInbox.map((dispatch) => (
             <div key={dispatch.id} className="card">
               <strong>{dispatch.project_id} · {dispatch.department_id}</strong>
@@ -153,7 +155,7 @@ export function OrgPanel(props: OrgPanelProps) {
               )}
             </div>
           ))}
-          {!headInbox.length && <p className="muted">No open head dispatches.</p>}
+          {!headInbox.length && <p className="panel-empty">No open head dispatches.</p>}
         </>
       )}
 

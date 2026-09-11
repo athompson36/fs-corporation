@@ -116,7 +116,9 @@ export function WorkersPanel(props: WorkersPanelProps) {
           {loadError && <p className="error">Worker hosts could not be loaded: {loadError}</p>}
 
           <div className="card">
-            <h2>Worker hosts</h2>
+            <div className="section-head">
+              <h2>Worker hosts</h2>
+            </div>
             {hosts.map((host) => {
               const id = String(host.id);
               const state = String(host.state);
@@ -148,7 +150,7 @@ export function WorkersPanel(props: WorkersPanelProps) {
                 </div>
               );
             })}
-            {!hosts.length && !loadError && <p className="muted">No worker hosts registered.</p>}
+            {!hosts.length && !loadError && <p className="panel-empty">No worker hosts registered.</p>}
           </div>
         </>
       )}

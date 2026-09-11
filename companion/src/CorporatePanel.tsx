@@ -120,7 +120,9 @@ export function CorporatePanel(props: CorporatePanelProps) {
             </pre>
           </div>
 
-          <h2>Objectives</h2>
+          <div className="section-head">
+            <h2>Objectives</h2>
+          </div>
           {objectives.map((objective) => (
             <div key={objective.id} className="card">
               <strong>{objective.title}</strong>
@@ -135,7 +137,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
               {status(`objective-${objective.id}`)}
             </div>
           ))}
-          {!objectives.length && <p className="muted">No objectives.</p>}
+          {!objectives.length && <p className="panel-empty">No objectives.</p>}
 
           <h2>Industry packs</h2>
           {packs.map((pack) => (
@@ -143,7 +145,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
               {pack.id} — {pack.industry} — minimal {pack.minimal_departments.length} / full {pack.full_departments.length}
             </div>
           ))}
-          {!packs.length && <p className="muted">No industry packs.</p>}
+          {!packs.length && <p className="panel-empty">No industry packs.</p>}
 
           <h2>Divisions</h2>
           {divisions.map((division) => (
@@ -162,7 +164,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
               {status(`division-${division.id}`)}
             </div>
           ))}
-          {!divisions.length && <p className="muted">No divisions.</p>}
+          {!divisions.length && <p className="panel-empty">No divisions.</p>}
 
           <h2>Pending promotions</h2>
           {promotions.map((promotion) => (
@@ -182,7 +184,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
               {status(`promotion-${promotion.id}`)}
             </div>
           ))}
-          {!promotions.length && <p className="muted">No pending promotions.</p>}
+          {!promotions.length && <p className="panel-empty">No pending promotions.</p>}
 
           <h2>Staffing proposals</h2>
           {staffing.map((proposal) => (
@@ -202,7 +204,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
               {status(`staffing-${proposal.id}`)}
             </div>
           ))}
-          {!staffing.length && <p className="muted">No pending staffing proposals.</p>}
+          {!staffing.length && <p className="panel-empty">No pending staffing proposals.</p>}
 
           <h2>Cross-department requests</h2>
           {crossDept.map((item) => (
@@ -221,7 +223,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
               {status(`cross-dept-${item.id}`)}
             </div>
           ))}
-          {!crossDept.length && <p className="muted">No cross-department requests.</p>}
+          {!crossDept.length && <p className="panel-empty">No cross-department requests.</p>}
 
           <h2>Open activity</h2>
           {activity.map((item) => (
@@ -229,7 +231,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
               {item.kind} · {item.status}{item.room_id ? ` · room ${item.room_id}` : ""}
             </div>
           ))}
-          {!activity.length && <p className="muted">No open activity sessions.</p>}
+          {!activity.length && <p className="panel-empty">No open activity sessions.</p>}
         </>
       )}
 
