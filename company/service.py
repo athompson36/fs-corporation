@@ -146,22 +146,8 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass metric" id="metric-decisions-card"><h2>Pending decisions</h2><div class="value" id="metric-decisions">00</div></section>
 <section class="glass metric" id="metric-departments-card"><h2>Departments</h2><div class="value" id="metric-departments">00</div></section>
 </div>
-<section class="glass" id="scorecard">
-<h2>CEO scorecard</h2>
-<p class="muted">Measured from persisted operations — not simulated.</p>
-<pre id="scorecard-metrics">Loading…</pre>
-<h3>Objectives</h3>
-<ul id="objective-list"></ul>
-<form id="objective-create-form" class="compact">
-<h3>Create objective</h3>
-<label for="objective-title">Title</label><input id="objective-title" required/>
-<label for="objective-due-at">Due at</label><input id="objective-due-at" type="datetime-local" required/>
-<label for="objective-division">Division id (optional)</label><input id="objective-division"/>
-<label for="objective-target">Target JSON (optional)</label>
-<textarea id="objective-target" placeholder='{"accepted_artifacts": 5}'></textarea>
-<button type="submit" class="chip">Create objective</button><span class="muted"></span>
-</form>
-</section>
+<section class="glass" id="decisions"><h2>Decisions inbox</h2><ul id="proposal-list"></ul></section>
+<section class="glass" id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul></section>
 <div class="desk-grid">
 <section class="glass" id="hq">
 <h2>Headquarters</h2>
@@ -181,7 +167,6 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <ul id="room-list" hidden></ul>
 </section>
 <div>
-<section class="glass" id="decisions"><h2>Decisions inbox</h2><ul id="proposal-list"></ul></section>
 <section class="glass" id="room-detail" hidden>
 <h2>Room</h2>
 <p id="room-purpose" class="muted"></p>
@@ -195,7 +180,22 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 </div>
 </div>
 <section class="glass" id="status"><h2>Status</h2><pre id="status-json">Loading…</pre></section>
-<section class="glass" id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul></section>
+<section class="glass" id="scorecard">
+<h2>CEO scorecard</h2>
+<p class="muted">Measured from persisted operations — not simulated.</p>
+<pre id="scorecard-metrics">Loading…</pre>
+<h3>Objectives</h3>
+<ul id="objective-list"></ul>
+<form id="objective-create-form" class="compact">
+<h3>Create objective</h3>
+<label for="objective-title">Title</label><input id="objective-title" required/>
+<label for="objective-due-at">Due at</label><input id="objective-due-at" type="datetime-local" required/>
+<label for="objective-division">Division id (optional)</label><input id="objective-division"/>
+<label for="objective-target">Target JSON (optional)</label>
+<textarea id="objective-target" placeholder='{"accepted_artifacts": 5}'></textarea>
+<button type="submit" class="chip">Create objective</button><span class="muted"></span>
+</form>
+</section>
 <section class="glass" id="projects"><h2>Projects</h2><ul id="project-list"></ul>
 <form id="dispatch-form" class="compact">
 <h3>Dispatch brief to heads</h3>
@@ -221,6 +221,48 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <h3>Local candidates</h3>
 <p class="muted">Folders under local repos/ on the host. Enroll creates a company project (id = folder name).</p>
 <ul id="local-repo-list"></ul>
+</section>
+<section class="glass" id="cross-department">
+<h2>Cross-department requests</h2>
+<p class="muted">Governed work between departments. List is scoped to the delivering head or CEO.</p>
+<ul id="cross-dept-list"></ul>
+<form id="cross-dept-create-form" class="compact">
+<h3>Create request</h3>
+<label for="xd-project">Project id</label><input id="xd-project" required/>
+<label for="xd-requesting">Requesting department</label><input id="xd-requesting" required/>
+<label for="xd-delivering">Delivering department</label><input id="xd-delivering" required/>
+<label for="xd-subject">Subject</label><input id="xd-subject" required/>
+<label for="xd-brief">Brief</label><textarea id="xd-brief" required></textarea>
+<label for="xd-accept">Acceptance criteria</label><textarea id="xd-accept" required></textarea>
+<label for="xd-budget-owner">Budget owner</label><input id="xd-budget-owner" required/>
+<label for="xd-budget">Budget cents</label><input id="xd-budget" type="number" min="0" required/>
+<label for="xd-due">Due at</label><input id="xd-due" type="datetime-local" required/>
+<label for="xd-escalation">Escalation path</label><input id="xd-escalation" value="owner" required/>
+<button type="submit" class="chip">Create request</button><span class="muted"></span>
+</form>
+</section>
+<section class="glass" id="corporate-upgrades">
+<h2>Corporate upgrades</h2>
+<p class="muted">Industry packs are templates. Divisions remain proposals until the CEO activates them.</p>
+<h3>Industry packs</h3><ul id="industry-pack-list"></ul>
+<h3>Divisions</h3><ul id="division-list"></ul>
+<form id="division-proposal-form" class="compact">
+<h3>Propose division</h3>
+<label for="division-pack-id">Industry pack id</label><input id="division-pack-id" required/>
+<label for="division-name">Division name</label><input id="division-name" required/>
+<label for="division-mode">Mode</label>
+<select id="division-mode"><option value="minimal">Minimal</option><option value="full">Full</option></select>
+<button type="submit" class="chip">Propose</button><span class="muted"></span>
+</form>
+</section>
+<section class="glass" id="people">
+<h2>People</h2><ul id="people-list"></ul>
+<h3>Pending promotions</h3><ul id="promotion-list"></ul>
+<div class="row">
+<button type="button" class="chip" id="staffing-scan-btn">Scan staffing gaps</button>
+<span id="staffing-scan-status" class="muted"></span>
+</div>
+<h3>Pending staffing proposals</h3><ul id="staffing-proposal-list"></ul>
 </section>
 <section class="glass" id="departments"><h2>Organization</h2>
 <p class="muted">Catalog, persisted seat status, and roster. Vacant and dormant seats are not active workers.</p>
@@ -272,57 +314,15 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <button type="submit" class="chip">Reorder</button><span class="muted"></span>
 </form>
 </section>
-<section class="glass" id="cross-department">
-<h2>Cross-department requests</h2>
-<p class="muted">Governed work between departments. List is scoped to the delivering head or CEO.</p>
-<ul id="cross-dept-list"></ul>
-<form id="cross-dept-create-form" class="compact">
-<h3>Create request</h3>
-<label for="xd-project">Project id</label><input id="xd-project" required/>
-<label for="xd-requesting">Requesting department</label><input id="xd-requesting" required/>
-<label for="xd-delivering">Delivering department</label><input id="xd-delivering" required/>
-<label for="xd-subject">Subject</label><input id="xd-subject" required/>
-<label for="xd-brief">Brief</label><textarea id="xd-brief" required></textarea>
-<label for="xd-accept">Acceptance criteria</label><textarea id="xd-accept" required></textarea>
-<label for="xd-budget-owner">Budget owner</label><input id="xd-budget-owner" required/>
-<label for="xd-budget">Budget cents</label><input id="xd-budget" type="number" min="0" required/>
-<label for="xd-due">Due at</label><input id="xd-due" type="datetime-local" required/>
-<label for="xd-escalation">Escalation path</label><input id="xd-escalation" value="owner" required/>
-<button type="submit" class="chip">Create request</button><span class="muted"></span>
-</form>
-</section>
-<section class="glass" id="corporate-upgrades">
-<h2>Corporate upgrades</h2>
-<p class="muted">Industry packs are templates. Divisions remain proposals until the CEO activates them.</p>
-<h3>Industry packs</h3><ul id="industry-pack-list"></ul>
-<h3>Divisions</h3><ul id="division-list"></ul>
-<form id="division-proposal-form" class="compact">
-<h3>Propose division</h3>
-<label for="division-pack-id">Industry pack id</label><input id="division-pack-id" required/>
-<label for="division-name">Division name</label><input id="division-name" required/>
-<label for="division-mode">Mode</label>
-<select id="division-mode"><option value="minimal">Minimal</option><option value="full">Full</option></select>
-<button type="submit" class="chip">Propose</button><span class="muted"></span>
-</form>
-</section>
 <section class="glass" id="head-inbox"><h2>Head inbox</h2>
 <p class="muted">Open dispatches returned for this authenticated principal.</p>
 <ul id="head-inbox-list"></ul>
 </section>
-<section class="glass" id="people">
-<h2>People</h2><ul id="people-list"></ul>
-<h3>Pending promotions</h3><ul id="promotion-list"></ul>
-<div class="row">
-<button type="button" class="chip" id="staffing-scan-btn">Scan staffing gaps</button>
-<span id="staffing-scan-status" class="muted"></span>
-</div>
-<h3>Pending staffing proposals</h3><ul id="staffing-proposal-list"></ul>
-</section>
-<section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="budget"><h2>Budget</h2>
 <p class="muted">Simulated credits, billed cost, and revenue are separate totals.</p>
 <pre id="budget-json">Loading…</pre>
 </section>
+<section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="diagnostics"><h2>Diagnostics</h2>
 <p class="muted">Live probes only. Missing endpoints show unavailable — nothing is invented.</p>
 <button type="button" class="chip" id="diag-refresh">Refresh diagnostics</button>
