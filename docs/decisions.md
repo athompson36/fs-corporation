@@ -51,6 +51,7 @@
 | ADR-047 | 2026-09-10 | Companion domain shell and CEO Needs-you spine | Five primary domains regroup existing capabilities; Home projects persisted decisions/inbox only; shared Syne/Manrope fonts unify companion, desk and welcome. |
 | ADR-048 | 2026-09-10 | Local Browse/Manage modes for companion Work and People | Persisted lists/details and in-row actions default to Browse; create/enroll/configure controls move to Manage; Finance retains its existing sub-tabs without a second mode layer. |
 | ADR-049 | 2026-09-11 | Desk IA matches companion five domains | Desk rail grouped Home · Work · People · Money · More; page sections reordered; hybrid Home keeps HQ high; Scorecard under Work; no ID renames or domain panes. |
+| ADR-050 | 2026-09-11 | Companion Projects Browse split workspace | Projects Browse uses list|detail split; detail holds dispatch workspace; Manage remains enroll/assign; medium empty/section polish on sibling panels; no URL sync or Finance ModeSwitch. |
 
 ### ADR-010 detail
 
@@ -703,5 +704,30 @@ Consultant under More was rejected so each surface appears once.
 **Consequences.** Desk and companion now share the same five-domain map. Pairing and
 head-inbox anchors are present on the rail. No Alembic revision or control-plane API
 change is required. Companion Browse/Manage visual polish remains the follow-up.
+
+### ADR-050 detail
+
+**Context.** After ADR-048 added Browse/Manage inside Work and People and ADR-049 aligned
+the desk to the same five domains, Projects Browse still stacked list and workspace in
+one column. The owner selected a Projects-first master-detail split plus medium shared
+shell polish, without new APIs, URL-synced selection or a Finance ModeSwitch.
+
+**Decision.** Projects Browse uses a responsive list|detail split (`project-browse-split`).
+Wide viewports (≥720px) place the list beside the selected project workspace; narrow
+viewports stack list above detail. The detail pane holds the existing project identity
+and dispatch workspace. When nothing is selected, the detail pane shows “Select a
+project”. A quiet Clear selection control sets `selectedProject` to null. Manage remains
+local enroll and GitHub assign. Corporate, Workers and Organization receive medium
+empty-state and section-head polish only.
+
+**Alternatives considered.** URL-synced `?project=` was deferred. Nested Browse/Manage on
+Finance was rejected. Deep Corporate/Workers/Org restructure and extracted shared
+`PanelChrome` / `ProjectBrowseSplit` components were out of scope. Desk and welcome
+changes were not requested.
+
+**Consequences.** Companion Projects Browse is usable as a split workspace outside a
+phone column. No Alembic revision or control-plane API change is required. Further
+Corporate hierarchy polish, URL sync and reusable split components remain owner-directed
+follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

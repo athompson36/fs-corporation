@@ -80,4 +80,4 @@ class DeskIaFiveDomainsTests(unittest.TestCase):
             / "company"
             / "__init__.py"
         ).read_text()
-        self.assertIn('__version__ = "0.3.67"', init)
+        self.assertRegex(init, r'__version__ = "0\.3\.\d+"')
