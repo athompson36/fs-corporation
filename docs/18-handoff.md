@@ -1,9 +1,9 @@
 # Current handoff
 
-Date: 2026-09-11. Version: **0.3.67**. State: **desk five-domain IA implemented locally**
-on `feature/desk-ia-five-domains` (not yet merged or deployed).
+Date: 2026-09-11. Version: **0.3.67**. State: **desk five-domain IA merged to
+`main`, pushed, and deployed to fs-dev** (health `0.3.67`).
 
-## On this branch
+## On main / fs-dev
 
 - CEO desk `/desk` rail is grouped **Home · Work · People · Money · More** with
   always-expanded nested anchors to existing section `id`s.
@@ -12,20 +12,17 @@ on `feature/desk-ia-five-domains` (not yet merged or deployed).
   Budget; More = Intelligence · Diagnostics · Activity · Pairing.
 - Pairing and head-inbox anchors are on the rail. No ID renames, domain panes, new APIs
   or Alembic.
-- ADR-049; version **0.3.67** (Python package and companion `package.json` kept in
-  lockstep). Companion Browse/Manage behavior from 0.3.66 is unchanged.
+- ADR-049; version **0.3.67** (Python package and companion `package.json` lockstep).
+  Companion Browse/Manage behavior from 0.3.66 is unchanged.
+- Tip: `b7aabf0` (includes scrollable rail + doc nits after final review).
 
 ## Verification
 
 - `.venv/bin/python -m unittest discover -s tests`: **496 tests passed**.
-- Source contracts in `tests/test_desk_ia_five_domains.py` cover rail groups, section
-  order, preserved ids and `__version__ == "0.3.67"`.
-- Manual smoke (local or fs-dev after deploy): `GET /desk` — walk each nested rail link;
-  confirm Decisions/Consultant above HQ; Scorecard after Status; Pairing last;
-  pairing/dispatch/org forms still work.
+- fs-dev health: **0.3.67**; `/desk` **200** with Home · Work · People · Money · More
+  rail groups and nested anchors through `#pairing`.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: **deep visual polish inside companion Browse/Manage**, or fs-dev deploy
-of 0.3.67.
+Owner-directed: **deep visual polish inside companion Browse/Manage**.
