@@ -16,6 +16,7 @@ import type {
   PromotionItem,
   StaffingProposal,
 } from "./api/client";
+import { ManageClusters } from "./ManageClusters";
 import { ModeSwitch, type PanelMode } from "./ModeSwitch";
 
 type FormStatus = { ok: boolean; text: string };
@@ -311,84 +312,117 @@ export function CorporatePanel(props: CorporatePanelProps) {
       )}
 
       {mode === "manage" && canManage && (
-        <>
-          <div className="section-head">
-            <h2>Corporate operations</h2>
-          </div>
-          <div className="card">
-            <div className="actions">
-              <button id="default-floorplan-btn" type="button" className="primary" onClick={() =>
-                runAction("default-floorplan", "Default floorplan created.", () =>
-                  api.createDefaultFloorplan())}>Create default floorplan</button>
-              <button id="staffing-scan-btn" type="button" className="primary" onClick={() =>
-                runAction("staffing-scan", "Scan complete.", () =>
-                  api.scanStaffingGaps())}>Scan staffing gaps</button>
-            </div>
-            {status("default-floorplan")}
-            {status("staffing-scan")}
-          </div>
-
-          <div className="section-head">
-            <h2>Create objective</h2>
-          </div>
-          <form className="card" onSubmit={createObjective}>
-            <label htmlFor="objective-title">Title</label>
-            <input id="objective-title" name="title" type="text" required />
-            <label htmlFor="objective-due">Due at</label>
-            <input id="objective-due" name="due_at" type="datetime-local" required />
-            <label htmlFor="objective-division">Division id (optional)</label>
-            <input id="objective-division" name="division_id" type="text" />
-            <label htmlFor="objective-target">Target JSON (optional)</label>
-            <textarea id="objective-target" name="target" placeholder='{"accepted_artifacts": 5}' />
-            <div className="actions"><button className="primary" type="submit">Create</button></div>
-            {status("create-objective")}
-          </form>
-
-          <div className="section-head">
-            <h2>Propose division</h2>
-          </div>
-          <form className="card" onSubmit={proposeDivision}>
-            <label htmlFor="division-pack">Industry pack id</label>
-            <input id="division-pack" name="pack_id" type="text" required />
-            <label htmlFor="division-name">Name</label>
-            <input id="division-name" name="name" type="text" required />
-            <label htmlFor="division-mode">Mode</label>
-            <select id="division-mode" name="mode" defaultValue="minimal">
-              <option value="minimal">Minimal</option>
-              <option value="full">Full</option>
-            </select>
-            <div className="actions"><button className="primary" type="submit">Propose</button></div>
-            {status("propose-division")}
-          </form>
-
-          <div className="section-head">
-            <h2>Create cross-department request</h2>
-          </div>
-          <form className="card" onSubmit={createCrossDept}>
-            <label htmlFor="xd-project">Project id</label>
-            <input id="xd-project" name="project_id" type="text" required />
-            <label htmlFor="xd-requesting">Requesting department</label>
-            <input id="xd-requesting" name="requesting" type="text" required />
-            <label htmlFor="xd-delivering">Delivering department</label>
-            <input id="xd-delivering" name="delivering" type="text" required />
-            <label htmlFor="xd-subject">Subject</label>
-            <input id="xd-subject" name="subject" type="text" required />
-            <label htmlFor="xd-brief">Brief</label>
-            <textarea id="xd-brief" name="brief" required />
-            <label htmlFor="xd-acceptance">Acceptance criteria</label>
-            <textarea id="xd-acceptance" name="acceptance" required />
-            <label htmlFor="xd-budget-owner">Budget owner</label>
-            <input id="xd-budget-owner" name="budget_owner" type="text" required />
-            <label htmlFor="xd-budget">Budget cents</label>
-            <input id="xd-budget" name="budget_cents" type="number" inputMode="numeric" min="0" required />
-            <label htmlFor="xd-due">Due at</label>
-            <input id="xd-due" name="due_at" type="datetime-local" required />
-            <label htmlFor="xd-escalation">Escalation path</label>
-            <input id="xd-escalation" name="escalation" type="text" defaultValue="owner" required />
-            <div className="actions"><button className="primary" type="submit">Create request</button></div>
-            {status("create-cross-dept")}
-          </form>
-        </>
+        <ManageClusters
+          ariaLabel="Corporate manage groups"
+          defaultGroupId="goals"
+          groups={[
+            {
+              id: "goals",
+              label: "Goals",
+              content: (
+                <>
+                  <div className="section-head">
+                    <h2>Create objective</h2>
+                  </div>
+                  <form className="card" onSubmit={createObjective}>
+                    <label htmlFor="objective-title">Title</label>
+                    <input id="objective-title" name="title" type="text" required />
+                    <label htmlFor="objective-due">Due at</label>
+                    <input id="objective-due" name="due_at" type="datetime-local" required />
+                    <label htmlFor="objective-division">Division id (optional)</label>
+                    <input id="objective-division" name="division_id" type="text" />
+                    <label htmlFor="objective-target">Target JSON (optional)</label>
+                    <textarea id="objective-target" name="target" placeholder='{"accepted_artifacts": 5}' />
+                    <div className="actions"><button className="primary" type="submit">Create</button></div>
+                    {status("create-objective")}
+                  </form>
+                </>
+              ),
+            },
+            {
+              id: "structure",
+              label: "Structure",
+              content: (
+                <>
+                  <div className="section-head">
+                    <h2>Propose division</h2>
+                  </div>
+                  <form className="card" onSubmit={proposeDivision}>
+                    <label htmlFor="division-pack">Industry pack id</label>
+                    <input id="division-pack" name="pack_id" type="text" required />
+                    <label htmlFor="division-name">Name</label>
+                    <input id="division-name" name="name" type="text" required />
+                    <label htmlFor="division-mode">Mode</label>
+                    <select id="division-mode" name="mode" defaultValue="minimal">
+                      <option value="minimal">Minimal</option>
+                      <option value="full">Full</option>
+                    </select>
+                    <div className="actions"><button className="primary" type="submit">Propose</button></div>
+                    {status("propose-division")}
+                  </form>
+                </>
+              ),
+            },
+            {
+              id: "coordination",
+              label: "Coordination",
+              content: (
+                <>
+                  <div className="section-head">
+                    <h2>Create cross-department request</h2>
+                  </div>
+                  <form className="card" onSubmit={createCrossDept}>
+                    <label htmlFor="xd-project">Project id</label>
+                    <input id="xd-project" name="project_id" type="text" required />
+                    <label htmlFor="xd-requesting">Requesting department</label>
+                    <input id="xd-requesting" name="requesting" type="text" required />
+                    <label htmlFor="xd-delivering">Delivering department</label>
+                    <input id="xd-delivering" name="delivering" type="text" required />
+                    <label htmlFor="xd-subject">Subject</label>
+                    <input id="xd-subject" name="subject" type="text" required />
+                    <label htmlFor="xd-brief">Brief</label>
+                    <textarea id="xd-brief" name="brief" required />
+                    <label htmlFor="xd-acceptance">Acceptance criteria</label>
+                    <textarea id="xd-acceptance" name="acceptance" required />
+                    <label htmlFor="xd-budget-owner">Budget owner</label>
+                    <input id="xd-budget-owner" name="budget_owner" type="text" required />
+                    <label htmlFor="xd-budget">Budget cents</label>
+                    <input id="xd-budget" name="budget_cents" type="number" inputMode="numeric" min="0" required />
+                    <label htmlFor="xd-due">Due at</label>
+                    <input id="xd-due" name="due_at" type="datetime-local" required />
+                    <label htmlFor="xd-escalation">Escalation path</label>
+                    <input id="xd-escalation" name="escalation" type="text" defaultValue="owner" required />
+                    <div className="actions"><button className="primary" type="submit">Create request</button></div>
+                    {status("create-cross-dept")}
+                  </form>
+                </>
+              ),
+            },
+            {
+              id: "ops",
+              label: "Ops",
+              content: (
+                <>
+                  <div className="section-head">
+                    <h2>Corporate operations</h2>
+                  </div>
+                  <div className="card">
+                    <div className="actions">
+                      <button id="default-floorplan-btn" type="button" className="primary" onClick={() =>
+                        runAction("default-floorplan", "Default floorplan created.", () =>
+                          api.createDefaultFloorplan())}>Create default floorplan</button>
+                      <button id="staffing-scan-btn" type="button" className="primary" onClick={() =>
+                        runAction("staffing-scan", "Scan complete.", () =>
+                          api.scanStaffingGaps())}>Scan staffing gaps</button>
+                    </div>
+                    {status("default-floorplan")}
+                    {status("staffing-scan")}
+                  </div>
+                </>
+              ),
+            },
+          ]}
+        />
       )}
     </section>
   );

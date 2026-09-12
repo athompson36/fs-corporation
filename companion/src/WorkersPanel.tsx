@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { ApiClient } from "./api/client";
+import { ManageClusters } from "./ManageClusters";
 import { ModeSwitch, type PanelMode } from "./ModeSwitch";
 
 type WorkersPanelProps = {
@@ -158,54 +159,75 @@ export function WorkersPanel(props: WorkersPanelProps) {
       )}
 
       {mode === "manage" && (
-        <>
-          {issuedToken && (
-            <div className="card">
-              <h2>Worker host token</h2>
-              <p className="error">This token is shown once — copy now.</p>
-              <p className="muted">{issuedToken.label} · {issuedToken.hostId}</p>
-              <code ref={tokenCodeRef}>{issuedToken.token}</code>
-              <div className="actions">
-                <button
-                  className="primary"
-                  type="button"
-                  onClick={() => void copyIssuedToken()}
-                >
-                  Copy
-                </button>
-                <button type="button" onClick={() => setIssuedToken(null)}>Dismiss</button>
-              </div>
-              {status("worker-host-token-copy")}
-            </div>
-          )}
-
-          {canPause ? (
-            <form className="card" onSubmit={createHost}>
-              <h2>Create worker host</h2>
-              <label htmlFor="worker-host-label">Label</label>
-              <input
-                id="worker-host-label"
-                type="text"
-                value={label}
-                onChange={(event) => setLabel(event.target.value)}
-                required
-              />
-              <label htmlFor="worker-host-base-url">HTTPS base URL</label>
-              <input
-                id="worker-host-base-url"
-                type="url"
-                value={baseUrl}
-                onChange={(event) => setBaseUrl(event.target.value)}
-                placeholder="https://worker.example"
-                required
-              />
-              <div className="actions">
-                <button className="primary" type="submit">Create worker host</button>
-              </div>
-              {status("worker-host-create")}
-            </form>
-          ) : scopeNotice("create, enable, disable, or delete worker hosts", "company.pause")}
-        </>
+        <ManageClusters
+          ariaLabel="Workers manage groups"
+          defaultGroupId="hosts"
+          groups={[
+            {
+              id: "hosts",
+              label: "Hosts",
+              content: canPause ? (
+                <form className="card" onSubmit={createHost}>
+                  <div className="section-head">
+                    <h2>Create worker host</h2>
+                  </div>
+                  <label htmlFor="worker-host-label">Label</label>
+                  <input
+                    id="worker-host-label"
+                    type="text"
+                    value={label}
+                    onChange={(event) => setLabel(event.target.value)}
+                    required
+                  />
+                  <label htmlFor="worker-host-base-url">HTTPS base URL</label>
+                  <input
+                    id="worker-host-base-url"
+                    type="url"
+                    value={baseUrl}
+                    onChange={(event) => setBaseUrl(event.target.value)}
+                    placeholder="https://worker.example"
+                    required
+                  />
+                  <div className="actions">
+                    <button className="primary" type="submit">Create worker host</button>
+                  </div>
+                  {status("worker-host-create")}
+                </form>
+              ) : scopeNotice("create, enable, disable, or delete worker hosts", "company.pause"),
+            },
+            {
+              id: "token",
+              label: "Token",
+              content: (
+                <>
+                  <div className="section-head">
+                    <h2>Worker host token</h2>
+                  </div>
+                  {issuedToken ? (
+                    <div className="card">
+                      <p className="error">This token is shown once — copy now.</p>
+                      <p className="muted">{issuedToken.label} · {issuedToken.hostId}</p>
+                      <code ref={tokenCodeRef}>{issuedToken.token}</code>
+                      <div className="actions">
+                        <button
+                          className="primary"
+                          type="button"
+                          onClick={() => void copyIssuedToken()}
+                        >
+                          Copy
+                        </button>
+                        <button type="button" onClick={() => setIssuedToken(null)}>Dismiss</button>
+                      </div>
+                      {status("worker-host-token-copy")}
+                    </div>
+                  ) : (
+                    <p className="panel-empty">No token issued yet.</p>
+                  )}
+                </>
+              ),
+            },
+          ]}
+        />
       )}
     </section>
   );

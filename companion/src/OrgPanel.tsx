@@ -1,5 +1,6 @@
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ApiClient, HeadDispatch, OrgDepartment, WorkerCard } from "./api/client";
+import { ManageClusters } from "./ManageClusters";
 import { ModeSwitch, type PanelMode } from "./ModeSwitch";
 
 type FormStatus = { ok: boolean; text: string };
@@ -162,287 +163,322 @@ export function OrgPanel(props: OrgPanelProps) {
         </>
       )}
 
-      {mode === "manage" && (
-        <>
-          {canManage && (
+      {mode === "manage" && (() => {
+        const groups = [];
+        if (canManage) {
+          groups.push(
+            {
+              id: "catalog",
+              label: "Catalog",
+              content: (
+                <>
+                  <div className="section-head">
+                    <h2>Create department</h2>
+                  </div>
+                  <form className="card" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const form = event.currentTarget;
+                    const data = new FormData(form);
+                    const ok = await runAction("create-dept", "Department created.", () =>
+                      api.createDepartment({
+                        id: String(data.get("id") || "").trim(),
+                        name: String(data.get("name") || "").trim(),
+                        head_title: String(data.get("head_title") || "").trim(),
+                        mission: String(data.get("mission") || "").trim(),
+                        room_type: String(data.get("room_type") || "boardroom").trim(),
+                        measures: [],
+                        initially_active: data.get("initially_active") === "on",
+                        default_model_profile: "mock-text",
+                      }));
+                    if (ok) form.reset();
+                  }}>
+                    <label htmlFor="create-dept-id">Id</label>
+                    <input id="create-dept-id" name="id" type="text" required />
+                    <label htmlFor="create-dept-name">Name</label>
+                    <input id="create-dept-name" name="name" type="text" required />
+                    <label htmlFor="create-dept-head">Head title</label>
+                    <input id="create-dept-head" name="head_title" type="text" required />
+                    <label htmlFor="create-dept-mission">Mission</label>
+                    <input id="create-dept-mission" name="mission" type="text" required />
+                    <label htmlFor="create-dept-room">Room type</label>
+                    <input id="create-dept-room" name="room_type" type="text" defaultValue="boardroom" required />
+                    <label className="check" htmlFor="create-dept-active">
+                      <input id="create-dept-active" name="initially_active" type="checkbox" /> Initially active
+                    </label>
+                    <div className="actions"><button className="primary" type="submit">Create department</button></div>
+                    {status("create-dept")}
+                  </form>
+
+                  <div className="section-head">
+                    <h2>Reorder departments</h2>
+                  </div>
+                  <form className="card" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const form = event.currentTarget;
+                    const data = new FormData(form);
+                    let items: { id: string; display_order: number }[];
+                    try {
+                      items = JSON.parse(String(data.get("items") || "[]"));
+                    } catch {
+                      setFormStatus((previous) => ({
+                        ...previous,
+                        "reorder-departments": { ok: false, text: "Items must be valid JSON." },
+                      }));
+                      return;
+                    }
+                    const ok = await runAction("reorder-departments", "Departments reordered.", () =>
+                      api.reorderDepartments(items));
+                    if (ok) form.reset();
+                  }}>
+                    <label htmlFor="reorder-items">Items JSON</label>
+                    <textarea
+                      id="reorder-items"
+                      name="items"
+                      required
+                      placeholder='[{"id":"engineering","display_order":10}]'
+                    />
+                    <div className="actions"><button className="primary" type="submit">Reorder</button></div>
+                    {status("reorder-departments")}
+                  </form>
+
+                  <div className="section-head">
+                    <h2>Activate dormant department for project</h2>
+                  </div>
+                  <form className="card" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const ok = await runAction("activate-department", "Department activated.", () =>
+                      api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim()));
+                    if (!ok) return;
+                    setActivateProjectId("");
+                    setActivateDepartmentId("");
+                  }}>
+                    <label htmlFor="activate-project">Project id</label>
+                    <input
+                      id="activate-project"
+                      type="text"
+                      required
+                      value={activateProjectId}
+                      onChange={(event) => setActivateProjectId(event.target.value)}
+                    />
+                    <label htmlFor="activate-department">Department id</label>
+                    <input
+                      id="activate-department"
+                      type="text"
+                      required
+                      value={activateDepartmentId}
+                      onChange={(event) => setActivateDepartmentId(event.target.value)}
+                    />
+                    <div className="actions"><button className="primary" type="submit">Activate</button></div>
+                    {status("activate-department")}
+                  </form>
+                </>
+              ),
+            },
+            {
+              id: "seats",
+              label: "Seats",
+              content: (
+                <>
+                  <div className="section-head">
+                    <h2>Appoint department head</h2>
+                  </div>
+                  <form className="card" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const ok = await runAction("appoint-head", "Head appointed.", () =>
+                      api.appointHead(appointHeadDepartment.trim(), appointHeadPrincipal.trim()));
+                    if (!ok) return;
+                    setAppointHeadDepartment("");
+                    setAppointHeadPrincipal("");
+                  }}>
+                    <label htmlFor="appoint-head-department">Department id</label>
+                    <input
+                      id="appoint-head-department"
+                      type="text"
+                      required
+                      value={appointHeadDepartment}
+                      onChange={(event) => setAppointHeadDepartment(event.target.value)}
+                    />
+                    <label htmlFor="appoint-head-principal">Principal id</label>
+                    <input
+                      id="appoint-head-principal"
+                      type="text"
+                      required
+                      value={appointHeadPrincipal}
+                      onChange={(event) => setAppointHeadPrincipal(event.target.value)}
+                    />
+                    <div className="actions"><button className="primary" type="submit">Appoint head</button></div>
+                    {status("appoint-head")}
+                  </form>
+
+                  <div className="section-head">
+                    <h2>Vacate department head</h2>
+                  </div>
+                  <form className="card" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const ok = await runAction("vacate-head", "Head vacated.", () =>
+                      api.vacateHead(vacateHeadDepartment.trim()));
+                    if (ok) setVacateHeadDepartment("");
+                  }}>
+                    <label htmlFor="vacate-head-department">Department id</label>
+                    <input
+                      id="vacate-head-department"
+                      type="text"
+                      required
+                      value={vacateHeadDepartment}
+                      onChange={(event) => setVacateHeadDepartment(event.target.value)}
+                    />
+                    <div className="actions"><button className="danger" type="submit">Vacate head</button></div>
+                    {status("vacate-head")}
+                  </form>
+
+                  <div className="section-head">
+                    <h2>Assign position</h2>
+                  </div>
+                  <form className="card" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const ok = await runAction("assign-position", "Position assigned.", () =>
+                      api.assignPosition(
+                        positionId.trim(),
+                        positionPrincipal.trim(),
+                        positionReportsTo.trim() || undefined,
+                      ));
+                    if (!ok) return;
+                    setPositionId("");
+                    setPositionPrincipal("");
+                    setPositionReportsTo("");
+                  }}>
+                    <label htmlFor="assign-position-id">Position id</label>
+                    <input
+                      id="assign-position-id"
+                      type="text"
+                      required
+                      value={positionId}
+                      placeholder="engineering:Developer"
+                      onChange={(event) => setPositionId(event.target.value)}
+                    />
+                    <label htmlFor="assign-position-principal">Principal id</label>
+                    <input
+                      id="assign-position-principal"
+                      type="text"
+                      required
+                      value={positionPrincipal}
+                      onChange={(event) => setPositionPrincipal(event.target.value)}
+                    />
+                    <label htmlFor="assign-position-reports-to">Reports-to seat id (optional)</label>
+                    <input
+                      id="assign-position-reports-to"
+                      type="text"
+                      value={positionReportsTo}
+                      placeholder="seat:engineering"
+                      onChange={(event) => setPositionReportsTo(event.target.value)}
+                    />
+                    <div className="actions"><button className="primary" type="submit">Assign position</button></div>
+                    {status("assign-position")}
+                  </form>
+
+                  <div className="section-head">
+                    <h2>Release assignment</h2>
+                  </div>
+                  <form className="card" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const ok = await runAction("release-assignment", "Assignment released.", () =>
+                      api.releaseAssignment(releaseAssignmentId.trim()));
+                    if (ok) setReleaseAssignmentId("");
+                  }}>
+                    <label htmlFor="release-assignment-id">Assignment id</label>
+                    <input
+                      id="release-assignment-id"
+                      type="text"
+                      required
+                      value={releaseAssignmentId}
+                      onChange={(event) => setReleaseAssignmentId(event.target.value)}
+                    />
+                    <div className="actions"><button className="danger" type="submit">Release assignment</button></div>
+                    {status("release-assignment")}
+                  </form>
+                </>
+              ),
+            },
+            {
+              id: "positions",
+              label: "Positions",
+              content: (
+                <>
+                  <div className="section-head">
+                    <h2>Create position</h2>
+                  </div>
+                  <form className="card" onSubmit={async (event) => {
+                    event.preventDefault();
+                    const form = event.currentTarget;
+                    const data = new FormData(form);
+                    const ok = await runAction("create-position", "Position created.", () =>
+                      api.createPosition(
+                        String(data.get("department_id") || "").trim(),
+                        String(data.get("title") || "").trim(),
+                      ));
+                    if (ok) form.reset();
+                  }}>
+                    <label htmlFor="create-pos-dept">Department id</label>
+                    <input id="create-pos-dept" name="department_id" type="text" required />
+                    <label htmlFor="create-pos-title">Title</label>
+                    <input id="create-pos-title" name="title" type="text" required />
+                    <div className="actions"><button className="primary" type="submit">Create position</button></div>
+                    {status("create-position")}
+                  </form>
+                </>
+              ),
+            },
+          );
+        }
+        groups.push({
+          id: "lookup",
+          label: "Lookup",
+          content: (
             <>
               <div className="section-head">
-                <h2>Create department</h2>
+                <h2>Worker card</h2>
               </div>
               <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            const form = event.currentTarget;
-            const data = new FormData(form);
-            const ok = await runAction("create-dept", "Department created.", () =>
-              api.createDepartment({
-                id: String(data.get("id") || "").trim(),
-                name: String(data.get("name") || "").trim(),
-                head_title: String(data.get("head_title") || "").trim(),
-                mission: String(data.get("mission") || "").trim(),
-                room_type: String(data.get("room_type") || "boardroom").trim(),
-                measures: [],
-                initially_active: data.get("initially_active") === "on",
-                default_model_profile: "mock-text",
-              }));
-            if (ok) form.reset();
-          }}>
-            <label htmlFor="create-dept-id">Id</label>
-            <input id="create-dept-id" name="id" type="text" required />
-            <label htmlFor="create-dept-name">Name</label>
-            <input id="create-dept-name" name="name" type="text" required />
-            <label htmlFor="create-dept-head">Head title</label>
-            <input id="create-dept-head" name="head_title" type="text" required />
-            <label htmlFor="create-dept-mission">Mission</label>
-            <input id="create-dept-mission" name="mission" type="text" required />
-            <label htmlFor="create-dept-room">Room type</label>
-            <input id="create-dept-room" name="room_type" type="text" defaultValue="boardroom" required />
-            <label className="check" htmlFor="create-dept-active">
-              <input id="create-dept-active" name="initially_active" type="checkbox" /> Initially active
-            </label>
-            <div className="actions"><button className="primary" type="submit">Create department</button></div>
-            {status("create-dept")}
-          </form>
-
-              <div className="section-head">
-                <h2>Appoint department head</h2>
-              </div>
-              <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            const ok = await runAction("appoint-head", "Head appointed.", () =>
-              api.appointHead(appointHeadDepartment.trim(), appointHeadPrincipal.trim()));
-            if (!ok) return;
-            setAppointHeadDepartment("");
-            setAppointHeadPrincipal("");
-          }}>
-            <label htmlFor="appoint-head-department">Department id</label>
-            <input
-              id="appoint-head-department"
-              type="text"
-              required
-              value={appointHeadDepartment}
-              onChange={(event) => setAppointHeadDepartment(event.target.value)}
-            />
-            <label htmlFor="appoint-head-principal">Principal id</label>
-            <input
-              id="appoint-head-principal"
-              type="text"
-              required
-              value={appointHeadPrincipal}
-              onChange={(event) => setAppointHeadPrincipal(event.target.value)}
-            />
-            <div className="actions"><button className="primary" type="submit">Appoint head</button></div>
-            {status("appoint-head")}
-          </form>
-
-              <div className="section-head">
-                <h2>Vacate department head</h2>
-              </div>
-              <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            const ok = await runAction("vacate-head", "Head vacated.", () =>
-              api.vacateHead(vacateHeadDepartment.trim()));
-            if (ok) setVacateHeadDepartment("");
-          }}>
-            <label htmlFor="vacate-head-department">Department id</label>
-            <input
-              id="vacate-head-department"
-              type="text"
-              required
-              value={vacateHeadDepartment}
-              onChange={(event) => setVacateHeadDepartment(event.target.value)}
-            />
-            <div className="actions"><button className="danger" type="submit">Vacate head</button></div>
-            {status("vacate-head")}
-          </form>
-
-              <div className="section-head">
-                <h2>Assign position</h2>
-              </div>
-              <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            const ok = await runAction("assign-position", "Position assigned.", () =>
-              api.assignPosition(
-                positionId.trim(),
-                positionPrincipal.trim(),
-                positionReportsTo.trim() || undefined,
-              ));
-            if (!ok) return;
-            setPositionId("");
-            setPositionPrincipal("");
-            setPositionReportsTo("");
-          }}>
-            <label htmlFor="assign-position-id">Position id</label>
-            <input
-              id="assign-position-id"
-              type="text"
-              required
-              value={positionId}
-              placeholder="engineering:Developer"
-              onChange={(event) => setPositionId(event.target.value)}
-            />
-            <label htmlFor="assign-position-principal">Principal id</label>
-            <input
-              id="assign-position-principal"
-              type="text"
-              required
-              value={positionPrincipal}
-              onChange={(event) => setPositionPrincipal(event.target.value)}
-            />
-            <label htmlFor="assign-position-reports-to">Reports-to seat id (optional)</label>
-            <input
-              id="assign-position-reports-to"
-              type="text"
-              value={positionReportsTo}
-              placeholder="seat:engineering"
-              onChange={(event) => setPositionReportsTo(event.target.value)}
-            />
-            <div className="actions"><button className="primary" type="submit">Assign position</button></div>
-            {status("assign-position")}
-          </form>
-
-              <div className="section-head">
-                <h2>Release assignment</h2>
-              </div>
-              <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            const ok = await runAction("release-assignment", "Assignment released.", () =>
-              api.releaseAssignment(releaseAssignmentId.trim()));
-            if (ok) setReleaseAssignmentId("");
-          }}>
-            <label htmlFor="release-assignment-id">Assignment id</label>
-            <input
-              id="release-assignment-id"
-              type="text"
-              required
-              value={releaseAssignmentId}
-              onChange={(event) => setReleaseAssignmentId(event.target.value)}
-            />
-            <div className="actions"><button className="danger" type="submit">Release assignment</button></div>
-            {status("release-assignment")}
-          </form>
-
-              <div className="section-head">
-                <h2>Create position</h2>
-              </div>
-              <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            const form = event.currentTarget;
-            const data = new FormData(form);
-            const ok = await runAction("create-position", "Position created.", () =>
-              api.createPosition(
-                String(data.get("department_id") || "").trim(),
-                String(data.get("title") || "").trim(),
-              ));
-            if (ok) form.reset();
-          }}>
-            <label htmlFor="create-pos-dept">Department id</label>
-            <input id="create-pos-dept" name="department_id" type="text" required />
-            <label htmlFor="create-pos-title">Title</label>
-            <input id="create-pos-title" name="title" type="text" required />
-            <div className="actions"><button className="primary" type="submit">Create position</button></div>
-            {status("create-position")}
-          </form>
-
-              <div className="section-head">
-                <h2>Reorder departments</h2>
-              </div>
-              <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            const form = event.currentTarget;
-            const data = new FormData(form);
-            let items: { id: string; display_order: number }[];
-            try {
-              items = JSON.parse(String(data.get("items") || "[]"));
-            } catch {
-              setFormStatus((previous) => ({
-                ...previous,
-                "reorder-departments": { ok: false, text: "Items must be valid JSON." },
-              }));
-              return;
-            }
-            const ok = await runAction("reorder-departments", "Departments reordered.", () =>
-              api.reorderDepartments(items));
-            if (ok) form.reset();
-          }}>
-            <label htmlFor="reorder-items">Items JSON</label>
-            <textarea
-              id="reorder-items"
-              name="items"
-              required
-              placeholder='[{"id":"engineering","display_order":10}]'
-            />
-            <div className="actions"><button className="primary" type="submit">Reorder</button></div>
-            {status("reorder-departments")}
-          </form>
-
-              <div className="section-head">
-                <h2>Activate dormant department for project</h2>
-              </div>
-              <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            const ok = await runAction("activate-department", "Department activated.", () =>
-              api.activateDepartment(activateProjectId.trim(), activateDepartmentId.trim()));
-            if (!ok) return;
-            setActivateProjectId("");
-            setActivateDepartmentId("");
-          }}>
-            <label htmlFor="activate-project">Project id</label>
-            <input
-              id="activate-project"
-              type="text"
-              required
-              value={activateProjectId}
-              onChange={(event) => setActivateProjectId(event.target.value)}
-            />
-            <label htmlFor="activate-department">Department id</label>
-            <input
-              id="activate-department"
-              type="text"
-              required
-              value={activateDepartmentId}
-              onChange={(event) => setActivateDepartmentId(event.target.value)}
-            />
-            <div className="actions"><button className="primary" type="submit">Activate</button></div>
-            {status("activate-department")}
-          </form>
+                event.preventDefault();
+                await runAction("worker-card", "Card loaded.", async () => {
+                  try {
+                    setWorkerCard(await api.workerCard(workerLookupId.trim()));
+                  } catch (error) {
+                    setWorkerCard(null);
+                    throw error;
+                  }
+                });
+              }}>
+                <label htmlFor="worker-lookup-id">Employee id</label>
+                <input
+                  id="worker-lookup-id"
+                  type="text"
+                  required
+                  value={workerLookupId}
+                  onChange={(event) => setWorkerLookupId(event.target.value)}
+                />
+                <div className="actions"><button className="primary" type="submit">Load card</button></div>
+                {status("worker-card")}
+                {workerCard && (
+                  <div className="muted" style={{ marginTop: "0.75rem" }}>
+                    <strong>{workerCard.identity.display_name}</strong>
+                    <div>{workerCard.identity.headline || "No headline"}</div>
+                    <div>Position: {workerCard.identity.position_id}</div>
+                    <div>Sprite: {workerCard.sprite?.sprite_set || workerCard.sprite_placeholder.label}</div>
+                  </div>
+                )}
+              </form>
             </>
-          )}
-
-          <div className="section-head">
-            <h2>Worker card</h2>
-          </div>
-          <form className="card" onSubmit={async (event) => {
-            event.preventDefault();
-            await runAction("worker-card", "Card loaded.", async () => {
-              try {
-                setWorkerCard(await api.workerCard(workerLookupId.trim()));
-              } catch (error) {
-                setWorkerCard(null);
-                throw error;
-              }
-            });
-          }}>
-            <label htmlFor="worker-lookup-id">Employee id</label>
-            <input
-              id="worker-lookup-id"
-              type="text"
-              required
-              value={workerLookupId}
-              onChange={(event) => setWorkerLookupId(event.target.value)}
-            />
-            <div className="actions"><button className="primary" type="submit">Load card</button></div>
-            {status("worker-card")}
-            {workerCard && (
-              <div className="muted" style={{ marginTop: "0.75rem" }}>
-                <strong>{workerCard.identity.display_name}</strong>
-                <div>{workerCard.identity.headline || "No headline"}</div>
-                <div>Position: {workerCard.identity.position_id}</div>
-                <div>Sprite: {workerCard.sprite?.sprite_set || workerCard.sprite_placeholder.label}</div>
-              </div>
-            )}
-          </form>
-        </>
-      )}
+          ),
+        });
+        return (
+          <ManageClusters
+            ariaLabel="Organization manage groups"
+            defaultGroupId={canManage ? "catalog" : "lookup"}
+            groups={groups}
+          />
+        );
+      })()}
     </section>
   );
 }

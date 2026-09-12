@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import type { ApiClient, DispatchOptions } from "./api/client";
+import { ManageClusters } from "./ManageClusters";
 import { ModeSwitch, type PanelMode } from "./ModeSwitch";
 import { canEnroll } from "./scopes";
 
@@ -404,153 +405,169 @@ export function ProjectsPanel(props: ProjectsPanelProps) {
         </div>
       ) : (
         /* Manage: enrollment and repository assignment. */
-        <>
-          <div className="card">
-            <div className="section-head">
-              <h2>Local candidates</h2>
-            </div>
-            <p className="muted">
-              Folders under {localReposRoot || "local repos/"}. Tap Enroll to create a company project.
-            </p>
-            {localCandidates.map((candidate) => (
-              <div key={candidate.id} style={{ marginBottom: "0.75rem" }}>
-                <strong>{candidate.id}</strong>
-                <div className="muted">
-                  {candidate.enrolled ? "enrolled" : "not enrolled"}
-                  {candidate.has_git ? " · git" : ""}
-                  {candidate.remote_url ? ` · ${candidate.remote_url}` : ""}
-                </div>
-                {canEnroll(scopes) && !candidate.enrolled && (
+        <ManageClusters
+          ariaLabel="Projects manage groups"
+          defaultGroupId="enroll"
+          groups={[
+            {
+              id: "enroll",
+              label: "Enroll",
+              content: (
+                <>
+                  <div className="card">
+                    <div className="section-head">
+                      <h2>Local candidates</h2>
+                    </div>
+                    <p className="muted">
+                      Folders under {localReposRoot || "local repos/"}. Tap Enroll to create a company project.
+                    </p>
+                    {localCandidates.map((candidate) => (
+                      <div key={candidate.id} style={{ marginBottom: "0.75rem" }}>
+                        <strong>{candidate.id}</strong>
+                        <div className="muted">
+                          {candidate.enrolled ? "enrolled" : "not enrolled"}
+                          {candidate.has_git ? " · git" : ""}
+                          {candidate.remote_url ? ` · ${candidate.remote_url}` : ""}
+                        </div>
+                        {canEnroll(scopes) && !candidate.enrolled && (
+                          <div className="actions">
+                            <button
+                              className="primary"
+                              type="button"
+                              onClick={() => runAction(`enroll-${candidate.id}`, "Project enrolled.", () =>
+                                api.enrollProject(
+                                  candidate.id,
+                                  candidate.remote_url || `Local repo ${candidate.path}`,
+                                ))}
+                            >
+                              Enroll
+                            </button>
+                          </div>
+                        )}
+                        {status(`enroll-${candidate.id}`)}
+                      </div>
+                    ))}
+                    {!localCandidates.length && (
+                      <p className="panel-empty">No local folders found (add directories under local repos/).</p>
+                    )}
+                    {!canEnroll(scopes) && scopeNotice("enroll projects", "project.enroll")}
+                  </div>
+                  {canEnroll(scopes) && (
+                    <form className="card" onSubmit={async (event: FormEvent) => {
+                      event.preventDefault();
+                      const id = enrollProjectId.trim();
+                      const brief = enrollBrief.trim();
+                      if (!id || !brief) {
+                        setFormStatus((prev) => ({
+                          ...prev,
+                          "enroll-manual": { ok: false, text: "Project id and brief are required." },
+                        }));
+                        return;
+                      }
+                      const ok = await runAction("enroll-manual", "Project enrolled.", () =>
+                        api.enrollProject(id, brief));
+                      if (ok) {
+                        setEnrollProjectId("");
+                        setEnrollBrief("");
+                      }
+                    }}>
+                      <h3>Enroll project</h3>
+                      <label htmlFor="enroll-project-id">Project id</label>
+                      <input
+                        id="enroll-project-id"
+                        type="text"
+                        required
+                        value={enrollProjectId}
+                        onChange={(e) => setEnrollProjectId(e.target.value)}
+                      />
+                      <label htmlFor="enroll-project-brief">Brief</label>
+                      <textarea
+                        id="enroll-project-brief"
+                        required
+                        value={enrollBrief}
+                        onChange={(e) => setEnrollBrief(e.target.value)}
+                      />
+                      <div className="actions">
+                        <button className="primary" type="submit">Enroll project</button>
+                      </div>
+                      {status("enroll-manual")}
+                    </form>
+                  )}
+                </>
+              ),
+            },
+            {
+              id: "github",
+              label: "GitHub",
+              content: canEnroll(scopes) ? (
+                <div className="card">
+                  <div className="section-head">
+                    <h2>Assign GitHub by address</h2>
+                  </div>
+                  <p className="muted">Paste upstream only. Creates same-owner {"{repo}"}-corp for writes.</p>
+                  <label className="muted" htmlFor="gh-upstream">Upstream (owner/repo or github.com URL)</label>
+                  <input
+                    id="gh-upstream"
+                    type="text"
+                    value={ghUpstream}
+                    placeholder="owner/repo"
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setGhUpstream(value);
+                      const match = value.trim().replace(/\.git\/?$/, "")
+                        .match(/github\.com\/([^/\s]+)\/([^/\s]+)|([^/\s]+)\/([^/\s]+)/);
+                      if (match && !ghProjectId) {
+                        const name = (match[2] || match[4] || "").replace(/\.git$/, "");
+                        if (name) setGhProjectId(name);
+                      }
+                    }}
+                  />
+                  <label className="muted" htmlFor="gh-project">Company project id</label>
+                  <input
+                    id="gh-project"
+                    type="text"
+                    value={ghProjectId}
+                    placeholder="project-id"
+                    onChange={(e) => setGhProjectId(e.target.value)}
+                  />
                   <div className="actions">
                     <button
                       className="primary"
                       type="button"
-                      onClick={() => runAction(`enroll-${candidate.id}`, "Project enrolled.", () =>
-                        api.enrollProject(
-                          candidate.id,
-                          candidate.remote_url || `Local repo ${candidate.path}`,
-                        ))}
+                      disabled={ghBusy || !ghUpstream.trim() || !ghProjectId.trim()}
+                      onClick={async () => {
+                        setGhBusy(true);
+                        setGhResult(null);
+                        await runAction("github-assign", "GitHub assigned.", async () => {
+                          const out = await api.assignGithub(ghProjectId.trim(), ghUpstream.trim()) as {
+                            result?: {
+                              upstream?: { full_name?: string; id?: string };
+                              write_repo?: { full_name?: string; id?: string };
+                              created_write_repo?: boolean;
+                            };
+                          };
+                          const result = out.result || out;
+                          setGhResult(
+                            `Upstream ${(result as {upstream?:{full_name?:string}}).upstream?.full_name} → write ` +
+                            `${(result as {write_repo?:{full_name?:string}}).write_repo?.full_name}` +
+                            `${(result as {created_write_repo?:boolean}).created_write_repo
+                              ? " (created)"
+                              : " (existing)"}`,
+                          );
+                        });
+                        setGhBusy(false);
+                      }}
                     >
-                      Enroll
+                      Assign GitHub
                     </button>
                   </div>
-                )}
-                {status(`enroll-${candidate.id}`)}
-              </div>
-            ))}
-            {!localCandidates.length && (
-              <p className="panel-empty">No local folders found (add directories under local repos/).</p>
-            )}
-            {!canEnroll(scopes) && scopeNotice("enroll projects", "project.enroll")}
-          </div>
-          {canEnroll(scopes) && (
-            <div className="card">
-              <div className="section-head">
-                <h2>Assign GitHub by address</h2>
-              </div>
-              <p className="muted">Paste upstream only. Creates same-owner {"{repo}"}-corp for writes.</p>
-              <label className="muted" htmlFor="gh-upstream">Upstream (owner/repo or github.com URL)</label>
-              <input
-                id="gh-upstream"
-                type="text"
-                value={ghUpstream}
-                placeholder="owner/repo"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setGhUpstream(value);
-                  const match = value.trim().replace(/\.git\/?$/, "")
-                    .match(/github\.com\/([^/\s]+)\/([^/\s]+)|([^/\s]+)\/([^/\s]+)/);
-                  if (match && !ghProjectId) {
-                    const name = (match[2] || match[4] || "").replace(/\.git$/, "");
-                    if (name) setGhProjectId(name);
-                  }
-                }}
-              />
-              <label className="muted" htmlFor="gh-project">Company project id</label>
-              <input
-                id="gh-project"
-                type="text"
-                value={ghProjectId}
-                placeholder="project-id"
-                onChange={(e) => setGhProjectId(e.target.value)}
-              />
-              <div className="actions">
-                <button
-                  className="primary"
-                  type="button"
-                  disabled={ghBusy || !ghUpstream.trim() || !ghProjectId.trim()}
-                  onClick={async () => {
-                    setGhBusy(true);
-                    setGhResult(null);
-                    await runAction("github-assign", "GitHub assigned.", async () => {
-                      const out = await api.assignGithub(ghProjectId.trim(), ghUpstream.trim()) as {
-                        result?: {
-                          upstream?: { full_name?: string; id?: string };
-                          write_repo?: { full_name?: string; id?: string };
-                          created_write_repo?: boolean;
-                        };
-                      };
-                      const result = out.result || out;
-                      setGhResult(
-                        `Upstream ${(result as {upstream?:{full_name?:string}}).upstream?.full_name} → write ` +
-                        `${(result as {write_repo?:{full_name?:string}}).write_repo?.full_name}` +
-                        `${(result as {created_write_repo?:boolean}).created_write_repo
-                          ? " (created)"
-                          : " (existing)"}`,
-                      );
-                    });
-                    setGhBusy(false);
-                  }}
-                >
-                  Assign GitHub
-                </button>
-              </div>
-              {status("github-assign")}
-              {ghResult && <p className="muted">{ghResult}</p>}
-            </div>
-          )}
-          {canEnroll(scopes) && (
-            <form className="card" onSubmit={async (event: FormEvent) => {
-              event.preventDefault();
-              const id = enrollProjectId.trim();
-              const brief = enrollBrief.trim();
-              if (!id || !brief) {
-                setFormStatus((prev) => ({
-                  ...prev,
-                  "enroll-manual": { ok: false, text: "Project id and brief are required." },
-                }));
-                return;
-              }
-              const ok = await runAction("enroll-manual", "Project enrolled.", () =>
-                api.enrollProject(id, brief));
-              if (ok) {
-                setEnrollProjectId("");
-                setEnrollBrief("");
-              }
-            }}>
-              <h3>Enroll project</h3>
-              <label htmlFor="enroll-project-id">Project id</label>
-              <input
-                id="enroll-project-id"
-                type="text"
-                required
-                value={enrollProjectId}
-                onChange={(e) => setEnrollProjectId(e.target.value)}
-              />
-              <label htmlFor="enroll-project-brief">Brief</label>
-              <textarea
-                id="enroll-project-brief"
-                required
-                value={enrollBrief}
-                onChange={(e) => setEnrollBrief(e.target.value)}
-              />
-              <div className="actions">
-                <button className="primary" type="submit">Enroll project</button>
-              </div>
-              {status("enroll-manual")}
-            </form>
-          )}
-        </>
+                  {status("github-assign")}
+                  {ghResult && <p className="muted">{ghResult}</p>}
+                </div>
+              ) : scopeNotice("enroll projects", "project.enroll"),
+            },
+          ]}
+        />
       )}
     </section>
   );
