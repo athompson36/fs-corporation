@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.70 status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, fs-dev deployment, companion Work/People Browse–Manage structure, desk IA aligned to five companion domains, Projects Browse list|detail split, Corporate/Workers Browse section-head consistency, and Organization Browse/Manage section-head titles are in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health is **0.3.70** (Org Browse/Manage polish installed).
+**v0.3.71 status (local branch):** Corporate Browse clusters with narrow-viewport segmented tabs and light Manage section-head titles join the prior v0.3.70 Org Browse/Manage polish, v0.3.69 Corporate/Workers section-head consistency, v0.3.68 Projects Browse split, cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, and fs-dev deployment at **0.3.70** until this branch merges. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials are owner-supplied per environment; a clone without them still runs every local check.
 
@@ -277,6 +277,10 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
       catalog uses a Departments section-head; Manage form titles sit outside
       form cards; Head inbox/assign unchanged; no Manage groups, URL sync,
       Corporate groups, Finance ModeSwitch or new APIs
+- [x] Corporate Browse clusters (0.3.71) — Strategy · Structure · People ·
+      Coordination clusters with `cluster-head`; segmented tabs below 720px;
+      Manage section-head titles for four forms; no URL sync, Manage groups,
+      Finance ModeSwitch or new APIs
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -420,9 +424,11 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Org Browse/Manage polish 0.3.70 is on `main` and fs-dev.** Organization Browse uses a
-Departments section-head; Manage form titles sit outside form cards; Head inbox and
-assign are unchanged. Corporate/Workers polish from 0.3.69 and Projects split from
-0.3.68 are unchanged. No URL sync, Corporate groups, Manage grouping, Finance
-ModeSwitch, new APIs or Alembic revision. Next: owner-directed (Corporate Browse
-groups/sub-tabs, Projects list-row HTML nit, URL-synced project selection, or other).
+**Corporate Browse clusters 0.3.71 is on `feature/corporate-browse-clusters` (not yet
+on `main` or fs-dev).** Corporate Browse groups Strategy · Structure · People ·
+Coordination with narrow-viewport segmented tabs; Manage adds section-head titles
+for four forms. Org polish 0.3.70, Corporate/Workers 0.3.69 and Projects split
+0.3.68 are unchanged in capability. No URL sync, Manage grouping, Finance
+ModeSwitch, new APIs or Alembic revision. Next: owner-directed (Projects list-row
+HTML nit, URL-synced project selection, Manage visual groups, or other companion/desk
+follow-ups).

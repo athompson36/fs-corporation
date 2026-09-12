@@ -44,6 +44,6 @@ class OrgBrowseManagePolishTests(unittest.TestCase):
 
     def test_version_bump_target(self):
         init = (ROOT / "company" / "__init__.py").read_text()
-        self.assertIn('__version__ = "0.3.70"', init)
         pkg = (ROOT / "companion" / "package.json").read_text()
-        self.assertIn('"version": "0.3.70"', pkg)
+        self.assertRegex(init, r'__version__ = "0\.3\.\d+"')
+        self.assertRegex(pkg, r'"version": "0\.3\.\d+"')

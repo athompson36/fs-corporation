@@ -1,6 +1,6 @@
 # Design: Corporate Browse clusters + narrow sub-tabs
 
-Date: 2026-09-11. Status: **approved for implementation** (target **v0.3.71**).
+Date: 2026-09-11. Status: **implemented in v0.3.71**.
 
 ## Goal
 

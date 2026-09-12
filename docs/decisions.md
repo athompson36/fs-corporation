@@ -54,6 +54,7 @@
 | ADR-050 | 2026-09-11 | Companion Projects Browse split workspace | Projects Browse uses list|detail split; detail holds dispatch workspace; Manage remains enroll/assign; medium empty/section polish on sibling panels; no URL sync or Finance ModeSwitch. |
 | ADR-051 | 2026-09-11 | Corporate and Workers Browse section consistency | Corporate Browse lists use section-head + panel-empty; Workers title sits outside the list card; no capability or API changes. |
 | ADR-052 | 2026-09-11 | Org Browse and Manage section-head consistency | Organization catalog and Manage forms use section-head titles matching Corporate/Workers; no capability or API changes. |
+| ADR-053 | 2026-09-11 | Corporate Browse clusters with narrow sub-tabs | Corporate Browse groups Strategy · Structure · People · Coordination; segmented cluster tabs below 720px; Manage section-head titles only; no URL sync or new APIs. |
 
 ### ADR-010 detail
 
@@ -780,5 +781,33 @@ components were out of scope. Desk and welcome changes were not requested.
 section-head pattern. No Alembic revision or control-plane API change is
 required. Manage grouping, Corporate visual groups, URL sync and reusable split
 components remain owner-directed follow-ups.
+
+### ADR-053 detail
+
+**Context.** After ADR-051/052 aligned Browse section-head titles across Work and
+People panels, Corporate Browse remained a long ungrouped scroll of eight
+lists. The owner selected in-place cluster grouping with a hybrid viewport
+pattern rather than new APIs, URL sync or Manage regrouping.
+
+**Decision.** Corporate Browse groups lists into four fixed clusters — **Strategy**
+(Objectives, Industry packs), **Structure** (Divisions, Career ladder),
+**People** (Staffing proposals, Promotions), **Coordination** (Cross-dept
+requests, Activity) — each labeled with `cluster-head`. At viewport width ≥720px
+all clusters render as labeled scroll sections; below 720px a segmented
+`role="tablist"` switches among clusters (default Strategy) while keeping the
+cluster label in the active pane. Manage adds `section-head` titles outside form
+cards for Create division, Create industry pack, Propose staffing, and Propose
+promotion only; fields and `runAction` handlers are unchanged.
+
+**Alternatives considered.** Always-on segmented tabs (rejected — wide viewports
+should show full scroll context). CSS-only grouping without local cluster state
+(rejected — narrow viewports need explicit tab switching). Extracted
+`ClusterSwitch` component (deferred). URL-synced cluster selection, Manage
+visual groups and Projects list-row HTML nit remain out of scope.
+
+**Consequences.** Companion v0.3.71 ships Corporate Browse clusters and light
+Manage titles with no Alembic revision or control-plane API change. URL sync,
+Manage grouping and shared cluster/tab extraction remain owner-directed
+follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

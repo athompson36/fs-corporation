@@ -44,14 +44,6 @@ function useWideViewport(): boolean {
   return wide;
 }
 
-function ClusterHead({ title }: { title: string }) {
-  return (
-    <div className="cluster-head">
-      <h2>{title}</h2>
-    </div>
-  );
-}
-
 type CorporatePanelProps = {
   api: ApiClient;
   scorecard: Record<string, unknown> | null;
