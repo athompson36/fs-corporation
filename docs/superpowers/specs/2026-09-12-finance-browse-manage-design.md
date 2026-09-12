@@ -1,6 +1,6 @@
 # Design: Finance Browse/Manage + URL sync
 
-Date: 2026-09-12. Status: **approved design (pending implementation as v0.3.77)**.
+Date: 2026-09-12. Status: **implemented in v0.3.77**.
 
 ## Goal
 

@@ -34,10 +34,10 @@ class ProjectsSplitBrowsePolishTests(unittest.TestCase):
                 f"{name} should use panel-empty or section-head",
             )
 
-    def test_finance_still_has_no_mode_switch(self):
+    def test_finance_has_mode_switch_and_clusters(self):
         text = (SRC / "FinancePanel.tsx").read_text()
-        self.assertNotIn("ModeSwitch", text)
-        self.assertNotIn("panel-mode", text)
+        self.assertIn("ModeSwitch", text)
+        self.assertIn("ManageClusters", text)
 
     def test_version_bump_target(self):
         init = (ROOT / "company" / "__init__.py").read_text()

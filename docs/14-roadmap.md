@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.76 status:** Mode/cluster/group companion URL sync (`mode`/`cluster`/`group` query params with App-owned state, replaceState, omit defaults, controlled panels; pairing hash unchanged) joins v0.3.75 empty-list unknown-project URL clear (`projectsLoaded` gates silent unknown-`?project=` clear after successful projects refresh), v0.3.74 Manage visual groups on Organization, Corporate, Projects and Workers via shared `useWideViewport` + `ManageClusters`, v0.3.73 Companion URL sync for `?tab=` and `?project=` with replaceState, v0.3.72 Projects list-row `span.muted` and Clear-on-loading, v0.3.71 Corporate Browse clusters with narrow-viewport segmented tabs and light Manage section-head titles, the prior v0.3.70 Org Browse/Manage polish, v0.3.69 Corporate/Workers section-head consistency, v0.3.68 Projects Browse split, cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, and fs-dev deployment. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health is **0.3.73** (companion URL sync installed); **0.3.74** Manage groups pending merge/deploy.
+**v0.3.77 status:** Finance Browse/Manage (ModeSwitch + ManageClusters lists-vs-forms; finance in MODE_CAPABLE_TABS; `group` in browse+manage; close-period stays Browse in-row; no new APIs) joins **v0.3.76 status:** Mode/cluster/group companion URL sync (`mode`/`cluster`/`group` query params with App-owned state, replaceState, omit defaults, controlled panels; pairing hash unchanged) joins v0.3.75 empty-list unknown-project URL clear (`projectsLoaded` gates silent unknown-`?project=` clear after successful projects refresh), v0.3.74 Manage visual groups on Organization, Corporate, Projects and Workers via shared `useWideViewport` + `ManageClusters`, v0.3.73 Companion URL sync for `?tab=` and `?project=` with replaceState, v0.3.72 Projects list-row `span.muted` and Clear-on-loading, v0.3.71 Corporate Browse clusters with narrow-viewport segmented tabs and light Manage section-head titles, the prior v0.3.70 Org Browse/Manage polish, v0.3.69 Corporate/Workers section-head consistency, v0.3.68 Projects Browse split, cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, and fs-dev deployment. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health is **0.3.73** (companion URL sync installed); **0.3.74** Manage groups pending merge/deploy.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials are owner-supplied per environment; a clone without them still runs every local check.
 
@@ -299,6 +299,9 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
       links with App-owned state and replaceState; omit browse/strategy/default
       group; controlled panels; Workers token → `group=token`; pairing hash
       unchanged; no Router, Finance ModeSwitch or new APIs
+- [x] Finance Browse/Manage (0.3.77) — Finance ModeSwitch + ManageClusters
+      lists-vs-forms; finance in MODE_CAPABLE_TABS; `group` in browse+manage;
+      close-period stays Browse in-row; no new APIs or Alembic revision
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -442,9 +445,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Mode/cluster/group URL sync 0.3.76 is on `main` and fs-dev** (tip `7acef49`).
-App owns `panelMode`/`corporateCluster`/`manageGroup`; `urlState.ts`
-parse/serialize omits defaults; panels and `ManageClusters` are controlled;
-Workers token-after-create forces `group=token`; read-only Org/Corporate clamps.
-No Finance ModeSwitch, new APIs or Alembic revision. Next: owner-directed
-(Finance ModeSwitch, or other companion/desk follow-ups).
+**Finance Browse/Manage 0.3.77** on branch `feature/finance-browse-manage` (pending
+merge/deploy). Finance joins mode-capable URL sync; Browse lists vs Manage forms;
+Close period stays Browse in-row. No new APIs or Alembic revision. Next:
+owner-directed merge/deploy to `main`/fs-dev, or desk Finance surface / other
+companion follow-ups.

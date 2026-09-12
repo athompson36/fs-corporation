@@ -60,6 +60,7 @@
 | ADR-056 | 2026-09-12 | Manage visual groups with shared hybrid chrome | Org/Corporate/Projects/Workers Manage use ManageClusters + shared useWideViewport; no URL sync or API changes. |
 | ADR-057 | 2026-09-12 | Empty-list unknown-project URL clear | Gate unknown `?project=` clear on `projectsLoaded` after successful refresh; failed fetch keeps deep link; silent clear; no new APIs. |
 | ADR-058 | 2026-09-12 | Mode/cluster/group companion URL sync | App-owned `mode`/`cluster`/`group` with replaceState; omit defaults; panels controlled; pairing unchanged. |
+| ADR-059 | 2026-09-12 | Finance Browse/Manage with URL sync | Finance ModeSwitch + ManageClusters lists-vs-forms; finance in MODE_CAPABLE_TABS; group in browse+manage; close-period stays Browse; no new APIs. |
 
 ### ADR-010 detail
 
@@ -940,5 +941,28 @@ ModeSwitch in the same release (rejected — out of scope). Panel-local URL writ
 **Consequences.** Companion v0.3.76 ships mode/cluster/group URL sync with no
 Alembic revision or control-plane API change. Finance ModeSwitch and `pushState`
 Back stacks remain owner-directed follow-ups.
+
+### ADR-059 detail
+
+**Context.** After ADR-058, Work and People panels deep-linked Browse/Manage mode
+and Manage visual groups via App-owned URL state, but Finance still used flat
+sub-tabs with create forms mixed into Browse. Owner wanted the same lists-vs-forms
+split and full `mode`/`group` URL sync on Money without new finance APIs or
+changing ADR-038 money math.
+
+**Decision.** Add `finance` to `MODE_CAPABLE_TABS` with mode-aware browse and manage
+group tables. Split `FinancePanel` with `ModeSwitch` and hybrid `ManageClusters`:
+Browse holds Overview, Invoices, Adjustments and Periods (Close period stays an
+in-row Browse action); Manage holds Create invoice, Post adjustment and Set period
+forms. App wires controlled `mode` and `group` like other panels; serialize `group`
+in both Browse and Manage for finance; omit default groups from the URL.
+
+**Alternatives considered.** Nested Browse/Manage only inside Finance without URL
+sync (rejected — inconsistent with 0.3.76). Moving Close period to Manage
+(rejected — owner lock). New finance APIs or desk surface (rejected — out of scope).
+
+**Consequences.** Companion v0.3.77 ships Finance Browse/Manage with URL sync and
+no Alembic revision or control-plane API change. `pushState` Back stacks and desk
+Finance surface remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

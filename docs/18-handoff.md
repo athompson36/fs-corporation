@@ -1,33 +1,32 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.76**. State: **Mode/cluster/group URL sync
-merged to `main`, pushed, and deployed to fs-dev.** Tip: **`7acef49`**.
+Date: 2026-09-12. Version: **0.3.77**. State: **Finance Browse/Manage on
+branch `feature/finance-browse-manage`** (Tasks 1–5 complete; pending merge/deploy).
 
-## On main / fs-dev
+## On feature branch
 
-- `companion/src/urlState.ts` — parse/serialize `mode`/`cluster`/`group`; omit
-  defaults; validate ids per tab.
-- `companion/src/App.tsx` — App-owned `panelMode`, `corporateCluster`,
-  `manageGroup`; replaceState + popstate; Workers token → `group=token`;
-  read-only Org/Corporate clamps.
-- `companion/src/{Org,Corporate,Projects,Workers}Panel.tsx` — controlled mode,
-  cluster (Corporate), manage group props.
-- `companion/src/ManageClusters.tsx` — optional controlled `activeGroupId`.
-- `tests/test_mode_cluster_group_url_sync.py` — contracts; exact version
-  **0.3.76**.
-- ADR-058; version **0.3.76** (Python package and companion `package.json`
+- `companion/src/urlState.ts` — `finance` in `MODE_CAPABLE_TABS`; mode-aware
+  browse/manage group tables; finance serializes `group` in both modes.
+- `companion/src/FinancePanel.tsx` — ModeSwitch + ManageClusters; Browse lists
+  (Overview · Invoices · Adjustments · Periods); Manage forms (Invoice ·
+  Adjustment · Period); Close period stays Browse in-row.
+- `companion/src/App.tsx` — controlled Finance props; mode-change group reset.
+- `tests/test_finance_browse_manage.py` — contracts; exact version **0.3.77**.
+- Legacy tests flipped: Finance now requires ModeSwitch/ManageClusters
+  (`test_work_people_money_browse_manage.py`, `test_projects_split_browse_polish.py`).
+- `tests/test_mode_cluster_group_url_sync.py` — soft `0\.3\.\d+` version pin.
+- ADR-059; version **0.3.77** (Python package and companion `package.json`
   lockstep).
-- Prior: empty-list unknown-project URL clear (0.3.75), Manage visual groups
-  (0.3.74), Companion URL sync (0.3.73).
+- Prior on `main`: mode/cluster/group URL sync (0.3.76), empty-list unknown-project
+  URL clear (0.3.75), Manage visual groups (0.3.74), Companion URL sync (0.3.73).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **529 tests, OK**.
-- `cd companion && npm run build`: OK (package version 0.3.76).
-- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.76",...}`; companion
-  bundle rebuilt (`index-C2rFawQr.js`).
+- `.venv/bin/python -m unittest discover -s tests`: **533 tests, OK**.
+- `cd companion && npm run build`: OK (package version 0.3.77).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: Finance ModeSwitch; or other companion/desk follow-ups.
+Owner-directed: merge `feature/finance-browse-manage` to `main` and deploy to
+fs-dev; or desk Finance surface / other companion follow-ups.

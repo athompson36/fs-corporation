@@ -36,9 +36,10 @@ class WorkPeopleMoneyBrowseManageTests(unittest.TestCase):
         text = (SRC / "WorkersPanel.tsx").read_text()
         self.assertIn("ModeSwitch", text)
 
-    def test_finance_has_no_nested_browse_manage(self):
+    def test_finance_browse_manage(self):
         text = (SRC / "FinancePanel.tsx").read_text()
-        self.assertNotIn("ModeSwitch", text)
+        self.assertIn("ModeSwitch", text)
+        self.assertIn("ManageClusters", text)
         self.assertIn("Overview", text)
         self.assertIn("Create invoice", text)
 
