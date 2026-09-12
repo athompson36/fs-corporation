@@ -790,14 +790,15 @@ lists. The owner selected in-place cluster grouping with a hybrid viewport
 pattern rather than new APIs, URL sync or Manage regrouping.
 
 **Decision.** Corporate Browse groups lists into four fixed clusters — **Strategy**
-(Objectives, Industry packs), **Structure** (Divisions, Career ladder),
-**People** (Staffing proposals, Promotions), **Coordination** (Cross-dept
-requests, Activity) — each labeled with `cluster-head`. At viewport width ≥720px
-all clusters render as labeled scroll sections; below 720px a segmented
-`role="tablist"` switches among clusters (default Strategy) while keeping the
-cluster label in the active pane. Manage adds `section-head` titles outside form
-cards for Create division, Create industry pack, Propose staffing, and Propose
-promotion only; fields and `runAction` handlers are unchanged.
+(CEO scorecard, Objectives), **Structure** (Industry packs, Divisions),
+**People** (Pending promotions, Staffing proposals), **Coordination**
+(Cross-department requests, Open activity) — each labeled with `cluster-head`.
+At viewport width ≥720px all clusters render as labeled scroll sections; below
+720px a segmented `role="tablist"` switches among clusters (default Strategy)
+while keeping the cluster label in the active pane. Manage adds `section-head`
+titles outside form cards for Corporate operations, Create objective, Propose
+division, and Create cross-department request only; fields and `runAction`
+handlers are unchanged.
 
 **Alternatives considered.** Always-on segmented tabs (rejected — wide viewports
 should show full scroll context). CSS-only grouping without local cluster state
