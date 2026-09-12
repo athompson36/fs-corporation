@@ -41,6 +41,6 @@ class ProjectsSplitBrowsePolishTests(unittest.TestCase):
 
     def test_version_bump_target(self):
         init = (ROOT / "company" / "__init__.py").read_text()
-        self.assertRegex(init, r'__version__ = "0\.3\.\d+"')
+        self.assertIn('__version__ = "0.3.68"', init)
         pkg = (ROOT / "companion" / "package.json").read_text()
-        self.assertRegex(pkg, r'"version": "0\.3\.\d+"')
+        self.assertIn('"version": "0.3.68"', pkg)

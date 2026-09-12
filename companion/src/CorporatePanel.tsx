@@ -139,9 +139,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
           ))}
           {!objectives.length && <p className="panel-empty">No objectives.</p>}
 
-          <div className="section-head">
-            <h2>Industry packs</h2>
-          </div>
+          <h2>Industry packs</h2>
           {packs.map((pack) => (
             <div key={pack.id} className="card muted">
               {pack.id} — {pack.industry} — minimal {pack.minimal_departments.length} / full {pack.full_departments.length}
@@ -149,9 +147,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
           ))}
           {!packs.length && <p className="panel-empty">No industry packs.</p>}
 
-          <div className="section-head">
-            <h2>Divisions</h2>
-          </div>
+          <h2>Divisions</h2>
           {divisions.map((division) => (
             <div key={division.id} className="card">
               <strong>{division.name}</strong>
@@ -170,9 +166,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
           ))}
           {!divisions.length && <p className="panel-empty">No divisions.</p>}
 
-          <div className="section-head">
-            <h2>Pending promotions</h2>
-          </div>
+          <h2>Pending promotions</h2>
           {promotions.map((promotion) => (
             <div key={promotion.id} className="card">
               <strong>{promotion.employee_id}</strong>
@@ -192,9 +186,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
           ))}
           {!promotions.length && <p className="panel-empty">No pending promotions.</p>}
 
-          <div className="section-head">
-            <h2>Staffing proposals</h2>
-          </div>
+          <h2>Staffing proposals</h2>
           {staffing.map((proposal) => (
             <div key={proposal.id} className="card">
               <strong>{proposal.kind} · {proposal.position_id}</strong>
@@ -214,9 +206,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
           ))}
           {!staffing.length && <p className="panel-empty">No pending staffing proposals.</p>}
 
-          <div className="section-head">
-            <h2>Cross-department requests</h2>
-          </div>
+          <h2>Cross-department requests</h2>
           {crossDept.map((item) => (
             <div key={item.id} className="card">
               <strong>{item.subject}</strong>
@@ -235,9 +225,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
           ))}
           {!crossDept.length && <p className="panel-empty">No cross-department requests.</p>}
 
-          <div className="section-head">
-            <h2>Open activity</h2>
-          </div>
+          <h2>Open activity</h2>
           {activity.map((item) => (
             <div key={item.id} className="card muted">
               {item.kind} · {item.status}{item.room_id ? ` · room ${item.room_id}` : ""}

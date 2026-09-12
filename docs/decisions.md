@@ -52,7 +52,6 @@
 | ADR-048 | 2026-09-10 | Local Browse/Manage modes for companion Work and People | Persisted lists/details and in-row actions default to Browse; create/enroll/configure controls move to Manage; Finance retains its existing sub-tabs without a second mode layer. |
 | ADR-049 | 2026-09-11 | Desk IA matches companion five domains | Desk rail grouped Home · Work · People · Money · More; page sections reordered; hybrid Home keeps HQ high; Scorecard under Work; no ID renames or domain panes. |
 | ADR-050 | 2026-09-11 | Companion Projects Browse split workspace | Projects Browse uses list|detail split; detail holds dispatch workspace; Manage remains enroll/assign; medium empty/section polish on sibling panels; no URL sync or Finance ModeSwitch. |
-| ADR-051 | 2026-09-11 | Corporate and Workers Browse section consistency | Corporate Browse lists use section-head + panel-empty; Workers title sits outside the list card; no capability or API changes. |
 
 ### ADR-010 detail
 
@@ -730,29 +729,5 @@ changes were not requested.
 phone column. No Alembic revision or control-plane API change is required. Further
 Corporate hierarchy polish, URL sync and reusable split components remain owner-directed
 follow-ups.
-
-### ADR-051 detail
-
-**Context.** After ADR-050 added a Projects Browse list|detail split and medium
-empty/section polish on sibling panels, Corporate Browse lists still mixed bare
-`<h2>` titles with `section-head`, and the Workers “Worker hosts” title sat inside
-the list card. The owner selected a consistency pass without groups, Org
-restructure, new APIs or URL-synced selection.
-
-**Decision.** Corporate Browse lists use `section-head` titles and `panel-empty`
-empty states (Objectives, Industry packs, Divisions, Pending promotions, Staffing
-proposals, Cross-department requests, Open activity). The Workers “Worker hosts”
-`section-head` sits outside the list card, matching Projects and Corporate
-Objectives. Manage forms and capabilities are unchanged.
-
-**Alternatives considered.** Corporate Browse groups or sub-tabs were deferred.
-Org hierarchy redesign was out of width. The Projects list-row `div`→`span` HTML
-fix and URL-synced `?project=` were deferred. Extracted shared `PanelSection`
-components were out of scope. Desk and welcome changes were not requested.
-
-**Consequences.** Corporate and Workers Browse titles and empties match the
-Projects/Objectives pattern. No Alembic revision or control-plane API change is
-required. Corporate visual groups, Org polish, URL sync and reusable split
-components remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
