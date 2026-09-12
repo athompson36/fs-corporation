@@ -1,10 +1,9 @@
 # Current handoff
 
 Date: 2026-09-12. Version: **0.3.75**. State: **Empty-list unknown-project URL
-clear on branch `feature/empty-list-unknown-project-url` (not yet on `main` /
-fs-dev).** Tip: **`ed53879`**.
+clear merged to `main`, pushed, and deployed to fs-dev.** Tip: **`6e7151a`**.
 
-## On feature/empty-list-unknown-project-url
+## On main / fs-dev
 
 - `companion/src/App.tsx` — `projectsLoaded` state; set `true` only on successful
   projects refresh; unknown-`?project=` clear gated on `projectsLoaded` (empty
@@ -21,10 +20,11 @@ fs-dev).** Tip: **`ed53879`**.
 
 - `.venv/bin/python -m unittest discover -s tests`: **524 tests, OK**.
 - `cd companion && npm run build`: OK (package version 0.3.75).
+- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.75",...}`; companion
+  bundle rebuilt (`index-JXGklAhu.js`).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: merge `feature/empty-list-unknown-project-url` to `main` and
-deploy to fs-dev; Manage/Browse URL sync; Finance ModeSwitch; or other
+Owner-directed: Manage/Browse URL sync; Finance ModeSwitch; or other
 companion/desk follow-ups.

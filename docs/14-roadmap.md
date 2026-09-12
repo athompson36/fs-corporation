@@ -438,10 +438,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Empty-list unknown-project URL clear 0.3.75 is on branch
-`feature/empty-list-unknown-project-url`.** `App.tsx` sets `projectsLoaded` on
-successful projects refresh and gates unknown-`?project=` clear so empty enroll
-lists drop stale deep links; failed fetch preserves selection. No Manage/Browse
-URL sync, Finance ModeSwitch, new APIs or Alembic revision. Next: owner-directed
-(merge to `main` and deploy to fs-dev; Manage/Browse URL sync, Finance
-ModeSwitch, or other companion/desk follow-ups).
+**Empty-list unknown-project URL clear 0.3.75 is on `main` and fs-dev** (tip
+`6e7151a`). `App.tsx` sets `projectsLoaded` on successful projects refresh and
+gates unknown-`?project=` clear so empty enroll lists drop stale deep links;
+failed fetch preserves selection. No Manage/Browse URL sync, Finance ModeSwitch,
+new APIs or Alembic revision. Next: owner-directed (Manage/Browse URL sync,
+Finance ModeSwitch, or other companion/desk follow-ups).
