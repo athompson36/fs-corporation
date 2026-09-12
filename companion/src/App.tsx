@@ -41,6 +41,7 @@ import {
 } from "./scopes";
 import type { PanelMode } from "./ModeSwitch";
 import {
+  defaultGroupFor,
   defaultManageGroup,
   MODE_CAPABLE_TABS,
   parseCompanionSearch,
@@ -186,6 +187,7 @@ export default function App() {
   settingsRef.current = settings;
   const sessionSyncedFor = useRef<string | null>(null);
   const tabRef = useRef(tab);
+  const modeRef = useRef(panelMode);
 
   const applyPairing = useCallback(async (ticket: string, baseUrl?: string) => {
     setPairing(true);
@@ -238,7 +240,8 @@ export default function App() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     let mode = panelMode;
-    let group = panelMode === "manage" ? manageGroup : null;
+    let group =
+      tab === "finance" || panelMode === "manage" ? manageGroup : null;
     if (tab === "corporate" && !canManageOrg && mode === "manage") {
       mode = "browse";
       group = null;
@@ -277,8 +280,22 @@ export default function App() {
     tabRef.current = tab;
     setPanelMode("browse");
     setCorporateCluster("strategy");
-    setManageGroup(defaultManageGroup(tab as CompanionTab) ?? "catalog");
+    setManageGroup(
+      defaultGroupFor(tab as CompanionTab, "browse")
+        ?? defaultGroupFor(tab as CompanionTab, "manage")
+        ?? "catalog",
+    );
   }, [tab]);
+
+  useEffect(() => {
+    if (modeRef.current === panelMode) return;
+    modeRef.current = panelMode;
+    if (tab === "finance") {
+      setManageGroup(defaultGroupFor("finance", panelMode) ?? "overview");
+    } else if (MODE_CAPABLE_TABS.has(tab as CompanionTab) && panelMode === "manage") {
+      setManageGroup(defaultGroupFor(tab as CompanionTab, "manage") ?? "catalog");
+    }
+  }, [panelMode, tab]);
 
   useEffect(() => {
     if (!MODE_CAPABLE_TABS.has(tab as CompanionTab)) {
@@ -292,6 +309,7 @@ export default function App() {
       tabRef.current = parsed.tab;
       setTab(parsed.tab);
       setSelectedProject(parsed.project);
+      modeRef.current = parsed.mode;
       setPanelMode(parsed.mode);
       setCorporateCluster(parsed.cluster);
       setManageGroup(parsed.group ?? defaultManageGroup(parsed.tab) ?? "catalog");
