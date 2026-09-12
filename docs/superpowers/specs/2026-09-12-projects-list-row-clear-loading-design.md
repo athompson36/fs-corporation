@@ -1,6 +1,6 @@
 # Design: Projects list-row HTML + Clear-on-loading
 
-Date: 2026-09-12. Status: **approved for implementation** (target **v0.3.72**).
+Date: 2026-09-12. Status: **implemented in v0.3.72**.
 
 ## Goal
 

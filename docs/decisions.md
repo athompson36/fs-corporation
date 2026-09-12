@@ -55,6 +55,7 @@
 | ADR-051 | 2026-09-11 | Corporate and Workers Browse section consistency | Corporate Browse lists use section-head + panel-empty; Workers title sits outside the list card; no capability or API changes. |
 | ADR-052 | 2026-09-11 | Org Browse and Manage section-head consistency | Organization catalog and Manage forms use section-head titles matching Corporate/Workers; no capability or API changes. |
 | ADR-053 | 2026-09-11 | Corporate Browse clusters with narrow sub-tabs | Corporate Browse groups Strategy · Structure · People · Coordination; segmented cluster tabs below 720px; Manage section-head titles only; no URL sync or new APIs. |
+| ADR-054 | 2026-09-12 | Projects list-row span + Clear on loading | Projects Browse list rows use span.muted inside buttons; loading detail shows Clear selection; no URL sync or API changes. |
 
 ### ADR-010 detail
 
@@ -810,5 +811,30 @@ visual groups and Projects list-row HTML nit remain out of scope.
 Manage titles with no Alembic revision or control-plane API change. URL sync,
 Manage grouping and shared cluster/tab extraction remain owner-directed
 follow-ups.
+
+### ADR-054 detail
+
+**Context.** After ADR-050 split Projects Browse into list|detail, list-row buttons
+still wrapped brief and blockers in `<div className="muted">`, which is invalid
+HTML inside `<button>`. The loaded detail pane already exposed **Clear selection**
+via `detail-toolbar`, but the loading card showed only a muted “Loading…” line
+with no way to deselect until fetch completed. The empty “Select a project” pane
+correctly omits Clear.
+
+**Decision.** Replace list-row muted lines with `<span className="muted">` and
+ensure `.list-row .muted { display: block; }` preserves stacked layout. When
+`selectedProject && !projectDetail`, render a `detail-toolbar` with the project id
+and **Clear selection** (`setSelectedProject(null)`) above a muted “Loading…”
+line — matching the loaded-detail toolbar pattern. Leave the empty pane and Manage
+enroll/assign unchanged.
+
+**Alternatives considered.** CSS-only fix without span swap (rejected — does not
+fix invalid HTML). Clear on the empty pane (rejected — owner lock). Extract shared
+`DetailToolbar` component (deferred). URL-synced project selection remains out of
+scope.
+
+**Consequences.** Companion v0.3.72 ships the span fix and loading Clear with no
+Alembic revision, control-plane API change or URL sync. Manage visual groups and
+shared detail-toolbar extraction remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

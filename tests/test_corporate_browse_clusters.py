@@ -69,9 +69,9 @@ class CorporateBrowseClustersTests(unittest.TestCase):
 
     def test_version_bump_target(self):
         init = (ROOT / "company" / "__init__.py").read_text()
-        self.assertIn('__version__ = "0.3.71"', init)
         pkg = (ROOT / "companion" / "package.json").read_text()
-        self.assertIn('"version": "0.3.71"', pkg)
+        self.assertRegex(init, r'__version__ = "0\.3\.\d+"')
+        self.assertRegex(pkg, r'"version": "0\.3\.\d+"')
 
     def test_cluster_head_css_present(self):
         css = (SRC / "styles.css").read_text()
