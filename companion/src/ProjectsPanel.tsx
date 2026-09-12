@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { type FormEvent, type ReactNode } from "react";
 import type { ApiClient, DispatchOptions } from "./api/client";
 import { ManageClusters } from "./ManageClusters";
 import { ModeSwitch, type PanelMode } from "./ModeSwitch";
@@ -60,6 +60,10 @@ export type ProjectsPanelProps = {
   ) => Promise<boolean>;
   status: (key: string) => ReactNode;
   scopeNotice: (action: string, scope: string) => ReactNode;
+  mode: PanelMode;
+  onModeChange: (mode: PanelMode) => void;
+  manageGroup: string;
+  onManageGroupChange: (id: string) => void;
 };
 
 export function ProjectsPanel(props: ProjectsPanelProps) {
@@ -76,8 +80,8 @@ export function ProjectsPanel(props: ProjectsPanelProps) {
     dispatchDeptSelection, setDispatchDeptSelection,
     dispatchRecommendSource, setDispatchRecommendSource,
     setFormStatus, runAction, status, scopeNotice,
+    mode, onModeChange, manageGroup, onManageGroupChange,
   } = props;
-  const [mode, setMode] = useState<PanelMode>("browse");
 
   function departmentBudgetsFromSelection(): Record<string, number> {
     return Object.fromEntries(
@@ -106,7 +110,7 @@ export function ProjectsPanel(props: ProjectsPanelProps) {
 
   return (
     <section>
-      <ModeSwitch mode={mode} onChange={setMode} label="Projects mode" />
+      <ModeSwitch mode={mode} onChange={onModeChange} label="Projects mode" />
       {mode === "browse" ? (
         /* Browse: project list and detail entry points. */
         <div className="project-browse-split">
@@ -408,6 +412,8 @@ export function ProjectsPanel(props: ProjectsPanelProps) {
         <ManageClusters
           ariaLabel="Projects manage groups"
           defaultGroupId="enroll"
+          activeGroupId={manageGroup}
+          onActiveGroupIdChange={onManageGroupChange}
           groups={[
             {
               id: "enroll",

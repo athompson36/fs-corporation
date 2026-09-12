@@ -39,10 +39,13 @@ import {
   canManageOrganization,
   canRespondInbox,
 } from "./scopes";
+import type { PanelMode } from "./ModeSwitch";
 import {
+  defaultManageGroup,
   parseCompanionSearch,
   serializeCompanionSearch,
   type CompanionTab,
+  type CorporateClusterId,
 } from "./urlState";
 
 type Tab = CompanionTab;
@@ -93,6 +96,11 @@ const initialUrl =
 export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [tab, setTab] = useState<Tab>(initialUrl.tab);
+  const [panelMode, setPanelMode] = useState<PanelMode>("browse");
+  const [corporateCluster, setCorporateCluster] = useState<CorporateClusterId>("strategy");
+  const [manageGroup, setManageGroup] = useState<string>(
+    defaultManageGroup(initialUrl.tab) ?? "catalog",
+  );
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const [pairing, setPairing] = useState(false);
@@ -768,6 +776,10 @@ export default function App() {
           runAction={runAction}
           status={status}
           scopeNotice={scopeNotice}
+          mode={panelMode}
+          onModeChange={setPanelMode}
+          manageGroup={manageGroup}
+          onManageGroupChange={setManageGroup}
         />
       )}
 
@@ -811,6 +823,10 @@ export default function App() {
           runAction={runAction}
           status={status}
           scopeNotice={scopeNotice}
+          mode={panelMode}
+          onModeChange={setPanelMode}
+          manageGroup={manageGroup}
+          onManageGroupChange={setManageGroup}
         />
       )}
 
@@ -831,6 +847,12 @@ export default function App() {
           setFormStatus={setFormStatus}
           status={status}
           scopeNotice={scopeNotice}
+          mode={panelMode}
+          onModeChange={setPanelMode}
+          cluster={corporateCluster}
+          onClusterChange={setCorporateCluster}
+          manageGroup={manageGroup}
+          onManageGroupChange={setManageGroup}
         />
       )}
 
@@ -844,6 +866,10 @@ export default function App() {
             await runAction(key, okMessage, run);
           }}
           status={status}
+          mode={panelMode}
+          onModeChange={setPanelMode}
+          manageGroup={manageGroup}
+          onManageGroupChange={setManageGroup}
         />
       )}
 

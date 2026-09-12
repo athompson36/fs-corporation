@@ -11,14 +11,29 @@ export type ManageClustersProps = {
   ariaLabel: string;
   groups: ManageClusterGroup[];
   defaultGroupId?: string;
+  activeGroupId?: string;
+  onActiveGroupIdChange?: (id: string) => void;
 };
 
-export function ManageClusters({ ariaLabel, groups, defaultGroupId }: ManageClustersProps) {
+export function ManageClusters({
+  ariaLabel,
+  groups,
+  defaultGroupId,
+  activeGroupId,
+  onActiveGroupIdChange,
+}: ManageClustersProps) {
   const wide = useWideViewport();
-  const initial = defaultGroupId && groups.some((g) => g.id === defaultGroupId)
-    ? defaultGroupId
-    : groups[0]?.id ?? "";
-  const [active, setActive] = useState(initial);
+  const initial =
+    defaultGroupId && groups.some((g) => g.id === defaultGroupId)
+      ? defaultGroupId
+      : groups[0]?.id ?? "";
+  const [uncontrolled, setUncontrolled] = useState(initial);
+  const controlled = activeGroupId !== undefined;
+  const active = controlled ? activeGroupId : uncontrolled;
+  const setActive = (id: string) => {
+    if (!controlled) setUncontrolled(id);
+    onActiveGroupIdChange?.(id);
+  };
 
   return (
     <>

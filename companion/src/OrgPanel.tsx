@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ApiClient, HeadDispatch, OrgDepartment, WorkerCard } from "./api/client";
 import { ManageClusters } from "./ManageClusters";
 import { ModeSwitch, type PanelMode } from "./ModeSwitch";
@@ -48,6 +48,10 @@ type OrgPanelProps = {
   ) => Promise<boolean>;
   status: (key: string) => ReactNode;
   scopeNotice: (what: string, scope?: string) => ReactNode;
+  mode: PanelMode;
+  onModeChange: (mode: PanelMode) => void;
+  manageGroup: string;
+  onManageGroupChange: (id: string) => void;
 };
 
 export function OrgPanel(props: OrgPanelProps) {
@@ -62,13 +66,13 @@ export function OrgPanel(props: OrgPanelProps) {
     assignAction, setAssignAction, assignCost, setAssignCost,
     workerLookupId, setWorkerLookupId, workerCard, setWorkerCard,
     setFormStatus, runAction, status, scopeNotice,
+    mode, onModeChange, manageGroup, onManageGroupChange,
   } = props;
-  const [mode, setMode] = useState<PanelMode>("browse");
 
   return (
     <section>
       <p className="lede">Catalog, persisted seat status, and roster. Vacant and dormant seats are not healthy workers.</p>
-      <ModeSwitch mode={mode} onChange={setMode} label="Organization mode" />
+      <ModeSwitch mode={mode} onChange={onModeChange} label="Organization mode" />
       {!canManage && scopeNotice("edit the organization")}
 
       {mode === "browse" && (
@@ -475,6 +479,8 @@ export function OrgPanel(props: OrgPanelProps) {
           <ManageClusters
             ariaLabel="Organization manage groups"
             defaultGroupId={canManage ? "catalog" : "lookup"}
+            activeGroupId={manageGroup}
+            onActiveGroupIdChange={onManageGroupChange}
             groups={groups}
           />
         );

@@ -10,6 +10,10 @@ type WorkersPanelProps = {
   scopeNotice: (action: string, scope: string) => ReactNode;
   runAction: (key: string, okMessage: string, run: () => Promise<void>) => Promise<void>;
   status: (key: string) => ReactNode;
+  mode: PanelMode;
+  onModeChange: (mode: PanelMode) => void;
+  manageGroup: string;
+  onManageGroupChange: (id: string) => void;
 };
 
 type IssuedToken = {
@@ -19,13 +23,15 @@ type IssuedToken = {
 };
 
 export function WorkersPanel(props: WorkersPanelProps) {
-  const { api, hasToken, canPause, scopeNotice, runAction, status } = props;
+  const {
+    api, hasToken, canPause, scopeNotice, runAction, status,
+    mode, onModeChange, manageGroup, onManageGroupChange,
+  } = props;
   const [hosts, setHosts] = useState<Record<string, unknown>[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [label, setLabel] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [issuedToken, setIssuedToken] = useState<IssuedToken | null>(null);
-  const [mode, setMode] = useState<PanelMode>("browse");
   const tokenCodeRef = useRef<HTMLElement>(null);
 
   const loadAll = useCallback(async (isCancelled: () => boolean = () => false) => {
@@ -59,6 +65,7 @@ export function WorkersPanel(props: WorkersPanelProps) {
         label: response.result.label,
         token: response.result.token,
       });
+      onManageGroupChange("token");
       setLabel("");
       setBaseUrl("");
       await loadAll();
@@ -110,7 +117,7 @@ export function WorkersPanel(props: WorkersPanelProps) {
   return (
     <section>
       <p className="lede">Registered remote worker hosts from persisted control-plane state.</p>
-      <ModeSwitch mode={mode} onChange={setMode} label="Workers mode" />
+      <ModeSwitch mode={mode} onChange={onModeChange} label="Workers mode" />
 
       {mode === "browse" && (
         <>
@@ -160,9 +167,10 @@ export function WorkersPanel(props: WorkersPanelProps) {
 
       {mode === "manage" && (
         <ManageClusters
-          key={issuedToken ? "token" : "hosts"}
           ariaLabel="Workers manage groups"
           defaultGroupId={issuedToken ? "token" : "hosts"}
+          activeGroupId={manageGroup}
+          onActiveGroupIdChange={onManageGroupChange}
           groups={[
             {
               id: "hosts",

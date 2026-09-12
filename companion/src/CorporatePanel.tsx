@@ -1,5 +1,4 @@
 import {
-  useState,
   type Dispatch,
   type FormEvent,
   type ReactNode,
@@ -18,12 +17,11 @@ import type {
 } from "./api/client";
 import { ManageClusters } from "./ManageClusters";
 import { ModeSwitch, type PanelMode } from "./ModeSwitch";
+import type { CorporateClusterId } from "./urlState";
 
 type FormStatus = { ok: boolean; text: string };
 
-type CorporateCluster = "strategy" | "structure" | "people" | "coordination";
-
-const CORPORATE_CLUSTERS: { id: CorporateCluster; label: string }[] = [
+const CORPORATE_CLUSTERS: { id: CorporateClusterId; label: string }[] = [
   { id: "strategy", label: "Strategy" },
   { id: "structure", label: "Structure" },
   { id: "people", label: "People" },
@@ -50,16 +48,21 @@ type CorporatePanelProps = {
   setFormStatus: Dispatch<SetStateAction<Record<string, FormStatus>>>;
   status: (key: string) => ReactNode;
   scopeNotice: (what: string, scope?: string) => ReactNode;
+  mode: PanelMode;
+  onModeChange: (mode: PanelMode) => void;
+  cluster: CorporateClusterId;
+  onClusterChange: (id: CorporateClusterId) => void;
+  manageGroup: string;
+  onManageGroupChange: (id: string) => void;
 };
 
 export function CorporatePanel(props: CorporatePanelProps) {
   const {
     api, scorecard, objectives, packs, divisions, promotions, staffing, crossDept,
     activity, hqRoomCount, canManage, runAction, setFormStatus, status, scopeNotice,
+    mode, onModeChange, cluster, onClusterChange, manageGroup, onManageGroupChange,
   } = props;
-  const [mode, setMode] = useState<PanelMode>("browse");
   const wide = useWideViewport();
-  const [cluster, setCluster] = useState<CorporateCluster>("strategy");
 
   async function createObjective(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -126,7 +129,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
   return (
     <section>
       <p className="lede">Scorecard, staffing, packs, divisions, and cross-department work from persisted state.</p>
-      <ModeSwitch mode={mode} onChange={setMode} label="Corporate mode" />
+      <ModeSwitch mode={mode} onChange={onModeChange} label="Corporate mode" />
       {!canManage && scopeNotice("change headquarters or corporate records")}
 
       {mode === "browse" && (
@@ -140,7 +143,7 @@ export function CorporatePanel(props: CorporatePanelProps) {
                   role="tab"
                   aria-selected={cluster === item.id}
                   className={cluster === item.id ? "active" : ""}
-                  onClick={() => setCluster(item.id)}
+                  onClick={() => onClusterChange(item.id)}
                 >
                   {item.label}
                 </button>
@@ -315,6 +318,8 @@ export function CorporatePanel(props: CorporatePanelProps) {
         <ManageClusters
           ariaLabel="Corporate manage groups"
           defaultGroupId="goals"
+          activeGroupId={manageGroup}
+          onActiveGroupIdChange={onManageGroupChange}
           groups={[
             {
               id: "goals",
