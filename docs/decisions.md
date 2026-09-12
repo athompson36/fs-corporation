@@ -57,6 +57,7 @@
 | ADR-053 | 2026-09-11 | Corporate Browse clusters with narrow sub-tabs | Corporate Browse groups Strategy · Structure · People · Coordination; segmented cluster tabs below 720px; Manage section-head titles only; no URL sync or new APIs. |
 | ADR-054 | 2026-09-12 | Projects list-row span + Clear on loading | Projects Browse list rows use span.muted inside buttons; loading detail shows Clear selection; no URL sync or API changes. |
 | ADR-055 | 2026-09-12 | Companion URL sync for tab and project | Query `tab`/`project` with replaceState; unknown project clears silently; pairing hash unchanged; no Router. |
+| ADR-056 | 2026-09-12 | Manage visual groups with shared hybrid chrome | Org/Corporate/Projects/Workers Manage use ManageClusters + shared useWideViewport; no URL sync or API changes. |
 
 ### ADR-010 detail
 
@@ -861,5 +862,31 @@ Corporate clusters (deferred).
 **Consequences.** Companion v0.3.73 ships tab/project URL sync with no Alembic
 revision or control-plane API change. Manage visual groups and Browse/Manage or
 cluster URL sync remain owner-directed follow-ups.
+
+### ADR-056 detail
+
+**Context.** After ADR-053/055, Corporate Browse had hybrid cluster chrome with a
+private `useWideViewport` hook while Organization, Corporate, Projects and Workers
+Manage remained long ungrouped scrolls of forms. The owner selected one release
+wiring shared hybrid chrome across all four Manage panels without URL sync, new
+APIs or regrouping Corporate Browse clusters.
+
+**Decision.** Extract shared `useWideViewport` (`matchMedia("(min-width: 720px)"`)
+and `ManageClusters` (labeled scroll on wide viewports; segmented group tabs on
+narrow). Wire Manage groups on Organization (Catalog · Seats · Positions ·
+Lookup), Corporate (Goals · Structure · Coordination · Ops), Projects (Enroll ·
+GitHub) and Workers (Hosts · Token with honest empty when no token). Corporate
+Browse switches to the shared hook; Browse cluster markup stays in
+`CorporatePanel`. Preserve all fields, `runAction` keys, scope notices and Browse
+modes.
+
+**Alternatives considered.** Per-panel private hooks (rejected — duplicates
+720px logic). URL-synced Manage group selection (rejected — owner lock). Finance
+ModeSwitch (rejected — out of scope). Regrouping Corporate Browse clusters
+(rejected — Browse membership unchanged).
+
+**Consequences.** Companion v0.3.74 ships Manage visual groups with no Alembic
+revision or control-plane API change. Manage/Browse URL sync, Finance ModeSwitch
+and empty-list unknown-project URL edge nit remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

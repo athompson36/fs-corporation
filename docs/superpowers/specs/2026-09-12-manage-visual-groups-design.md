@@ -1,6 +1,6 @@
 # Design: Manage visual groups (hybrid) across Work/People Manage
 
-Date: 2026-09-12. Status: **approved for implementation** (target **v0.3.74**).
+Date: 2026-09-12. Status: **implemented in v0.3.74**.
 
 ## Goal
 

@@ -36,7 +36,9 @@ class CorporateBrowseClustersTests(unittest.TestCase):
                 f"CorporatePanel missing cluster-head for {title!r}",
             )
         self.assertIn('aria-label="Corporate clusters"', text)
-        self.assertIn('matchMedia("(min-width: 720px)")', text)
+        self.assertIn('from "./useWideViewport"', text)
+        hook = (SRC / "useWideViewport.ts").read_text()
+        self.assertIn('matchMedia("(min-width: 720px)")', hook)
         self.assertIn("panel-empty", text)
         self.assertIn("ModeSwitch", text)
         # Existing list titles remain section-heads
