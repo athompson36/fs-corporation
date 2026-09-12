@@ -99,6 +99,7 @@ export default function App() {
   const [manualTicket, setManualTicket] = useState("");
   const [dashboard, setDashboard] = useState<Record<string, unknown> | null>(null);
   const [projects, setProjects] = useState<Record<string, unknown>[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
   const [inbox, setInbox] = useState<OwnerRequest[]>([]);
   const [organization, setOrganization] = useState<OrgDepartment[]>([]);
@@ -231,10 +232,10 @@ export default function App() {
   }, [tab, selectedProject]);
 
   useEffect(() => {
-    if (!selectedProject || !projects.length) return;
+    if (!projectsLoaded || !selectedProject) return;
     const known = projects.some((p) => String(p.id) === selectedProject);
     if (!known) setSelectedProject(null);
-  }, [projects, selectedProject]);
+  }, [projects, projectsLoaded, selectedProject]);
 
   useEffect(() => {
     function onPopState() {
@@ -275,6 +276,7 @@ export default function App() {
         ]);
       setDashboard(d);
       setProjects(p.projects);
+      setProjectsLoaded(true);
       setDecisions(dec.items);
       setInbox(own.items);
       setOrganization(org.departments);
