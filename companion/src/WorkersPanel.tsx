@@ -160,8 +160,9 @@ export function WorkersPanel(props: WorkersPanelProps) {
 
       {mode === "manage" && (
         <ManageClusters
+          key={issuedToken ? "token" : "hosts"}
           ariaLabel="Workers manage groups"
-          defaultGroupId="hosts"
+          defaultGroupId={issuedToken ? "token" : "hosts"}
           groups={[
             {
               id: "hosts",
