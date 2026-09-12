@@ -2,7 +2,7 @@
 
 Date: 2026-09-12. Version: **0.3.76**. State: **Mode/cluster/group URL sync on
 branch `feature/mode-cluster-group-url-sync` (pending merge/deploy).** Tip:
-**`db0704e`**.
+**`4e82a61`**.
 
 ## On feature branch
 
