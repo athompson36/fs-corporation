@@ -42,6 +42,7 @@ import {
 import type { PanelMode } from "./ModeSwitch";
 import {
   defaultManageGroup,
+  MODE_CAPABLE_TABS,
   parseCompanionSearch,
   serializeCompanionSearch,
   type CompanionTab,
@@ -91,15 +92,15 @@ function clearPairingHash() {
 const initialUrl =
   typeof window !== "undefined"
     ? parseCompanionSearch(window.location.search)
-    : { tab: "dashboard" as CompanionTab, project: null };
+    : parseCompanionSearch("");
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [tab, setTab] = useState<Tab>(initialUrl.tab);
-  const [panelMode, setPanelMode] = useState<PanelMode>("browse");
-  const [corporateCluster, setCorporateCluster] = useState<CorporateClusterId>("strategy");
+  const [panelMode, setPanelMode] = useState<PanelMode>(initialUrl.mode);
+  const [corporateCluster, setCorporateCluster] = useState<CorporateClusterId>(initialUrl.cluster);
   const [manageGroup, setManageGroup] = useState<string>(
-    defaultManageGroup(initialUrl.tab) ?? "catalog",
+    initialUrl.group ?? defaultManageGroup(initialUrl.tab) ?? "catalog",
   );
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
@@ -183,6 +184,7 @@ export default function App() {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const sessionSyncedFor = useRef<string | null>(null);
+  const tabRef = useRef(tab);
 
   const applyPairing = useCallback(async (ticket: string, baseUrl?: string) => {
     setPairing(true);
@@ -225,16 +227,16 @@ export default function App() {
     const next = serializeCompanionSearch({
       tab,
       project: tab === "projects" ? selectedProject : null,
-      mode: "browse",
-      cluster: "strategy",
-      group: null,
+      mode: panelMode,
+      cluster: corporateCluster,
+      group: panelMode === "manage" ? manageGroup : null,
     });
     const url = window.location.pathname + next + window.location.hash;
     const current = window.location.pathname + window.location.search + window.location.hash;
     if (url !== current) {
       window.history.replaceState(null, "", url);
     }
-  }, [tab, selectedProject]);
+  }, [tab, selectedProject, panelMode, corporateCluster, manageGroup]);
 
   useEffect(() => {
     if (tab !== "projects" && selectedProject !== null) {
@@ -249,10 +251,28 @@ export default function App() {
   }, [projects, projectsLoaded, selectedProject]);
 
   useEffect(() => {
+    if (tabRef.current === tab) return;
+    tabRef.current = tab;
+    setPanelMode("browse");
+    setCorporateCluster("strategy");
+    setManageGroup(defaultManageGroup(tab as CompanionTab) ?? "catalog");
+  }, [tab]);
+
+  useEffect(() => {
+    if (!MODE_CAPABLE_TABS.has(tab as CompanionTab)) {
+      if (panelMode !== "browse") setPanelMode("browse");
+    }
+  }, [tab, panelMode]);
+
+  useEffect(() => {
     function onPopState() {
       const parsed = parseCompanionSearch(window.location.search);
+      tabRef.current = parsed.tab;
       setTab(parsed.tab);
       setSelectedProject(parsed.project);
+      setPanelMode(parsed.mode);
+      setCorporateCluster(parsed.cluster);
+      setManageGroup(parsed.group ?? defaultManageGroup(parsed.tab) ?? "catalog");
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
