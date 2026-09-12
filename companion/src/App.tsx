@@ -180,6 +180,7 @@ export default function App() {
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
   const scopes = settings.scopes;
+  const canManageOrg = canManageOrganization(scopes);
   const api = useMemo(() => new ApiClient(settings), [settings]);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -223,20 +224,41 @@ export default function App() {
   }, [applyPairing]);
 
   useEffect(() => {
+    if (tab === "organization" && !canManageOrg && panelMode === "manage" && manageGroup !== "lookup") {
+      setManageGroup("lookup");
+    }
+  }, [tab, canManageOrg, panelMode, manageGroup]);
+
+  useEffect(() => {
+    if (tab === "corporate" && !canManageOrg && panelMode === "manage") {
+      setPanelMode("browse");
+    }
+  }, [tab, canManageOrg, panelMode]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
+    let mode = panelMode;
+    let group = panelMode === "manage" ? manageGroup : null;
+    if (tab === "corporate" && !canManageOrg && mode === "manage") {
+      mode = "browse";
+      group = null;
+    }
+    if (tab === "organization" && !canManageOrg && mode === "manage") {
+      group = "lookup";
+    }
     const next = serializeCompanionSearch({
       tab,
       project: tab === "projects" ? selectedProject : null,
-      mode: panelMode,
+      mode,
       cluster: corporateCluster,
-      group: panelMode === "manage" ? manageGroup : null,
+      group,
     });
     const url = window.location.pathname + next + window.location.hash;
     const current = window.location.pathname + window.location.search + window.location.hash;
     if (url !== current) {
       window.history.replaceState(null, "", url);
     }
-  }, [tab, selectedProject, panelMode, corporateCluster, manageGroup]);
+  }, [tab, selectedProject, panelMode, corporateCluster, manageGroup, canManageOrg]);
 
   useEffect(() => {
     if (tab !== "projects" && selectedProject !== null) {
@@ -489,6 +511,27 @@ export default function App() {
   }, [api, selectedProject, settings.token, scopes]);
 
   /** Run a write and report the outcome next to the control that triggered it. */
+  const handlePanelModeChange = useCallback(
+    (mode: PanelMode) => {
+      if (tab === "corporate" && !canManageOrg && mode === "manage") {
+        setPanelMode("browse");
+        return;
+      }
+      setPanelMode(mode);
+    },
+    [tab, canManageOrg],
+  );
+
+  const handleManageGroupChange = useCallback(
+    (id: string) => {
+      if (tab === "organization" && !canManageOrg && panelMode === "manage" && id !== "lookup") {
+        return;
+      }
+      setManageGroup(id);
+    },
+    [tab, canManageOrg, panelMode],
+  );
+
   const runAction = useCallback(
     async (key: string, success: string, action: () => Promise<unknown>): Promise<boolean> => {
       setFormStatus((prev) => ({ ...prev, [key]: { ok: true, text: "Working…" } }));
@@ -643,7 +686,6 @@ export default function App() {
   const accessBadge = settings.access_level === "read_only"
     ? "Read only"
     : settings.label || (settings.access_level ? settings.access_level : null);
-  const canManageOrg = canManageOrganization(scopes);
   const canEditSettings = canPause(scopes);
   const canApproveFeeds = canEnroll(scopes);
   const canOperateFeeds = canPause(scopes);
@@ -844,9 +886,9 @@ export default function App() {
           status={status}
           scopeNotice={scopeNotice}
           mode={panelMode}
-          onModeChange={setPanelMode}
+          onModeChange={handlePanelModeChange}
           manageGroup={manageGroup}
-          onManageGroupChange={setManageGroup}
+          onManageGroupChange={handleManageGroupChange}
         />
       )}
 
@@ -868,7 +910,7 @@ export default function App() {
           status={status}
           scopeNotice={scopeNotice}
           mode={panelMode}
-          onModeChange={setPanelMode}
+          onModeChange={handlePanelModeChange}
           cluster={corporateCluster}
           onClusterChange={setCorporateCluster}
           manageGroup={manageGroup}
