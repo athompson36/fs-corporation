@@ -77,6 +77,10 @@ h2 { font-size: 0.95rem; margin: 0 0 0.35rem; }
   margin: 0 0 0.65rem;
 }
 
+.manage-cluster-tabs {
+  margin: 0 0 0.65rem;
+}
+
 .panel-mode {
   margin: 0 0 0.65rem;
 }

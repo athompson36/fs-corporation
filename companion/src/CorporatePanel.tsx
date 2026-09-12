@@ -1,11 +1,11 @@
 import {
-  useEffect,
   useState,
   type Dispatch,
   type FormEvent,
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { useWideViewport } from "./useWideViewport";
 import type {
   ActivityItem,
   ApiClient,
@@ -28,21 +28,6 @@ const CORPORATE_CLUSTERS: { id: CorporateCluster; label: string }[] = [
   { id: "people", label: "People" },
   { id: "coordination", label: "Coordination" },
 ];
-
-function useWideViewport(): boolean {
-  const [wide, setWide] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.matchMedia("(min-width: 720px)").matches;
-  });
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 720px)");
-    const onChange = () => setWide(mq.matches);
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-  return wide;
-}
 
 type CorporatePanelProps = {
   api: ApiClient;
