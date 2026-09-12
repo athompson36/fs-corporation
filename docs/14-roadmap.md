@@ -442,9 +442,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Mode/cluster/group URL sync 0.3.76 is on branch `feature/mode-cluster-group-url-sync`**
-(pending merge/deploy). App owns `panelMode`/`corporateCluster`/`manageGroup`;
-`urlState.ts` parse/serialize omits defaults; panels and `ManageClusters` are
-controlled; Workers token-after-create forces `group=token`. No Finance
-ModeSwitch, new APIs or Alembic revision. Next: owner-directed (merge/deploy
-0.3.76, Finance ModeSwitch, or other companion/desk follow-ups).
+**Mode/cluster/group URL sync 0.3.76 is on `main` and fs-dev** (tip `7acef49`).
+App owns `panelMode`/`corporateCluster`/`manageGroup`; `urlState.ts`
+parse/serialize omits defaults; panels and `ManageClusters` are controlled;
+Workers token-after-create forces `group=token`; read-only Org/Corporate clamps.
+No Finance ModeSwitch, new APIs or Alembic revision. Next: owner-directed
+(Finance ModeSwitch, or other companion/desk follow-ups).
