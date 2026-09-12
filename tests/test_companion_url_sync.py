@@ -1,4 +1,4 @@
-"""Companion URL sync tab+project deep links (v0.3.73)."""
+"""Companion URL sync tab+project deep links (v0.3.75)."""
 from __future__ import annotations
 
 import re
@@ -32,8 +32,29 @@ class CompanionUrlSyncTests(unittest.TestCase):
         self.assertIn("pairingTicketFromHash", text)
         self.assertIn("clearPairingHash", text)
 
+    def test_app_unknown_project_clear_gated_on_projects_loaded(self):
+        text = (SRC / "App.tsx").read_text()
+        self.assertIn("projectsLoaded", text)
+        self.assertIn("setProjectsLoaded", text)
+        self.assertIn("setProjectsLoaded(true)", text)
+        # Gate clear on loaded flag — not empty-list early return alone
+        self.assertRegex(
+            text,
+            r"if\s*\(\s*!projectsLoaded\s*\|\|\s*!selectedProject\s*\)\s*return",
+        )
+        self.assertNotRegex(
+            text,
+            r"if\s*\(\s*!selectedProject\s*\|\|\s*!projects\.length\s*\)\s*return",
+        )
+
     def test_version_bump_target(self):
         init = (ROOT / "company" / "__init__.py").read_text()
         self.assertRegex(init, r'__version__ = "0\.3\.\d+"')
         pkg = (ROOT / "companion" / "package.json").read_text()
         self.assertRegex(pkg, r'"version": "0\.3\.\d+"')
+
+    def test_version_bump_target_exact(self):
+        init = (ROOT / "company" / "__init__.py").read_text()
+        self.assertIn('__version__ = "0.3.75"', init)
+        pkg = (ROOT / "companion" / "package.json").read_text()
+        self.assertIn('"version": "0.3.75"', pkg)
