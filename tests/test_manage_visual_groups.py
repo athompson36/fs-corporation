@@ -63,8 +63,9 @@ class ManageVisualGroupsTests(unittest.TestCase):
         self.assertTrue(_section_head_wraps_h2(workers, "Create worker host"))
         self.assertTrue(_section_head_wraps_h2(workers, "Worker host token"))
         self.assertIn("No token issued yet.", workers)
-        self.assertIn('key={issuedToken ? "token" : "hosts"}', workers)
         self.assertIn('defaultGroupId={issuedToken ? "token" : "hosts"}', workers)
+        self.assertIn("activeGroupId={manageGroup}", workers)
+        self.assertIn('onManageGroupChange("token")', workers)
 
     def test_version_bump_target(self):
         init = (ROOT / "company" / "__init__.py").read_text()

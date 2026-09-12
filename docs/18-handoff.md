@@ -2,7 +2,7 @@
 
 Date: 2026-09-12. Version: **0.3.76**. State: **Mode/cluster/group URL sync on
 branch `feature/mode-cluster-group-url-sync` (pending merge/deploy).** Tip:
-**pending commit**.
+**`db0704e`**.
 
 ## On feature branch
 
@@ -23,8 +23,8 @@ branch `feature/mode-cluster-group-url-sync` (pending merge/deploy).** Tip:
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **pending run**.
-- `cd companion && npm run build`: pending (package version 0.3.76).
+- `.venv/bin/python -m unittest discover -s tests`: **529 tests, OK**.
+- `cd companion && npm run build`: OK (package version 0.3.76).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
