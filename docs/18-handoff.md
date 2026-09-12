@@ -1,9 +1,9 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.73**. State: **Companion URL sync on
-`feature/companion-url-sync`** (branch-local; not yet merged or deployed).
+Date: 2026-09-12. Version: **0.3.73**. State: **Companion URL sync merged to
+`main`, pushed, and deployed to fs-dev.** Tip: **`6746a44`**.
 
-## On branch `feature/companion-url-sync`
+## On main / fs-dev
 
 - `companion/src/urlState.ts` — pure `parseCompanionSearch` /
   `serializeCompanionSearch` helpers for `?tab=` and `?project=`.
@@ -14,17 +14,18 @@ Date: 2026-09-12. Version: **0.3.73**. State: **Companion URL sync on
 - Pairing `#fs-pair=` redeem and `clearPairingHash()` unchanged.
 - ADR-055; version **0.3.73** (Python package and companion `package.json`
   lockstep).
-- Prior 0.3.72 Projects list-row `span.muted` and Clear-on-loading, 0.3.71
-  Corporate clusters, and all APIs unchanged.
+- Prior: Projects list-row Clear-on-loading (0.3.72), Corporate clusters
+  (0.3.71), Org polish (0.3.70).
 
 ## Verification
 
 - `.venv/bin/python -m unittest discover -s tests`: **517 tests, OK**.
 - `cd companion && npm run build`: OK (package version 0.3.73).
-- fs-dev still reports **0.3.72** until merge/deploy.
+- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.73",...}`; companion
+  bundle includes `replaceState` / `popstate`; `urlState.ts` on host.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Merge `feature/companion-url-sync` to `main`, deploy to fs-dev, then
-owner-directed: Manage visual groups or other companion/desk follow-ups.
+Owner-directed: Manage visual groups, empty-list unknown-project edge nit, or
+other companion/desk follow-ups.
