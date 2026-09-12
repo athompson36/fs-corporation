@@ -9,7 +9,7 @@ merged to `main`, pushed, and deployed to fs-dev** (health `0.3.69`).
 - Workers **Worker hosts** title sits outside the list card (matches Projects/Corporate).
 - ADR-051; version **0.3.69**. Projects split (0.3.68) and desk five-domain IA (0.3.67)
   unchanged.
-- Tip: `6e0b5a4`.
+- Tip: `b0aba4b` (includes restore of polish files after a bad handoff commit).
 
 ## Verification
 
