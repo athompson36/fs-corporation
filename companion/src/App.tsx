@@ -39,18 +39,13 @@ import {
   canManageOrganization,
   canRespondInbox,
 } from "./scopes";
+import {
+  parseCompanionSearch,
+  serializeCompanionSearch,
+  type CompanionTab,
+} from "./urlState";
 
-type Tab =
-  | "dashboard"
-  | "projects"
-  | "organization"
-  | "corporate"
-  | "workers"
-  | "decisions"
-  | "inbox"
-  | "diagnostics"
-  | "finance"
-  | "settings";
+type Tab = CompanionTab;
 
 /** Primary bar labels. `work`/`people`/`money` are group sentinels for the bar only. */
 const PRIMARY_TABS: [string, string][] = [
@@ -90,9 +85,14 @@ function clearPairingHash() {
   }
 }
 
+const initialUrl =
+  typeof window !== "undefined"
+    ? parseCompanionSearch(window.location.search)
+    : { tab: "dashboard" as CompanionTab, project: null };
+
 export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTab] = useState<Tab>(initialUrl.tab);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const [pairing, setPairing] = useState(false);
@@ -103,7 +103,7 @@ export default function App() {
   const [inbox, setInbox] = useState<OwnerRequest[]>([]);
   const [organization, setOrganization] = useState<OrgDepartment[]>([]);
   const [headInbox, setHeadInbox] = useState<HeadDispatch[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<string | null>(initialUrl.project);
   const [projectDetail, setProjectDetail] = useState<Record<string, unknown> | null>(null);
   const [ghUpstream, setGhUpstream] = useState("");
   const [ghProjectId, setGhProjectId] = useState("");
@@ -210,6 +210,41 @@ export default function App() {
       applyPairing(ticket);
     }
   }, [applyPairing]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const next = serializeCompanionSearch({
+      tab,
+      project: tab === "projects" ? selectedProject : null,
+    });
+    const url = window.location.pathname + next + window.location.hash;
+    const current = window.location.pathname + window.location.search + window.location.hash;
+    if (url !== current) {
+      window.history.replaceState(null, "", url);
+    }
+  }, [tab, selectedProject]);
+
+  useEffect(() => {
+    if (tab !== "projects" && selectedProject !== null) {
+      setSelectedProject(null);
+    }
+  }, [tab, selectedProject]);
+
+  useEffect(() => {
+    if (!selectedProject || !projects.length) return;
+    const known = projects.some((p) => String(p.id) === selectedProject);
+    if (!known) setSelectedProject(null);
+  }, [projects, selectedProject]);
+
+  useEffect(() => {
+    function onPopState() {
+      const parsed = parseCompanionSearch(window.location.search);
+      setTab(parsed.tab);
+      setSelectedProject(parsed.project);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!settings.token) {
