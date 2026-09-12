@@ -36,6 +36,7 @@ export const MODE_CAPABLE_TABS = new Set<CompanionTab>([
   "organization",
   "corporate",
   "workers",
+  "finance",
 ]);
 
 const CLUSTERS = new Set<CorporateClusterId>([
@@ -45,22 +46,61 @@ const CLUSTERS = new Set<CorporateClusterId>([
   "coordination",
 ]);
 
-const GROUPS: Record<string, ReadonlySet<string>> = {
+const MANAGE_GROUPS: Record<string, ReadonlySet<string>> = {
   organization: new Set(["catalog", "seats", "positions", "lookup"]),
   corporate: new Set(["goals", "structure", "coordination", "ops"]),
   projects: new Set(["enroll", "github"]),
   workers: new Set(["hosts", "token"]),
+  finance: new Set(["invoice", "adjustment", "period"]),
 };
 
-const DEFAULT_GROUP: Record<string, string> = {
+const MANAGE_DEFAULT: Record<string, string> = {
   organization: "catalog",
   corporate: "goals",
   projects: "enroll",
   workers: "hosts",
+  finance: "invoice",
 };
 
+/** @deprecated Use MANAGE_GROUPS */
+const GROUPS = MANAGE_GROUPS;
+
+/** @deprecated Use MANAGE_DEFAULT */
+const DEFAULT_GROUP = MANAGE_DEFAULT;
+
+const FINANCE_BROWSE_GROUPS = new Set([
+  "overview",
+  "invoices",
+  "adjustments",
+  "periods",
+]);
+const FINANCE_BROWSE_DEFAULT = "overview";
+
+export function allowedGroups(
+  tab: CompanionTab,
+  mode: PanelMode,
+): ReadonlySet<string> | null {
+  if (tab === "finance") {
+    return mode === "manage" ? MANAGE_GROUPS.finance : FINANCE_BROWSE_GROUPS;
+  }
+  if (mode !== "manage") return null;
+  return MANAGE_GROUPS[tab] ?? null;
+}
+
+export function defaultGroupFor(
+  tab: CompanionTab,
+  mode: PanelMode,
+): string | null {
+  if (tab === "finance") {
+    return mode === "manage" ? MANAGE_DEFAULT.finance : FINANCE_BROWSE_DEFAULT;
+  }
+  if (mode !== "manage") return null;
+  return MANAGE_DEFAULT[tab] ?? null;
+}
+
+/** @deprecated Prefer defaultGroupFor(tab, "manage") */
 export function defaultManageGroup(tab: CompanionTab): string | null {
-  return DEFAULT_GROUP[tab] ?? null;
+  return defaultGroupFor(tab, "manage");
 }
 
 export type CompanionUrlState = {
@@ -99,10 +139,12 @@ export function parseCompanionSearch(search: string): CompanionUrlState {
 
   const rawGroup = (params.get("group") || "").trim();
   let group: string | null = null;
-  if (capable && mode === "manage") {
-    const allowed = GROUPS[tab];
-    const fallback = DEFAULT_GROUP[tab];
-    group = allowed?.has(rawGroup) ? rawGroup : fallback;
+  if (capable) {
+    const allowed = allowedGroups(tab, mode);
+    const fallback = defaultGroupFor(tab, mode);
+    if (allowed && fallback) {
+      group = allowed.has(rawGroup) ? rawGroup : fallback;
+    }
   }
 
   return { tab, project, mode, cluster, group };
@@ -125,12 +167,14 @@ export function serializeCompanionSearch(state: CompanionUrlState): string {
     if (cluster !== "strategy") params.set("cluster", cluster);
   }
 
-  if (capable && mode === "manage") {
-    const fallback = DEFAULT_GROUP[tab];
-    const allowed = GROUPS[tab];
-    const group =
-      state.group && allowed?.has(state.group) ? state.group : fallback;
-    if (group && group !== fallback) params.set("group", group);
+  if (capable) {
+    const allowed = allowedGroups(tab, mode);
+    const fallback = defaultGroupFor(tab, mode);
+    if (allowed && fallback) {
+      const group =
+        state.group && allowed.has(state.group) ? state.group : fallback;
+      if (group !== fallback) params.set("group", group);
+    }
   }
 
   const qs = params.toString();
