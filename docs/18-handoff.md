@@ -1,9 +1,9 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.74**. State: **Manage visual groups on branch
-`feature/manage-visual-groups` (not yet on `main` / fs-dev).** Tip: `1b0d591`.
+Date: 2026-09-12. Version: **0.3.74**. State: **Manage visual groups merged to
+`main`, pushed, and deployed to fs-dev.** Tip: **`bce7048`**.
 
-## On feature/manage-visual-groups
+## On main / fs-dev
 
 - `companion/src/useWideViewport.ts` — shared `matchMedia("(min-width: 720px)")`
   hook for Corporate Browse and Manage panels.
@@ -15,7 +15,7 @@ Date: 2026-09-12. Version: **0.3.74**. State: **Manage visual groups on branch
   Coordination · Ops; Browse uses shared hook.
 - `companion/src/ProjectsPanel.tsx` — Manage groups Enroll · GitHub.
 - `companion/src/WorkersPanel.tsx` — Manage groups Hosts · Token with honest
-  empty and section-head titles.
+  empty and section-head titles; remounts to Token after host create.
 - ADR-056; version **0.3.74** (Python package and companion `package.json`
   lockstep).
 - Prior: Companion URL sync (0.3.73), Projects list-row Clear-on-loading
@@ -25,10 +25,12 @@ Date: 2026-09-12. Version: **0.3.74**. State: **Manage visual groups on branch
 
 - `.venv/bin/python -m unittest discover -s tests`: **522 tests, OK**.
 - `cd companion && npm run build`: OK (package version 0.3.74).
+- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.74",...}`; companion
+  bundle `index-BZ9AYJrL.js` includes `Organization manage groups` /
+  `manage-cluster-tabs`.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: merge `feature/manage-visual-groups` to `main` and deploy to
-fs-dev; empty-list unknown-project URL edge nit; Manage/Browse URL sync; Finance
-ModeSwitch; or other companion/desk follow-ups.
+Owner-directed: empty-list unknown-project URL edge nit; Manage/Browse URL sync;
+Finance ModeSwitch; or other companion/desk follow-ups.

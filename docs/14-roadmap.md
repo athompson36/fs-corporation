@@ -435,9 +435,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Manage visual groups 0.3.74 is on `feature/manage-visual-groups`.** Organization,
-Corporate, Projects and Workers Manage use shared hybrid cluster chrome; Corporate
-Browse shares `useWideViewport`. Companion URL sync 0.3.73 remains on `main` and
-fs-dev. No Manage/Browse URL sync, Finance ModeSwitch, new APIs or Alembic revision.
-Next: owner-directed (merge/deploy 0.3.74, empty-list unknown-project edge nit, or
-other companion/desk follow-ups).
+**Manage visual groups 0.3.74 is on `main` and fs-dev** (tip `bce7048`).
+Organization, Corporate, Projects and Workers Manage use shared hybrid cluster
+chrome; Corporate Browse shares `useWideViewport`. No Manage/Browse URL sync,
+Finance ModeSwitch, new APIs or Alembic revision. Next: owner-directed
+(empty-list unknown-project edge nit, Manage/Browse URL sync, Finance ModeSwitch,
+or other companion/desk follow-ups).
