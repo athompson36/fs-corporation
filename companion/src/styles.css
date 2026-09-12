@@ -117,6 +117,7 @@ h2 { font-size: 0.95rem; margin: 0 0 0.35rem; }
 }
 
 .list-row .muted {
+  display: block;
   margin-top: 0.2rem;
   font-size: 0.8rem;
 }

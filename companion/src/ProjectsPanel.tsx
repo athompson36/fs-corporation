@@ -128,10 +128,10 @@ export function ProjectsPanel(props: ProjectsPanelProps) {
                   onClick={() => setSelectedProject(id)}
                 >
                   <strong>{id}</strong>
-                  <div className="muted">{String(project.brief)}</div>
-                  <div className="muted">
+                  <span className="muted">{String(project.brief)}</span>
+                  <span className="muted">
                     Blockers: {(project.blockers as string[])?.join(", ") || "none"}
-                  </div>
+                  </span>
                 </button>
               );
             })}
@@ -144,6 +144,12 @@ export function ProjectsPanel(props: ProjectsPanelProps) {
             )}
             {selectedProject && !projectDetail && (
               <div className="card">
+                <div className="detail-toolbar">
+                  <h2>{selectedProject}</h2>
+                  <button type="button" onClick={() => setSelectedProject(null)}>
+                    Clear selection
+                  </button>
+                </div>
                 <p className="muted">Loading…</p>
               </div>
             )}
