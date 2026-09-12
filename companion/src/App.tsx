@@ -217,6 +217,9 @@ export default function App() {
     const next = serializeCompanionSearch({
       tab,
       project: tab === "projects" ? selectedProject : null,
+      mode: "browse",
+      cluster: "strategy",
+      group: null,
     });
     const url = window.location.pathname + next + window.location.hash;
     const current = window.location.pathname + window.location.search + window.location.hash;
