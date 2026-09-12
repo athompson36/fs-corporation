@@ -53,6 +53,7 @@
 | ADR-049 | 2026-09-11 | Desk IA matches companion five domains | Desk rail grouped Home · Work · People · Money · More; page sections reordered; hybrid Home keeps HQ high; Scorecard under Work; no ID renames or domain panes. |
 | ADR-050 | 2026-09-11 | Companion Projects Browse split workspace | Projects Browse uses list|detail split; detail holds dispatch workspace; Manage remains enroll/assign; medium empty/section polish on sibling panels; no URL sync or Finance ModeSwitch. |
 | ADR-051 | 2026-09-11 | Corporate and Workers Browse section consistency | Corporate Browse lists use section-head + panel-empty; Workers title sits outside the list card; no capability or API changes. |
+| ADR-052 | 2026-09-11 | Org Browse and Manage section-head consistency | Organization catalog and Manage forms use section-head titles matching Corporate/Workers; no capability or API changes. |
 
 ### ADR-010 detail
 
@@ -753,6 +754,31 @@ components were out of scope. Desk and welcome changes were not requested.
 **Consequences.** Corporate and Workers Browse titles and empties match the
 Projects/Objectives pattern. No Alembic revision or control-plane API change is
 required. Corporate visual groups, Org polish, URL sync and reusable split
+components remain owner-directed follow-ups.
+
+### ADR-052 detail
+
+**Context.** After ADR-051 aligned Corporate and Workers Browse titles, Organization
+still used a mix of bare Manage `<h2>` titles and a Departments catalog without a
+`section-head`. The owner selected an in-place Org polish without Manage grouping,
+Corporate groups, new APIs or URL-synced selection.
+
+**Decision.** Organization Browse adds a **Departments** `section-head` above the
+catalog cards and keeps the existing Head inbox `section-head` + `panel-empty`
+(including inline assign). Each Manage form title uses `section-head` outside the
+form card: Create department, Appoint department head, Vacate department head,
+Assign position, Release assignment, Create position, Reorder departments,
+Activate dormant department for project, and Worker card. Fields, `runAction`
+handlers and scope notices stay unchanged.
+
+**Alternatives considered.** Manage visual groups (Catalog · Seats · Positions)
+were deferred. Corporate Browse groups/sub-tabs, the Projects list-row HTML nit
+and URL-synced `?project=` were out of width. Extracted shared `PanelSection`
+components were out of scope. Desk and welcome changes were not requested.
+
+**Consequences.** Org Browse and Manage titles match the Corporate/Workers
+section-head pattern. No Alembic revision or control-plane API change is
+required. Manage grouping, Corporate visual groups, URL sync and reusable split
 components remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

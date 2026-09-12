@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.69 local status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, fs-dev deployment, companion Work/People Browse–Manage structure, desk IA aligned to five companion domains, Projects Browse list|detail split, and Corporate/Workers Browse section-head consistency are in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health is **0.3.69** (Corporate/Workers Browse polish installed).
+**v0.3.70 local status:** Cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, fs-dev deployment, companion Work/People Browse–Manage structure, desk IA aligned to five companion domains, Projects Browse list|detail split, Corporate/Workers Browse section-head consistency, and Organization Browse/Manage section-head titles are in place. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health is **0.3.69** (Corporate/Workers Browse polish installed); **0.3.70 is local** until merge and deploy.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials are owner-supplied per environment; a clone without them still runs every local check.
 
@@ -273,6 +273,10 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Corporate/Workers Browse section consistency (0.3.69) — Corporate Browse
       lists use section-head + panel-empty; Workers title sits outside the list
       card; no groups, Org restructure, URL sync, Finance ModeSwitch or new APIs
+- [x] Org Browse/Manage section-head consistency (0.3.70) — Organization
+      catalog uses a Departments section-head; Manage form titles sit outside
+      form cards; Head inbox/assign unchanged; no Manage groups, URL sync,
+      Corporate groups, Finance ModeSwitch or new APIs
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -416,8 +420,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Corporate/Workers Browse polish 0.3.69 is on `main` and fs-dev.** Corporate Browse
-lists use section-head + panel-empty; Workers title sits outside the list card. Projects
-split from 0.3.68 is unchanged. No URL sync, Corporate groups, Org restructure, Finance
-ModeSwitch, new APIs or Alembic revision. Next: owner-directed (Org polish, URL-synced
-project selection, or other).
+**Org Browse/Manage polish 0.3.70 is on this branch (not yet on fs-dev).** Organization
+Browse uses a Departments section-head; Manage form titles sit outside form cards; Head
+inbox and assign are unchanged. Corporate/Workers polish from 0.3.69 and Projects split
+from 0.3.68 are unchanged. No URL sync, Corporate groups, Manage grouping, Finance
+ModeSwitch, new APIs or Alembic revision. Next: owner-directed (Corporate Browse
+groups/sub-tabs, Projects list-row HTML nit, URL-synced project selection, or other).
