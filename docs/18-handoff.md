@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-12. Version: **0.3.74**. State: **Manage visual groups on branch
-`feature/manage-visual-groups`.** Tip: pending commit hash.
+`feature/manage-visual-groups` (not yet on `main` / fs-dev).** Tip: `1b0d591`.
 
 ## On feature/manage-visual-groups
 
@@ -23,8 +23,8 @@ Date: 2026-09-12. Version: **0.3.74**. State: **Manage visual groups on branch
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: pending Task 4 run.
-- `cd companion && npm run build`: pending Task 4 run (package version 0.3.74).
+- `.venv/bin/python -m unittest discover -s tests`: **522 tests, OK**.
+- `cd companion && npm run build`: OK (package version 0.3.74).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
