@@ -72,6 +72,9 @@ export function OrgPanel(props: OrgPanelProps) {
 
       {mode === "browse" && (
         <>
+          <div className="section-head">
+            <h2>Departments</h2>
+          </div>
           {organization.map((department) => (
             <div key={department.id} className="card">
               <strong>{department.id} · {department.name}</strong>
@@ -163,6 +166,9 @@ export function OrgPanel(props: OrgPanelProps) {
         <>
           {canManage && (
             <>
+              <div className="section-head">
+                <h2>Create department</h2>
+              </div>
               <form className="card" onSubmit={async (event) => {
             event.preventDefault();
             const form = event.currentTarget;
@@ -180,7 +186,6 @@ export function OrgPanel(props: OrgPanelProps) {
               }));
             if (ok) form.reset();
           }}>
-            <h2>Create department</h2>
             <label htmlFor="create-dept-id">Id</label>
             <input id="create-dept-id" name="id" type="text" required />
             <label htmlFor="create-dept-name">Name</label>
@@ -198,6 +203,9 @@ export function OrgPanel(props: OrgPanelProps) {
             {status("create-dept")}
           </form>
 
+              <div className="section-head">
+                <h2>Appoint department head</h2>
+              </div>
               <form className="card" onSubmit={async (event) => {
             event.preventDefault();
             const ok = await runAction("appoint-head", "Head appointed.", () =>
@@ -206,7 +214,6 @@ export function OrgPanel(props: OrgPanelProps) {
             setAppointHeadDepartment("");
             setAppointHeadPrincipal("");
           }}>
-            <h2>Appoint department head</h2>
             <label htmlFor="appoint-head-department">Department id</label>
             <input
               id="appoint-head-department"
@@ -227,13 +234,15 @@ export function OrgPanel(props: OrgPanelProps) {
             {status("appoint-head")}
           </form>
 
+              <div className="section-head">
+                <h2>Vacate department head</h2>
+              </div>
               <form className="card" onSubmit={async (event) => {
             event.preventDefault();
             const ok = await runAction("vacate-head", "Head vacated.", () =>
               api.vacateHead(vacateHeadDepartment.trim()));
             if (ok) setVacateHeadDepartment("");
           }}>
-            <h2>Vacate department head</h2>
             <label htmlFor="vacate-head-department">Department id</label>
             <input
               id="vacate-head-department"
@@ -246,6 +255,9 @@ export function OrgPanel(props: OrgPanelProps) {
             {status("vacate-head")}
           </form>
 
+              <div className="section-head">
+                <h2>Assign position</h2>
+              </div>
               <form className="card" onSubmit={async (event) => {
             event.preventDefault();
             const ok = await runAction("assign-position", "Position assigned.", () =>
@@ -259,7 +271,6 @@ export function OrgPanel(props: OrgPanelProps) {
             setPositionPrincipal("");
             setPositionReportsTo("");
           }}>
-            <h2>Assign position</h2>
             <label htmlFor="assign-position-id">Position id</label>
             <input
               id="assign-position-id"
@@ -289,13 +300,15 @@ export function OrgPanel(props: OrgPanelProps) {
             {status("assign-position")}
           </form>
 
+              <div className="section-head">
+                <h2>Release assignment</h2>
+              </div>
               <form className="card" onSubmit={async (event) => {
             event.preventDefault();
             const ok = await runAction("release-assignment", "Assignment released.", () =>
               api.releaseAssignment(releaseAssignmentId.trim()));
             if (ok) setReleaseAssignmentId("");
           }}>
-            <h2>Release assignment</h2>
             <label htmlFor="release-assignment-id">Assignment id</label>
             <input
               id="release-assignment-id"
@@ -308,6 +321,9 @@ export function OrgPanel(props: OrgPanelProps) {
             {status("release-assignment")}
           </form>
 
+              <div className="section-head">
+                <h2>Create position</h2>
+              </div>
               <form className="card" onSubmit={async (event) => {
             event.preventDefault();
             const form = event.currentTarget;
@@ -319,7 +335,6 @@ export function OrgPanel(props: OrgPanelProps) {
               ));
             if (ok) form.reset();
           }}>
-            <h2>Create position</h2>
             <label htmlFor="create-pos-dept">Department id</label>
             <input id="create-pos-dept" name="department_id" type="text" required />
             <label htmlFor="create-pos-title">Title</label>
@@ -328,6 +343,9 @@ export function OrgPanel(props: OrgPanelProps) {
             {status("create-position")}
           </form>
 
+              <div className="section-head">
+                <h2>Reorder departments</h2>
+              </div>
               <form className="card" onSubmit={async (event) => {
             event.preventDefault();
             const form = event.currentTarget;
@@ -346,7 +364,6 @@ export function OrgPanel(props: OrgPanelProps) {
               api.reorderDepartments(items));
             if (ok) form.reset();
           }}>
-            <h2>Reorder departments</h2>
             <label htmlFor="reorder-items">Items JSON</label>
             <textarea
               id="reorder-items"
@@ -358,6 +375,9 @@ export function OrgPanel(props: OrgPanelProps) {
             {status("reorder-departments")}
           </form>
 
+              <div className="section-head">
+                <h2>Activate dormant department for project</h2>
+              </div>
               <form className="card" onSubmit={async (event) => {
             event.preventDefault();
             const ok = await runAction("activate-department", "Department activated.", () =>
@@ -366,7 +386,6 @@ export function OrgPanel(props: OrgPanelProps) {
             setActivateProjectId("");
             setActivateDepartmentId("");
           }}>
-            <h2>Activate dormant department for project</h2>
             <label htmlFor="activate-project">Project id</label>
             <input
               id="activate-project"
@@ -389,6 +408,9 @@ export function OrgPanel(props: OrgPanelProps) {
             </>
           )}
 
+          <div className="section-head">
+            <h2>Worker card</h2>
+          </div>
           <form className="card" onSubmit={async (event) => {
             event.preventDefault();
             await runAction("worker-card", "Card loaded.", async () => {
@@ -400,7 +422,6 @@ export function OrgPanel(props: OrgPanelProps) {
               }
             });
           }}>
-            <h2>Worker card</h2>
             <label htmlFor="worker-lookup-id">Employee id</label>
             <input
               id="worker-lookup-id"
