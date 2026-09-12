@@ -1,10 +1,9 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.72**. State: **`feature/projects-list-row-clear-loading`
-local branch — not merged to `main` or deployed to fs-dev yet.** Prior tip on main/fs-dev:
-**0.3.71** (`3e3c798`).
+Date: 2026-09-12. Version: **0.3.72**. State: **Projects list-row Clear-on-loading
+merged to `main`, pushed, and deployed to fs-dev.** Tip: **`ee0065a`**.
 
-## On feature branch (0.3.72)
+## On main / fs-dev
 
 - Projects Browse list rows replace `<div className="muted">` with `<span
   className="muted">` inside list buttons; `.list-row .muted { display: block; }`
@@ -16,18 +15,17 @@ local branch — not merged to `main` or deployed to fs-dev yet.** Prior tip on 
 - Manage enroll/assign, Corporate clusters, Org/Corporate/Workers polish and all
   APIs unchanged.
 - ADR-054; version **0.3.72** (Python package and companion `package.json`
-  lockstep). Corporate clusters test relaxes version pin to `0.3.x` regex.
+  lockstep).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **514 tests, OK** (record after
-  Task 3 run).
+- `.venv/bin/python -m unittest discover -s tests`: **514 tests, OK**.
 - `cd companion && npm run build`: OK (package version 0.3.72).
-- fs-dev still reports **0.3.71** until merge and deploy.
+- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.72",...}`; companion
+  bundle includes Clear selection / Loading… / detail-toolbar.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Merge `feature/projects-list-row-clear-loading` to `main`, deploy fs-dev, then
-owner-directed: URL-synced project selection, Manage visual groups, or other
+Owner-directed: URL-synced project selection, Manage visual groups, or other
 companion/desk follow-ups.
