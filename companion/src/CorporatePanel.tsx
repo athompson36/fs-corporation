@@ -1,4 +1,11 @@
-import { useState, type Dispatch, type FormEvent, type ReactNode, type SetStateAction } from "react";
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import type {
   ActivityItem,
   ApiClient,
@@ -12,6 +19,38 @@ import type {
 import { ModeSwitch, type PanelMode } from "./ModeSwitch";
 
 type FormStatus = { ok: boolean; text: string };
+
+type CorporateCluster = "strategy" | "structure" | "people" | "coordination";
+
+const CORPORATE_CLUSTERS: { id: CorporateCluster; label: string }[] = [
+  { id: "strategy", label: "Strategy" },
+  { id: "structure", label: "Structure" },
+  { id: "people", label: "People" },
+  { id: "coordination", label: "Coordination" },
+];
+
+function useWideViewport(): boolean {
+  const [wide, setWide] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.matchMedia("(min-width: 720px)").matches;
+  });
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 720px)");
+    const onChange = () => setWide(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return wide;
+}
+
+function ClusterHead({ title }: { title: string }) {
+  return (
+    <div className="cluster-head">
+      <h2>{title}</h2>
+    </div>
+  );
+}
 
 type CorporatePanelProps = {
   api: ApiClient;
@@ -41,6 +80,8 @@ export function CorporatePanel(props: CorporatePanelProps) {
     activity, hqRoomCount, canManage, runAction, setFormStatus, status, scopeNotice,
   } = props;
   const [mode, setMode] = useState<PanelMode>("browse");
+  const wide = useWideViewport();
+  const [cluster, setCluster] = useState<CorporateCluster>("strategy");
 
   async function createObjective(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,145 +153,192 @@ export function CorporatePanel(props: CorporatePanelProps) {
 
       {mode === "browse" && (
         <>
-          <div className="card">
-            <h2>CEO scorecard</h2>
-            <p className="muted">Measured from persisted operations — not simulated. HQ rooms: {hqRoomCount}</p>
-            <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem" }}>
-              {JSON.stringify(scorecard || {}, null, 2)}
-            </pre>
-          </div>
-
-          <div className="section-head">
-            <h2>Objectives</h2>
-          </div>
-          {objectives.map((objective) => (
-            <div key={objective.id} className="card">
-              <strong>{objective.title}</strong>
-              <div className="muted">{objective.status} · due {objective.due_at}</div>
-              {canManage && objective.status === "open" && (
-                <div className="actions">
-                  <button type="button" onClick={() =>
-                    runAction(`objective-${objective.id}`, "Objective closed.", () =>
-                      api.closeObjective(objective.id))}>Close</button>
-                </div>
-              )}
-              {status(`objective-${objective.id}`)}
+          {!wide && (
+            <div className="segmented corporate-cluster-tabs" role="tablist" aria-label="Corporate clusters">
+              {CORPORATE_CLUSTERS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={cluster === item.id}
+                  className={cluster === item.id ? "active" : ""}
+                  onClick={() => setCluster(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
-          ))}
-          {!objectives.length && <p className="panel-empty">No objectives.</p>}
+          )}
 
-          <div className="section-head">
-            <h2>Industry packs</h2>
-          </div>
-          {packs.map((pack) => (
-            <div key={pack.id} className="card muted">
-              {pack.id} — {pack.industry} — minimal {pack.minimal_departments.length} / full {pack.full_departments.length}
-            </div>
-          ))}
-          {!packs.length && <p className="panel-empty">No industry packs.</p>}
-
-          <div className="section-head">
-            <h2>Divisions</h2>
-          </div>
-          {divisions.map((division) => (
-            <div key={division.id} className="card">
-              <strong>{division.name}</strong>
-              <div className="muted">{division.industry_pack_id} · {division.mode} · {division.status}</div>
-              {canManage && (
-                <div className="actions">
-                  {division.status === "proposed" && (
-                    <button type="button" className="primary" onClick={() =>
-                      runAction(`division-${division.id}`, "Division activated.", () =>
-                        api.activateDivision(division.id))}>Activate</button>
-                  )}
-                </div>
-              )}
-              {status(`division-${division.id}`)}
-            </div>
-          ))}
-          {!divisions.length && <p className="panel-empty">No divisions.</p>}
-
-          <div className="section-head">
-            <h2>Pending promotions</h2>
-          </div>
-          {promotions.map((promotion) => (
-            <div key={promotion.id} className="card">
-              <strong>{promotion.employee_id}</strong>
-              <div className="muted">{promotion.from_level} → {promotion.to_level} · {promotion.status}</div>
-              {canManage && (
-                <div className="actions">
-                  <button type="button" className="approve" onClick={() =>
-                    runAction(`promotion-${promotion.id}`, "Promotion approved.", () =>
-                      api.decidePromotion(promotion.id, "approved"))}>Approve</button>
-                  <button type="button" className="danger" onClick={() =>
-                    runAction(`promotion-${promotion.id}`, "Promotion rejected.", () =>
-                      api.decidePromotion(promotion.id, "rejected"))}>Reject</button>
-                </div>
-              )}
-              {status(`promotion-${promotion.id}`)}
-            </div>
-          ))}
-          {!promotions.length && <p className="panel-empty">No pending promotions.</p>}
-
-          <div className="section-head">
-            <h2>Staffing proposals</h2>
-          </div>
-          {staffing.map((proposal) => (
-            <div key={proposal.id} className="card">
-              <strong>{proposal.kind} · {proposal.position_id}</strong>
-              <div className="muted">{proposal.cost_estimate_cents}¢ · {proposal.rationale}</div>
-              {canManage && (
-                <div className="actions">
-                  <button type="button" className="approve" onClick={() =>
-                    runAction(`staffing-${proposal.id}`, "Proposal approved.", () =>
-                      api.decideStaffingProposal(proposal.id, "approved"))}>Approve</button>
-                  <button type="button" className="danger" onClick={() =>
-                    runAction(`staffing-${proposal.id}`, "Proposal rejected.", () =>
-                      api.decideStaffingProposal(proposal.id, "rejected"))}>Reject</button>
-                </div>
-              )}
-              {status(`staffing-${proposal.id}`)}
-            </div>
-          ))}
-          {!staffing.length && <p className="panel-empty">No pending staffing proposals.</p>}
-
-          <div className="section-head">
-            <h2>Cross-department requests</h2>
-          </div>
-          {crossDept.map((item) => (
-            <div key={item.id} className="card">
-              <strong>{item.subject}</strong>
-              <div className="muted">
-                {item.requesting_department_id} → {item.delivering_department_id} · {item.status}
+          {(wide || cluster === "strategy") && (
+            <div className="corporate-cluster" data-cluster="strategy">
+              <div className="cluster-head">
+                <h2>Strategy</h2>
               </div>
-              {canManage && item.status === "pending_acceptance" && (
-                <div className="actions">
-                  <button type="button" className="primary" onClick={() =>
-                    runAction(`cross-dept-${item.id}`, "Request accepted.", () =>
-                      api.acceptCrossDepartmentRequest(item.id))}>Accept</button>
-                </div>
-              )}
-              {status(`cross-dept-${item.id}`)}
-            </div>
-          ))}
-          {!crossDept.length && <p className="panel-empty">No cross-department requests.</p>}
+              <div className="card">
+                <h2>CEO scorecard</h2>
+                <p className="muted">Measured from persisted operations — not simulated. HQ rooms: {hqRoomCount}</p>
+                <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem" }}>
+                  {JSON.stringify(scorecard || {}, null, 2)}
+                </pre>
+              </div>
 
-          <div className="section-head">
-            <h2>Open activity</h2>
-          </div>
-          {activity.map((item) => (
-            <div key={item.id} className="card muted">
-              {item.kind} · {item.status}{item.room_id ? ` · room ${item.room_id}` : ""}
+              <div className="section-head">
+                <h2>Objectives</h2>
+              </div>
+              {objectives.map((objective) => (
+                <div key={objective.id} className="card">
+                  <strong>{objective.title}</strong>
+                  <div className="muted">{objective.status} · due {objective.due_at}</div>
+                  {canManage && objective.status === "open" && (
+                    <div className="actions">
+                      <button type="button" onClick={() =>
+                        runAction(`objective-${objective.id}`, "Objective closed.", () =>
+                          api.closeObjective(objective.id))}>Close</button>
+                    </div>
+                  )}
+                  {status(`objective-${objective.id}`)}
+                </div>
+              ))}
+              {!objectives.length && <p className="panel-empty">No objectives.</p>}
             </div>
-          ))}
-          {!activity.length && <p className="panel-empty">No open activity sessions.</p>}
+          )}
+
+          {(wide || cluster === "structure") && (
+            <div className="corporate-cluster" data-cluster="structure">
+              <div className="cluster-head">
+                <h2>Structure</h2>
+              </div>
+              <div className="section-head">
+                <h2>Industry packs</h2>
+              </div>
+              {packs.map((pack) => (
+                <div key={pack.id} className="card muted">
+                  {pack.id} — {pack.industry} — minimal {pack.minimal_departments.length} / full {pack.full_departments.length}
+                </div>
+              ))}
+              {!packs.length && <p className="panel-empty">No industry packs.</p>}
+
+              <div className="section-head">
+                <h2>Divisions</h2>
+              </div>
+              {divisions.map((division) => (
+                <div key={division.id} className="card">
+                  <strong>{division.name}</strong>
+                  <div className="muted">{division.industry_pack_id} · {division.mode} · {division.status}</div>
+                  {canManage && (
+                    <div className="actions">
+                      {division.status === "proposed" && (
+                        <button type="button" className="primary" onClick={() =>
+                          runAction(`division-${division.id}`, "Division activated.", () =>
+                            api.activateDivision(division.id))}>Activate</button>
+                      )}
+                    </div>
+                  )}
+                  {status(`division-${division.id}`)}
+                </div>
+              ))}
+              {!divisions.length && <p className="panel-empty">No divisions.</p>}
+            </div>
+          )}
+
+          {(wide || cluster === "people") && (
+            <div className="corporate-cluster" data-cluster="people">
+              <div className="cluster-head">
+                <h2>People</h2>
+              </div>
+              <div className="section-head">
+                <h2>Pending promotions</h2>
+              </div>
+              {promotions.map((promotion) => (
+                <div key={promotion.id} className="card">
+                  <strong>{promotion.employee_id}</strong>
+                  <div className="muted">{promotion.from_level} → {promotion.to_level} · {promotion.status}</div>
+                  {canManage && (
+                    <div className="actions">
+                      <button type="button" className="approve" onClick={() =>
+                        runAction(`promotion-${promotion.id}`, "Promotion approved.", () =>
+                          api.decidePromotion(promotion.id, "approved"))}>Approve</button>
+                      <button type="button" className="danger" onClick={() =>
+                        runAction(`promotion-${promotion.id}`, "Promotion rejected.", () =>
+                          api.decidePromotion(promotion.id, "rejected"))}>Reject</button>
+                    </div>
+                  )}
+                  {status(`promotion-${promotion.id}`)}
+                </div>
+              ))}
+              {!promotions.length && <p className="panel-empty">No pending promotions.</p>}
+
+              <div className="section-head">
+                <h2>Staffing proposals</h2>
+              </div>
+              {staffing.map((proposal) => (
+                <div key={proposal.id} className="card">
+                  <strong>{proposal.kind} · {proposal.position_id}</strong>
+                  <div className="muted">{proposal.cost_estimate_cents}¢ · {proposal.rationale}</div>
+                  {canManage && (
+                    <div className="actions">
+                      <button type="button" className="approve" onClick={() =>
+                        runAction(`staffing-${proposal.id}`, "Proposal approved.", () =>
+                          api.decideStaffingProposal(proposal.id, "approved"))}>Approve</button>
+                      <button type="button" className="danger" onClick={() =>
+                        runAction(`staffing-${proposal.id}`, "Proposal rejected.", () =>
+                          api.decideStaffingProposal(proposal.id, "rejected"))}>Reject</button>
+                    </div>
+                  )}
+                  {status(`staffing-${proposal.id}`)}
+                </div>
+              ))}
+              {!staffing.length && <p className="panel-empty">No pending staffing proposals.</p>}
+            </div>
+          )}
+
+          {(wide || cluster === "coordination") && (
+            <div className="corporate-cluster" data-cluster="coordination">
+              <div className="cluster-head">
+                <h2>Coordination</h2>
+              </div>
+              <div className="section-head">
+                <h2>Cross-department requests</h2>
+              </div>
+              {crossDept.map((item) => (
+                <div key={item.id} className="card">
+                  <strong>{item.subject}</strong>
+                  <div className="muted">
+                    {item.requesting_department_id} → {item.delivering_department_id} · {item.status}
+                  </div>
+                  {canManage && item.status === "pending_acceptance" && (
+                    <div className="actions">
+                      <button type="button" className="primary" onClick={() =>
+                        runAction(`cross-dept-${item.id}`, "Request accepted.", () =>
+                          api.acceptCrossDepartmentRequest(item.id))}>Accept</button>
+                    </div>
+                  )}
+                  {status(`cross-dept-${item.id}`)}
+                </div>
+              ))}
+              {!crossDept.length && <p className="panel-empty">No cross-department requests.</p>}
+
+              <div className="section-head">
+                <h2>Open activity</h2>
+              </div>
+              {activity.map((item) => (
+                <div key={item.id} className="card muted">
+                  {item.kind} · {item.status}{item.room_id ? ` · room ${item.room_id}` : ""}
+                </div>
+              ))}
+              {!activity.length && <p className="panel-empty">No open activity sessions.</p>}
+            </div>
+          )}
         </>
       )}
 
       {mode === "manage" && canManage && (
         <>
-          <div className="card">
+          <div className="section-head">
             <h2>Corporate operations</h2>
+          </div>
+          <div className="card">
             <div className="actions">
               <button id="default-floorplan-btn" type="button" className="primary" onClick={() =>
                 runAction("default-floorplan", "Default floorplan created.", () =>
@@ -263,8 +351,10 @@ export function CorporatePanel(props: CorporatePanelProps) {
             {status("staffing-scan")}
           </div>
 
-          <form className="card" onSubmit={createObjective}>
+          <div className="section-head">
             <h2>Create objective</h2>
+          </div>
+          <form className="card" onSubmit={createObjective}>
             <label htmlFor="objective-title">Title</label>
             <input id="objective-title" name="title" type="text" required />
             <label htmlFor="objective-due">Due at</label>
@@ -277,8 +367,10 @@ export function CorporatePanel(props: CorporatePanelProps) {
             {status("create-objective")}
           </form>
 
-          <form className="card" onSubmit={proposeDivision}>
+          <div className="section-head">
             <h2>Propose division</h2>
+          </div>
+          <form className="card" onSubmit={proposeDivision}>
             <label htmlFor="division-pack">Industry pack id</label>
             <input id="division-pack" name="pack_id" type="text" required />
             <label htmlFor="division-name">Name</label>
@@ -292,8 +384,10 @@ export function CorporatePanel(props: CorporatePanelProps) {
             {status("propose-division")}
           </form>
 
-          <form className="card" onSubmit={createCrossDept}>
+          <div className="section-head">
             <h2>Create cross-department request</h2>
+          </div>
+          <form className="card" onSubmit={createCrossDept}>
             <label htmlFor="xd-project">Project id</label>
             <input id="xd-project" name="project_id" type="text" required />
             <label htmlFor="xd-requesting">Requesting department</label>
