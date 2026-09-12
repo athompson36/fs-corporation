@@ -1,27 +1,29 @@
 # Current handoff
 
-Date: 2026-09-11. Version: **0.3.68**. State: **Projects Browse split polish merged to
-`main`, pushed, and deployed to fs-dev** (health `0.3.68`).
+Date: 2026-09-11. Version: **0.3.69**. State: **Corporate/Workers Browse section
+consistency implemented on `feature/corporate-workers-browse-polish`** (not yet
+merged or deployed).
 
-## On main / fs-dev
+## On this branch
 
-- Companion Projects **Browse** is a responsive list|detail split (`project-browse-split`);
-  detail is the full project workspace (brief, GitHub, dispatch); **Clear selection**
-  replaces ← Back; Manage remains enroll/assign.
-- Medium empty/section polish on Corporate, Workers, Org. Finance still has no
-  Browse/Manage ModeSwitch.
-- ADR-050; version **0.3.68** (Python + companion lockstep). Desk five-domain IA from
-  0.3.67 unchanged.
-- Tip: `09a5aa8`.
+- Corporate Browse lists use `section-head` titles and `panel-empty` empty
+  states (Objectives, Industry packs, Divisions, Pending promotions, Staffing
+  proposals, Cross-department requests, Open activity).
+- Workers **Worker hosts** title sits outside the list card, matching Projects
+  and Corporate Objectives. Manage remains create-host/token on Workers and
+  enroll/assign on Projects.
+- ADR-051; version **0.3.69** (Python package and companion `package.json`
+  lockstep). No new APIs, URL sync, Corporate groups, Org restructure or Alembic.
+- Branch: `feature/corporate-workers-browse-polish`. Projects Browse split from
+  0.3.68 is unchanged.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **501 tests passed**.
-- fs-dev health: **0.3.68**; companion bundle includes `project-browse-split`,
-  `Select a project`, `Clear selection`.
+- `.venv/bin/python -m unittest discover -s tests`: **504 tests passed**.
+- `cd companion && npm run build`: OK (package version 0.3.69).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: further Corporate/Workers hierarchy polish, URL-synced project selection,
-or other companion/desk follow-ups from prior reviews.
+Owner-directed: Org hierarchy polish, URL-synced project selection, Corporate
+Browse groups, or other companion/desk follow-ups.
