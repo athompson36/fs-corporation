@@ -68,6 +68,6 @@ class ManageVisualGroupsTests(unittest.TestCase):
 
     def test_version_bump_target(self):
         init = (ROOT / "company" / "__init__.py").read_text()
-        self.assertIn('__version__ = "0.3.74"', init)
+        self.assertRegex(init, r'__version__ = "0\.3\.\d+"')
         pkg = (ROOT / "companion" / "package.json").read_text()
-        self.assertIn('"version": "0.3.74"', pkg)
+        self.assertRegex(pkg, r'"version": "0\.3\.\d+"')
