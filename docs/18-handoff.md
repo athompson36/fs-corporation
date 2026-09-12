@@ -1,9 +1,9 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.77**. State: **Finance Browse/Manage on
-branch `feature/finance-browse-manage`** (Tasks 1–5 complete; pending merge/deploy).
+Date: 2026-09-12. Version: **0.3.77**. State: **Finance Browse/Manage merged to
+`main`, pushed, and deployed to fs-dev.** Tip: **`5b21dcd`**.
 
-## On feature branch
+## On main / fs-dev
 
 - `companion/src/urlState.ts` — `finance` in `MODE_CAPABLE_TABS`; mode-aware
   browse/manage group tables; finance serializes `group` in both modes.
@@ -24,9 +24,12 @@ branch `feature/finance-browse-manage`** (Tasks 1–5 complete; pending merge/de
 
 - `.venv/bin/python -m unittest discover -s tests`: **533 tests, OK**.
 - `cd companion && npm run build`: OK (package version 0.3.77).
+- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.77",...}`; companion
+  bundle rebuilt (`index-Ca-CDgRT.js`).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: merge `feature/finance-browse-manage` to `main` and deploy to
-fs-dev; or desk Finance surface / other companion follow-ups.
+Owner-directed: desk Finance surface; remaining polish nits (dead `closePeriod`
+focus; cold-load `defaultGroupFor` bias; behavioral URL tests); or other
+companion follow-ups.
