@@ -59,6 +59,7 @@
 | ADR-055 | 2026-09-12 | Companion URL sync for tab and project | Query `tab`/`project` with replaceState; unknown project clears silently; pairing hash unchanged; no Router. |
 | ADR-056 | 2026-09-12 | Manage visual groups with shared hybrid chrome | Org/Corporate/Projects/Workers Manage use ManageClusters + shared useWideViewport; no URL sync or API changes. |
 | ADR-057 | 2026-09-12 | Empty-list unknown-project URL clear | Gate unknown `?project=` clear on `projectsLoaded` after successful refresh; failed fetch keeps deep link; silent clear; no new APIs. |
+| ADR-058 | 2026-09-12 | Mode/cluster/group companion URL sync | App-owned `mode`/`cluster`/`group` with replaceState; omit defaults; panels controlled; pairing unchanged. |
 
 ### ADR-010 detail
 
@@ -912,5 +913,32 @@ non-goal).
 **Consequences.** Companion v0.3.75 closes the empty-list URL edge with no
 Alembic revision, control-plane API change or new serialize/parse semantics.
 Manage/Browse URL sync and Finance ModeSwitch remain owner-directed follow-ups.
+
+### ADR-058 detail
+
+**Context.** After ADR-055/056/057, companion tab and project deep links worked
+via `replaceState`, but Browse/Manage mode, Corporate Browse clusters and Manage
+visual groups lived only in panel-local React state — refresh or share lost
+context. Owner wanted shareable `mode`/`cluster`/`group` params without React
+Router, `pushState` Back stacks, Finance ModeSwitch or new APIs. Pairing via
+`#fs-pair=` must remain unchanged.
+
+**Decision.** Extend `urlState.ts` with parse/serialize for `mode` (`browse` |
+`manage`), `cluster` (Corporate Browse ids) and `group` (Manage ids per tab);
+omit defaults (`browse`, `strategy`, tab default group). Lift `panelMode`,
+`corporateCluster` and `manageGroup` to `App.tsx`; pass controlled props to
+Org/Corporate/Projects/Workers panels and optional controlled `activeGroupId` to
+`ManageClusters`. Write canonical search on every relevant state change via
+`history.replaceState`; re-parse on `popstate`. Workers token-after-create forces
+`group=token`. Existing `tab`/`project` rules unchanged.
+
+**Alternatives considered.** React Router (rejected — dependency and scope).
+`pushState` Back stacks (rejected — owner lock for replace-only). Finance
+ModeSwitch in the same release (rejected — out of scope). Panel-local URL writes
+(rejected — owner lock for App-owned state).
+
+**Consequences.** Companion v0.3.76 ships mode/cluster/group URL sync with no
+Alembic revision or control-plane API change. Finance ModeSwitch and `pushState`
+Back stacks remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

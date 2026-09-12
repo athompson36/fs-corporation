@@ -1,30 +1,33 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.75**. State: **Empty-list unknown-project URL
-clear merged to `main`, pushed, and deployed to fs-dev.** Tip: **`6e7151a`**.
+Date: 2026-09-12. Version: **0.3.76**. State: **Mode/cluster/group URL sync on
+branch `feature/mode-cluster-group-url-sync` (pending merge/deploy).** Tip:
+**pending commit**.
 
-## On main / fs-dev
+## On feature branch
 
-- `companion/src/App.tsx` — `projectsLoaded` state; set `true` only on successful
-  projects refresh; unknown-`?project=` clear gated on `projectsLoaded` (empty
-  list after successful load clears silently).
-- `tests/test_companion_url_sync.py` — contracts for loaded-gate and exact
-  version **0.3.75**.
-- ADR-057; version **0.3.75** (Python package and companion `package.json`
+- `companion/src/urlState.ts` — parse/serialize `mode`/`cluster`/`group`; omit
+  defaults; validate ids per tab.
+- `companion/src/App.tsx` — App-owned `panelMode`, `corporateCluster`,
+  `manageGroup`; replaceState + popstate; Workers token → `group=token`.
+- `companion/src/{Org,Corporate,Projects,Workers}Panel.tsx` — controlled mode,
+  cluster (Corporate), manage group props.
+- `companion/src/ManageClusters.tsx` — optional controlled `activeGroupId`.
+- `tests/test_mode_cluster_group_url_sync.py` — contracts; exact version
+  **0.3.76**.
+- `tests/test_companion_url_sync.py` — tab/project contracts; soft version pin.
+- ADR-058; version **0.3.76** (Python package and companion `package.json`
   lockstep).
-- Prior: Manage visual groups (0.3.74), Companion URL sync (0.3.73), Projects
-  list-row Clear-on-loading (0.3.72), Corporate clusters (0.3.71), Org polish
-  (0.3.70).
+- Prior: empty-list unknown-project URL clear (0.3.75), Manage visual groups
+  (0.3.74), Companion URL sync (0.3.73).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **524 tests, OK**.
-- `cd companion && npm run build`: OK (package version 0.3.75).
-- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.75",...}`; companion
-  bundle rebuilt (`index-JXGklAhu.js`).
+- `.venv/bin/python -m unittest discover -s tests`: **pending run**.
+- `cd companion && npm run build`: pending (package version 0.3.76).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: Manage/Browse URL sync; Finance ModeSwitch; or other
+Owner-directed: merge/deploy 0.3.76; Finance ModeSwitch; or other
 companion/desk follow-ups.
