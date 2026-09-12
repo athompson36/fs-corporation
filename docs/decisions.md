@@ -58,6 +58,7 @@
 | ADR-054 | 2026-09-12 | Projects list-row span + Clear on loading | Projects Browse list rows use span.muted inside buttons; loading detail shows Clear selection; no URL sync or API changes. |
 | ADR-055 | 2026-09-12 | Companion URL sync for tab and project | Query `tab`/`project` with replaceState; unknown project clears silently; pairing hash unchanged; no Router. |
 | ADR-056 | 2026-09-12 | Manage visual groups with shared hybrid chrome | Org/Corporate/Projects/Workers Manage use ManageClusters + shared useWideViewport; no URL sync or API changes. |
+| ADR-057 | 2026-09-12 | Empty-list unknown-project URL clear | Gate unknown `?project=` clear on `projectsLoaded` after successful refresh; failed fetch keeps deep link; silent clear; no new APIs. |
 
 ### ADR-010 detail
 
@@ -888,5 +889,28 @@ ModeSwitch (rejected — out of scope). Regrouping Corporate Browse clusters
 **Consequences.** Companion v0.3.74 ships Manage visual groups with no Alembic
 revision or control-plane API change. Manage/Browse URL sync, Finance ModeSwitch
 and empty-list unknown-project URL edge nit remain owner-directed follow-ups.
+
+### ADR-057 detail
+
+**Context.** ADR-055 cleared unknown `?project=` ids only when the enrolled
+projects list was non-empty (`!projects.length` early-return). A stale deep link
+therefore survived when enroll was loaded and empty — the same “unknown id” case
+with zero rows.
+
+**Decision.** Add `projectsLoaded` (default `false`); set `true` only on the
+successful refresh path that applies `setProjects`. Replace the clear effect gate
+with `!projectsLoaded || !selectedProject` so empty lists after a successful load
+still clear silently via existing `setSelectedProject(null)` and replaceState.
+Refresh failure leaves `projectsLoaded` false and preserves boot/`popstate`
+selection until a later success.
+
+**Alternatives considered.** Nullable `projects: null | array` (rejected — owner
+lock for boolean flag). Clearing before first successful fetch (rejected — would
+drop valid deep links during loading). Error toasts for unknown ids (rejected —
+non-goal).
+
+**Consequences.** Companion v0.3.75 closes the empty-list URL edge with no
+Alembic revision, control-plane API change or new serialize/parse semantics.
+Manage/Browse URL sync and Finance ModeSwitch remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
