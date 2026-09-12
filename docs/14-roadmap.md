@@ -2,7 +2,7 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.72 status:** Projects list-row `span.muted` and Clear-on-loading join v0.3.71 Corporate Browse clusters with narrow-viewport segmented tabs and light Manage section-head titles, the prior v0.3.70 Org Browse/Manage polish, v0.3.69 Corporate/Workers section-head consistency, v0.3.68 Projects Browse split, cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, and fs-dev deployment. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. The deployed fs-dev health is **0.3.72** (Projects list-row Clear-on-loading installed).
+**v0.3.73 status (branch):** Companion URL sync for `?tab=` and `?project=` with replaceState joins v0.3.72 Projects list-row `span.muted` and Clear-on-loading, v0.3.71 Corporate Browse clusters with narrow-viewport segmented tabs and light Manage section-head titles, the prior v0.3.70 Org Browse/Manage polish, v0.3.69 Corporate/Workers section-head consistency, v0.3.68 Projects Browse split, cosmic-glass desk and companion, isometric HQ, SLO catalog, Web Push, feed poll, GitHub effect, container file gateway, same-host worker plane on `.101`, and fs-dev deployment. Live adapters are **opt-in and fail-closed**: they raise `NotImplementedError` until the owner supplies credentials, and on the fs-dev host GitHub webhooks, the market feed, and model invocation have run live. Live ChatDev execution and billed model calls from inside worker containers remain unavailable. Deployed fs-dev health remains **0.3.72** until this branch merges.
 
 All fourteen owner requirements in [00-project-context.md](00-project-context.md) and R01–R21 in [01-product-requirements.md](01-product-requirements.md) stay in force. Live GitHub, model, billing, market, and documentation-fetch credentials are owner-supplied per environment; a clone without them still runs every local check.
 
@@ -285,6 +285,10 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
       inside buttons; loading detail shows `detail-toolbar` with Clear
       selection; empty pane unchanged; no URL sync, Manage groups, Finance
       ModeSwitch or new APIs
+- [x] Companion URL sync (0.3.73) — `?tab=` and `?project=` deep links with
+      `replaceState`; unknown project clears silently; leaving Projects or Clear
+      drops `project`; pairing hash unchanged; no Router, Manage groups,
+      Finance ModeSwitch or new APIs
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -428,10 +432,11 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Projects list-row Clear-on-loading 0.3.72 is on `main` and fs-dev.** Projects Browse
-list rows use `span.muted`; loading detail exposes Clear selection via
-`detail-toolbar`; empty pane has no Clear. Corporate clusters 0.3.71, Org polish
-0.3.70, Corporate/Workers 0.3.69 and Projects split 0.3.68 are unchanged in
-capability. No URL sync, Manage grouping, Finance ModeSwitch, new APIs or Alembic
-revision. Next: owner-directed (URL-synced project selection, Manage visual groups,
-or other companion/desk follow-ups).
+**Companion URL sync 0.3.73 is on `feature/companion-url-sync` (not yet on `main`
+or fs-dev).** Tab and Projects selection sync to `?tab=` / `?project=` via
+`replaceState`; unknown project ids clear silently; leaving Projects or Clear drops
+`project`; `#fs-pair=` pairing unchanged. Projects list-row Clear-on-loading 0.3.72,
+Corporate clusters 0.3.71, Org polish 0.3.70, Corporate/Workers 0.3.69 and Projects
+split 0.3.68 are unchanged in capability beyond URL wiring. No Manage grouping,
+Finance ModeSwitch, new APIs or Alembic revision. Next: owner-directed (Manage
+visual groups or other companion/desk follow-ups).

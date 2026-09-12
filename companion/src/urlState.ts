@@ -45,7 +45,7 @@ export function parseCompanionSearch(search: string): CompanionUrlState {
   return { tab, project };
 }
 
-/** Build search string including leading `?`, or `""` if only default dashboard with no project. */
+/** Build canonical search string with leading `?`; always includes `tab`; adds `project` only on Projects with a selection. */
 export function serializeCompanionSearch(state: CompanionUrlState): string {
   const params = new URLSearchParams();
   const tab = state.tab;

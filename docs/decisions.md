@@ -56,6 +56,7 @@
 | ADR-052 | 2026-09-11 | Org Browse and Manage section-head consistency | Organization catalog and Manage forms use section-head titles matching Corporate/Workers; no capability or API changes. |
 | ADR-053 | 2026-09-11 | Corporate Browse clusters with narrow sub-tabs | Corporate Browse groups Strategy · Structure · People · Coordination; segmented cluster tabs below 720px; Manage section-head titles only; no URL sync or new APIs. |
 | ADR-054 | 2026-09-12 | Projects list-row span + Clear on loading | Projects Browse list rows use span.muted inside buttons; loading detail shows Clear selection; no URL sync or API changes. |
+| ADR-055 | 2026-09-12 | Companion URL sync for tab and project | Query `tab`/`project` with replaceState; unknown project clears silently; pairing hash unchanged; no Router. |
 
 ### ADR-010 detail
 
@@ -836,5 +837,29 @@ scope.
 **Consequences.** Companion v0.3.72 ships the span fix and loading Clear with no
 Alembic revision, control-plane API change or URL sync. Manage visual groups and
 shared detail-toolbar extraction remain owner-directed follow-ups.
+
+### ADR-055 detail
+
+**Context.** After ADR-054, companion tab and Projects selection lived only in
+React state — refresh or share lost context. Owner wanted shareable deep links
+without React Router, Browse/Manage in the URL, or new APIs. Pairing via
+`#fs-pair=` must remain unchanged.
+
+**Decision.** Add pure `parseCompanionSearch` / `serializeCompanionSearch` helpers
+(in `companion/src/urlState.ts`) and wire `App.tsx` to boot from
+`window.location.search`, write canonical `?tab=` / `?project=` on every tab or
+selection change via `history.replaceState`, re-parse on `popstate`, clear
+`selectedProject` when leaving Projects or using Clear selection, and silently
+drop unknown project ids after the enrolled list loads (no toast). Hash reserved
+for pairing; pathname unchanged.
+
+**Alternatives considered.** React Router (rejected — dependency and scope).
+Hash-based tab routing (rejected — conflicts with `#fs-pair=`). `pushState` Back
+stacks (rejected — owner lock for replace-only). URL sync for Browse/Manage or
+Corporate clusters (deferred).
+
+**Consequences.** Companion v0.3.73 ships tab/project URL sync with no Alembic
+revision or control-plane API change. Manage visual groups and Browse/Manage or
+cluster URL sync remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

@@ -1,6 +1,6 @@
 # Design: URL-synced companion tab + project selection
 
-Date: 2026-09-12. Status: **approved for implementation** (target **v0.3.73**).
+Date: 2026-09-12. Status: **implemented in v0.3.73**.
 
 ## Goal
 
