@@ -1059,6 +1059,10 @@ export default function App() {
             await runAction(key, okMessage, run);
           }}
           status={status}
+          mode={panelMode}
+          onModeChange={handlePanelModeChange}
+          manageGroup={manageGroup}
+          onManageGroupChange={setManageGroup}
         />
       )}
 
