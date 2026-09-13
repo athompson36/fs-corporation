@@ -1,10 +1,9 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.79**. State: **Companion finance URL polish on
-`feature/companion-finance-url-polish`, pending merge to `main`.** Tip:
-**`05931af`** (Task 5 substantive release commit).
+Date: 2026-09-12. Version: **0.3.79**. State: **Companion finance URL polish
+merged to `main`, pushed, and deployed to fs-dev.** Tip: **`72e4cea`**.
 
-## On feature branch (pending merge)
+## On main / fs-dev
 
 - `companion/src/FinancePanel.tsx` — Browse Close period no longer focuses Manage
   period input or calls `onManageGroupChange("periods")` after close.
@@ -25,10 +24,11 @@ Date: 2026-09-12. Version: **0.3.79**. State: **Companion finance URL polish on
 
 - `.venv/bin/python -m unittest discover -s tests`: **542 tests, OK**.
 - `cd companion && npm run build`: OK (package version 0.3.79).
+- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.79",...}`; companion
+  bundle rebuilt (`index-ybfRBduj.js`).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: merge `feature/companion-finance-url-polish` to `main` and deploy
-to fs-dev; or desk polish nits (403-only pause gate / openRoom reserved-only) /
-other companion follow-ups.
+Owner-directed: desk polish nits (403-only pause gate / openRoom reserved-only)
+or other companion follow-ups.
