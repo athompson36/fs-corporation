@@ -21,6 +21,11 @@ class CompanionTabUrlFlashTests(unittest.TestCase):
     def test_app_select_tab_batches_resets(self):
         text = APP.read_text()
         self.assertRegex(text, r"function selectTab|const selectTab")
+        self.assertRegex(
+            text,
+            r"const selectTab = useCallback\(\(next: Tab\) => \{\s*if \(next === tab\) return;",
+            re.S,
+        )
         self.assertIn("stateAfterTabChange", text)
         self.assertIn("stateAfterModeChange", text)
         # User tab clicks must not use raw setTab(

@@ -512,6 +512,7 @@ export default function App() {
   }, [api, selectedProject, settings.token, scopes]);
 
   const selectTab = useCallback((next: Tab) => {
+    if (next === tab) return;
     const canonical = stateAfterTabChange(
       {
         tab: tab as CompanionTab,
