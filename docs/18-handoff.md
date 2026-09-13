@@ -1,10 +1,9 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.78**. State: **Desk Finance surface on branch
-`feature/desk-finance-surface`** (Tasks 1–5 complete; pending merge/deploy). Tip:
-**`365a0af`**.
+Date: 2026-09-12. Version: **0.3.78**. State: **Desk Finance surface merged to
+`main`, pushed, and deployed to fs-dev.** Tip: **`a1be7cb`**.
 
-## On feature branch
+## On main / fs-dev
 
 - `company/service.py` — DESK_HTML rail `#budget` labeled **Finance**; structured
   overview from `/api/v1/finance/summary`; invoice/adjustment/period lists;
@@ -22,10 +21,12 @@ Date: 2026-09-12. Version: **0.3.78**. State: **Desk Finance surface on branch
 
 - `.venv/bin/python -m unittest discover -s tests`: **538 tests, OK**.
 - `cd companion && npm run build`: OK (package version 0.3.78).
+- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.78",...}`; desk
+  serves `href="#budget">Finance` and `finance-overview`.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: merge `feature/desk-finance-surface` to `main` and deploy to
-fs-dev; or polish nits (dead `closePeriod` focus; cold-load `defaultGroupFor`
-bias; behavioral URL tests) / other companion follow-ups.
+Owner-directed: polish nits (dead `closePeriod` focus; cold-load
+`defaultGroupFor` bias; behavioral URL tests; 403-only pause gate / openRoom
+reserved-only) or other companion follow-ups.
