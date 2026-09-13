@@ -42,7 +42,6 @@ import {
 import type { PanelMode } from "./ModeSwitch";
 import {
   defaultGroupFor,
-  defaultManageGroup,
   MODE_CAPABLE_TABS,
   parseCompanionSearch,
   serializeCompanionSearch,
@@ -101,7 +100,9 @@ export default function App() {
   const [panelMode, setPanelMode] = useState<PanelMode>(initialUrl.mode);
   const [corporateCluster, setCorporateCluster] = useState<CorporateClusterId>(initialUrl.cluster);
   const [manageGroup, setManageGroup] = useState<string>(
-    initialUrl.group ?? defaultManageGroup(initialUrl.tab) ?? "catalog",
+    initialUrl.group
+      ?? defaultGroupFor(initialUrl.tab, initialUrl.mode)
+      ?? "catalog",
   );
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
@@ -312,7 +313,9 @@ export default function App() {
       modeRef.current = parsed.mode;
       setPanelMode(parsed.mode);
       setCorporateCluster(parsed.cluster);
-      setManageGroup(parsed.group ?? defaultManageGroup(parsed.tab) ?? "catalog");
+      setManageGroup(
+        parsed.group ?? defaultGroupFor(parsed.tab, parsed.mode) ?? "catalog",
+      );
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
