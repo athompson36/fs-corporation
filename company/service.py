@@ -637,6 +637,7 @@ function fillFinanceBilledCosts(costs) {
   if (financeBilledCosts.some(item => item.id === prev)) select.value = prev;
 }
 async function loadFinance() {
+  financeExpandedInvoiceId = '';
   const err = document.getElementById('finance-load-error');
   err.hidden = true;
   err.textContent = '';
@@ -672,8 +673,44 @@ async function loadFinance() {
       + (error instanceof Error ? error.message : String(error));
   }
 }
+async function postFinanceCommand(path, payload, idempotencyKey) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify({payload}),
+  });
+  const text = await res.text();
+  let body = text;
+  try { body = text ? JSON.parse(text) : {}; } catch (e) { body = text; }
+  if (res.status === 403) {
+    setFinanceMutateEnabled(false);
+  }
+  if (!res.ok) {
+    const detail = (body && body.detail) ? body.detail : text;
+    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+  }
+  return body;
+}
 async function closeFinancePeriod(period) {
-  console.warn('closeFinancePeriod not wired', period && period.id);
+  if (!window.confirm('Close this budget period? Snapshot will be frozen.')) return;
+  try {
+    await postFinanceCommand(
+      '/api/v1/finance/budget-periods/' + encodeURIComponent(String(period.id)) + '/close',
+      {},
+      'desk-finance-close-' + period.id + '-' + Date.now(),
+    );
+    document.getElementById('desk-finance-period-start').value =
+      toFinanceLocalValue(String(period.period_end));
+    document.getElementById('finance-period-status').textContent = ' Period closed.';
+    await loadFinance();
+  } catch (error) {
+    document.getElementById('finance-period-status').textContent =
+      ' ' + (error instanceof Error ? error.message : String(error));
+  }
 }
 let headquartersRooms = [];
 function renderActivityBadges(items) {
@@ -1126,6 +1163,98 @@ document.getElementById('objective-create-form').addEventListener('submit', asyn
   await submitOrgCommand(
     event.target, '/api/v1/objectives', payload, 'Objective created.');
 });
+document.getElementById('desk-finance-invoice-month').addEventListener('click', () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0);
+  document.getElementById('desk-finance-invoice-start').value = toFinanceLocalValue(start.toISOString());
+  document.getElementById('desk-finance-invoice-end').value = toFinanceLocalValue(end.toISOString());
+});
+document.getElementById('desk-finance-period-30d').addEventListener('click', () => {
+  const start = new Date();
+  const end = new Date(start);
+  end.setDate(end.getDate() + 30);
+  document.getElementById('desk-finance-period-start').value = toFinanceLocalValue(start.toISOString());
+  document.getElementById('desk-finance-period-end').value = toFinanceLocalValue(end.toISOString());
+});
+document.getElementById('desk-finance-adjustment-kind').addEventListener('change', () => {
+  const kind = document.getElementById('desk-finance-adjustment-kind').value;
+  document.getElementById('desk-finance-adjustment-amount').disabled = kind !== 'partial_credit';
+});
+document.getElementById('finance-invoice-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const status = document.getElementById('finance-invoice-status');
+  try {
+    await postFinanceCommand(
+      '/api/v1/finance/invoices',
+      {
+        period_start: fromFinanceLocalValue(document.getElementById('desk-finance-invoice-start').value),
+        period_end: fromFinanceLocalValue(document.getElementById('desk-finance-invoice-end').value),
+      },
+      'desk-finance-inv-' + Date.now(),
+    );
+    status.textContent = ' Invoice created.';
+    event.target.reset();
+    await loadFinance();
+  } catch (error) {
+    status.textContent = ' ' + (error instanceof Error ? error.message : String(error));
+  }
+});
+document.getElementById('finance-adjustment-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const status = document.getElementById('finance-adjustment-status');
+  try {
+    const kind = document.getElementById('desk-finance-adjustment-kind').value;
+    const billedCostId = document.getElementById('desk-finance-billed-cost').value;
+    const reason = document.getElementById('desk-finance-adjustment-reason').value.trim();
+    if (!billedCostId) throw new Error('Select a creditable billed cost.');
+    if (!reason) throw new Error('Reason is required.');
+    const payload = {kind, billed_cost_id: billedCostId, reason};
+    if (kind === 'partial_credit') {
+      const amount = Number(document.getElementById('desk-finance-adjustment-amount').value);
+      const selected = financeBilledCosts.find(item => item.id === billedCostId);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error('Partial credit must be greater than zero.');
+      if (selected && amount > selected.remaining_creditable_cents) {
+        throw new Error('Partial credit exceeds the remaining creditable amount.');
+      }
+      payload.amount_cents = amount;
+    }
+    await postFinanceCommand(
+      '/api/v1/finance/adjustments',
+      payload,
+      'desk-finance-adj-' + Date.now(),
+    );
+    status.textContent = ' Adjustment recorded.';
+    document.getElementById('desk-finance-adjustment-amount').value = '';
+    document.getElementById('desk-finance-adjustment-reason').value = '';
+    await loadFinance();
+  } catch (error) {
+    status.textContent = ' ' + (error instanceof Error ? error.message : String(error));
+  }
+});
+document.getElementById('finance-period-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const status = document.getElementById('finance-period-status');
+  try {
+    await postFinanceCommand(
+      '/api/v1/finance/budget-periods',
+      {
+        scope: 'company',
+        period_start: fromFinanceLocalValue(document.getElementById('desk-finance-period-start').value),
+        period_end: fromFinanceLocalValue(document.getElementById('desk-finance-period-end').value),
+        limit_cents: Number(document.getElementById('desk-finance-period-limit').value),
+      },
+      'desk-finance-period-' + Date.now(),
+    );
+    status.textContent = ' Budget period set.';
+    await loadFinance();
+  } catch (error) {
+    status.textContent = ' ' + (error instanceof Error ? error.message : String(error));
+  }
+});
+setFinanceMutateEnabled(true);
+document.getElementById('desk-finance-adjustment-amount').disabled =
+  document.getElementById('desk-finance-adjustment-kind').value !== 'partial_credit';
 function setHqView(mode) {
   document.getElementById('iso').hidden = mode !== 'iso';
   document.getElementById('floor').hidden = mode !== 'plan';
