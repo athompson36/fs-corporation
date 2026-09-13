@@ -344,8 +344,8 @@ class CompanionApiTests(unittest.TestCase):
         self.assertIn('["projects", "Projects"]', app_source)  # inside WORK_TABS
         self.assertIn('tab === "finance"', app_source)
         self.assertNotIn('["finance", "Finance"]', re.search(r"const MORE_TABS[^=]*= \[(.*?)\];", app_source, re.S).group(1))
-        self.assertIn("setTab(lastWorkTab)", app_source)
-        self.assertIn("setTab(lastMoreTab)", app_source)
+        self.assertIn("selectTab(lastWorkTab)", app_source)
+        self.assertIn("selectTab(lastMoreTab)", app_source)
         self.assertIn("HomePanel", app_source)
 
     def test_companion_styles_size_every_field_for_touch(self):

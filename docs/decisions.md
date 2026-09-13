@@ -64,6 +64,7 @@
 | ADR-060 | 2026-09-12 | Desk Finance surface | Expand `#budget` into Finance label + summary/lists/forms/close; keep id; no ModeSwitch; no new APIs. |
 | ADR-061 | 2026-09-12 | Companion finance URL polish | Drop dead Close-period focus; cold-load/popstate use defaultGroupFor; tsx urlState harness; no new APIs. |
 | ADR-062 | 2026-09-12 | Desk Finance polish | Session pause gate via /api/v1/session; openRoom simulated spend; #budget-scoped dump ban; no new APIs. |
+| ADR-063 | 2026-09-12 | Companion tab/mode URL flash fix | Batch tab/mode sibling resets in selectTab / handlePanelModeChange; remove lagging reset effects; extend tsx harness; no Router. |
 
 ### ADR-010 detail
 
@@ -1046,5 +1047,24 @@ openRoom). New finance APIs or companion changes (rejected — desk-only scope).
 gate and HQ room-detail spend display with no Alembic revision or control-plane
 API change. Companion version locksteps at 0.3.80 with no FinancePanel changes.
 One-frame tab-change URL flash remains an owner-directed follow-up.
+
+### ADR-063 detail
+
+**Context.** After ADR-058/059/061 shipped companion URL sync, tab and Browse/Manage
+changes still wrote canonical search via a dumb `replaceState` effect while sibling
+resets (`panelMode`, `corporateCluster`, `manageGroup`) ran in lagging effects.
+Effect order let the address bar show one frame of non-canonical `mode`/`cluster`/`group`.
+
+**Decision.** Batch companion tab/mode sibling resets in `selectTab` /
+`handlePanelModeChange` using `stateAfterTabChange` / `stateAfterModeChange`;
+remove lagging reset effects; extend tsx harness for transition sequences; no Router.
+
+**Alternatives considered.** Smarter URL writer (rejected — still races with
+sibling state). Deferred `replaceState` (rejected — masks symptom). React Router
+(rejected — out of scope).
+
+**Consequences.** Companion v0.3.81 ships batched tab/mode URL writes with no
+Alembic revision or control-plane API change. Desk init-time Finance disable and
+clamp timing remain follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

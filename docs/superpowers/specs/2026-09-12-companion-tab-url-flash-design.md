@@ -1,6 +1,6 @@
 # Design: Companion tab/mode URL flash fix (0.3.81)
 
-Date: 2026-09-12. Status: **approved for planning** (owner locks below).
+Date: 2026-09-12. Status: **implemented in v0.3.81**.
 
 ## Goal
 
