@@ -36,6 +36,14 @@ class CompanionTabUrlFlashTests(unittest.TestCase):
         ):
             self.assertNotIn(needle, text, f"raw setTab still used: {needle}")
 
+    def test_all_panels_use_batched_mode_handler(self):
+        text = APP.read_text()
+        self.assertNotIn(
+            "onModeChange={setPanelMode}",
+            text,
+            "mode toggles must use handlePanelModeChange for batched URL state",
+        )
+
     def test_no_tab_or_mode_reset_effects(self):
         text = APP.read_text()
         # Former tab-change effect pattern: tabRef.current === tab early return then setPanelMode("browse")

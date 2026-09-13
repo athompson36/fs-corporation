@@ -874,7 +874,7 @@ export default function App() {
           status={status}
           scopeNotice={scopeNotice}
           mode={panelMode}
-          onModeChange={setPanelMode}
+          onModeChange={handlePanelModeChange}
           manageGroup={manageGroup}
           onManageGroupChange={setManageGroup}
         />
@@ -964,7 +964,7 @@ export default function App() {
           }}
           status={status}
           mode={panelMode}
-          onModeChange={setPanelMode}
+          onModeChange={handlePanelModeChange}
           manageGroup={manageGroup}
           onManageGroupChange={setManageGroup}
         />
