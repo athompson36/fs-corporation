@@ -1,6 +1,6 @@
 # Design: Desk Finance polish (pause gate + openRoom)
 
-Date: 2026-09-12. Status: **approved for implementation** (target **v0.3.80**).
+Date: 2026-09-12. Status: **implemented in v0.3.80**.
 
 ## Goal
 

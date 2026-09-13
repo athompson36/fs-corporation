@@ -63,6 +63,7 @@
 | ADR-059 | 2026-09-12 | Finance Browse/Manage with URL sync | Finance ModeSwitch + ManageClusters lists-vs-forms; finance in MODE_CAPABLE_TABS; group in browse+manage; close-period stays Browse; no new APIs. |
 | ADR-060 | 2026-09-12 | Desk Finance surface | Expand `#budget` into Finance label + summary/lists/forms/close; keep id; no ModeSwitch; no new APIs. |
 | ADR-061 | 2026-09-12 | Companion finance URL polish | Drop dead Close-period focus; cold-load/popstate use defaultGroupFor; tsx urlState harness; no new APIs. |
+| ADR-062 | 2026-09-12 | Desk Finance polish | Session pause gate via /api/v1/session; openRoom simulated spend; #budget-scoped dump ban; no new APIs. |
 
 ### ADR-010 detail
 
@@ -1018,5 +1019,32 @@ scope). New finance APIs or ModeSwitch redesign (rejected — ADR-059 unchanged)
 with no Alembic revision or control-plane API change. Desk pause-gate / openRoom
 display polish and one-frame tab-change URL flash remain owner-directed
 follow-ups.
+
+### ADR-062 detail
+
+**Context.** After ADR-060 shipped the desk Finance surface, two deferred desk
+nits remained: Finance mutations were enabled unconditionally at script init and
+only disabled reactively on 403, so read-only tokens saw enabled forms until the
+first failed POST; and HQ `openRoom` no longer showed simulated/reserved spend
+because ADR-060 banned `simulated_spend_cents` on the full `DESK_HTML` string
+to kill the Money-section JSON dump.
+
+**Decision.** During desk `load()`, call `GET /api/v1/session` via
+`applyFinancePauseFromSession()` before `loadFinance()`; enable finance
+mutations only when `scopes` includes `company.pause`; fail closed on
+session fetch error; remove unconditional `setFinanceMutateEnabled(true)` at
+init; keep `postFinanceCommand` 403 → `setFinanceMutateEnabled(false)` as
+backup. Restore `openRoom` cost line with `simulated_spend_cents` and
+`reserved_cents`. Scope the dump-ban contract to the `#budget` section only
+so openRoom can show spend without reintroducing the JSON dump.
+
+**Alternatives considered.** 403-only reactive gating (rejected — poor UX for
+read-only tokens). Full-desk ban on `simulated_spend_cents` (rejected — blocks
+openRoom). New finance APIs or companion changes (rejected — desk-only scope).
+
+**Consequences.** Desk v0.3.80 ships upfront session-scoped Finance mutation
+gate and HQ room-detail spend display with no Alembic revision or control-plane
+API change. Companion version locksteps at 0.3.80 with no FinancePanel changes.
+One-frame tab-change URL flash remains an owner-directed follow-up.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

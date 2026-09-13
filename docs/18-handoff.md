@@ -1,34 +1,33 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.79**. State: **Companion finance URL polish
-merged to `main`, pushed, and deployed to fs-dev.** Tip: **`72e4cea`**.
+Date: 2026-09-12. Version: **0.3.80**. State: **Desk Finance polish on
+`feature/desk-finance-polish`, pending merge to `main`.** Tip: **`PENDING`**.
 
-## On main / fs-dev
+## On feature/desk-finance-polish
 
-- `companion/src/FinancePanel.tsx` — Browse Close period no longer focuses Manage
-  period input or calls `onManageGroupChange("periods")` after close.
-- `companion/src/App.tsx` — cold-load and popstate resolve missing `group` via
-  `defaultGroupFor(tab, mode)` instead of manage-biased `defaultManageGroup(tab)`.
-- `companion/scripts/check-url-state.mts` — tsx behavioral harness for
-  `parseCompanionSearch` / `serializeCompanionSearch` round-trips.
-- `tests/test_companion_finance_url_polish.py` — source contracts; exact version
-  **0.3.79**.
-- `tests/test_url_state_behavior.py` — invokes harness from unittest discover.
-- `tests/test_desk_finance_surface.py` — soft `0\.3\.\d+` version pin (desk
-  Finance surface unchanged).
-- ADR-061; version **0.3.79** (Python package and companion `package.json`
+- `company/service.py` — `applyFinancePauseFromSession()` fetches
+  `/api/v1/session` before `loadFinance()`; enables Finance mutations only when
+  scopes include `company.pause`; fail closed on session error; no unconditional
+  `setFinanceMutateEnabled(true)` at init; 403 in `postFinanceCommand` remains
+  backup.
+- `company/service.py` — `openRoom` restores simulated + reserved spend line
+  (`simulated_spend_cents`, `reserved_cents`).
+- `tests/test_desk_finance_polish.py` — session gate, openRoom, version **0.3.80**
+  contracts.
+- `tests/test_desk_finance_surface.py` — `#budget`-scoped dump ban (soft version).
+- `tests/test_companion_finance_url_polish.py` — soft `0\.3\.\d+` version pin.
+- ADR-062; version **0.3.80** (Python package and companion `package.json`
   lockstep).
-- Prior on `main`: Desk Finance surface (0.3.78), Finance Browse/Manage (0.3.77).
+- Prior on `main`: Companion finance URL polish (0.3.79), Desk Finance surface
+  (0.3.78), Finance Browse/Manage (0.3.77).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **542 tests, OK**.
-- `cd companion && npm run build`: OK (package version 0.3.79).
-- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.79",...}`; companion
-  bundle rebuilt (`index-ybfRBduj.js`).
+- `.venv/bin/python -m unittest discover -s tests`: **545 tests, OK**.
+- `cd companion && npm run build`: OK (package version 0.3.80).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: desk polish nits (403-only pause gate / openRoom reserved-only)
-or other companion follow-ups.
+Merge `feature/desk-finance-polish` to `main`, deploy to fs-dev, or owner-directed
+companion follow-ups (one-frame tab-change URL flash).
