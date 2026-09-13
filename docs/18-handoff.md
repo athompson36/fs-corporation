@@ -1,8 +1,8 @@
 # Current handoff
 
 Date: 2026-09-12. Version: **0.3.79**. State: **Companion finance URL polish on
-`feature/companion-finance-url-polish`, pending merge to `main`.** Tip: HEAD on
-this branch after Task 5 commit.
+`feature/companion-finance-url-polish`, pending merge to `main`.** Tip:
+**`05931af`** (Task 5 substantive release commit).
 
 ## On feature branch (pending merge)
 
