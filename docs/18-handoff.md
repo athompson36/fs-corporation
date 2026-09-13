@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-12. Version: **0.3.80**. State: **Desk Finance polish on
-`feature/desk-finance-polish`, pending merge to `main`.** Tip: **`PENDING`**.
+`feature/desk-finance-polish`, pending merge to `main`.** Tip: **`556f1ff`**.
 
 ## On feature/desk-finance-polish
 

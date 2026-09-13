@@ -455,6 +455,6 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 ## Immediate next implementation task
 
 **Desk Finance polish 0.3.80 is on `feature/desk-finance-polish` pending merge**
-(tip `PENDING`). Session-scoped Finance mutation gate; openRoom spend restored;
+(tip `556f1ff`). Session-scoped Finance mutation gate; openRoom spend restored;
 companion version lockstep at 0.3.80. Next: merge to `main`, fs-dev deploy, or
 owner-directed companion follow-ups (one-frame tab-change URL flash).
