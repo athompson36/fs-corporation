@@ -45,6 +45,8 @@ import {
   MODE_CAPABLE_TABS,
   parseCompanionSearch,
   serializeCompanionSearch,
+  stateAfterModeChange,
+  stateAfterTabChange,
   type CompanionTab,
   type CorporateClusterId,
 } from "./urlState";
@@ -275,28 +277,6 @@ export default function App() {
     const known = projects.some((p) => String(p.id) === selectedProject);
     if (!known) setSelectedProject(null);
   }, [projects, projectsLoaded, selectedProject]);
-
-  useEffect(() => {
-    if (tabRef.current === tab) return;
-    tabRef.current = tab;
-    setPanelMode("browse");
-    setCorporateCluster("strategy");
-    setManageGroup(
-      defaultGroupFor(tab as CompanionTab, "browse")
-        ?? defaultGroupFor(tab as CompanionTab, "manage")
-        ?? "catalog",
-    );
-  }, [tab]);
-
-  useEffect(() => {
-    if (modeRef.current === panelMode) return;
-    modeRef.current = panelMode;
-    if (tab === "finance") {
-      setManageGroup(defaultGroupFor("finance", panelMode) ?? "overview");
-    } else if (MODE_CAPABLE_TABS.has(tab as CompanionTab) && panelMode === "manage") {
-      setManageGroup(defaultGroupFor(tab as CompanionTab, "manage") ?? "catalog");
-    }
-  }, [panelMode, tab]);
 
   useEffect(() => {
     if (!MODE_CAPABLE_TABS.has(tab as CompanionTab)) {
@@ -531,16 +511,50 @@ export default function App() {
       .catch((e) => setError(String(e)));
   }, [api, selectedProject, settings.token, scopes]);
 
-  /** Run a write and report the outcome next to the control that triggered it. */
+  const selectTab = useCallback((next: Tab) => {
+    const canonical = stateAfterTabChange(
+      {
+        tab: tab as CompanionTab,
+        project: selectedProject,
+        mode: panelMode,
+        cluster: corporateCluster,
+        group: manageGroup,
+      },
+      next as CompanionTab,
+    );
+    tabRef.current = canonical.tab;
+    modeRef.current = canonical.mode;
+    setTab(canonical.tab);
+    setPanelMode(canonical.mode);
+    setCorporateCluster(canonical.cluster);
+    setManageGroup(canonical.group ?? "catalog");
+    if (canonical.project === null) setSelectedProject(null);
+    else setSelectedProject(canonical.project);
+  }, [tab, selectedProject, panelMode, corporateCluster, manageGroup]);
+
   const handlePanelModeChange = useCallback(
     (mode: PanelMode) => {
       if (tab === "corporate" && !canManageOrg && mode === "manage") {
         setPanelMode("browse");
+        modeRef.current = "browse";
         return;
       }
-      setPanelMode(mode);
+      const canonical = stateAfterModeChange(
+        {
+          tab: tab as CompanionTab,
+          project: selectedProject,
+          mode: panelMode,
+          cluster: corporateCluster,
+          group: manageGroup,
+        },
+        mode,
+      );
+      modeRef.current = canonical.mode;
+      setPanelMode(canonical.mode);
+      setCorporateCluster(canonical.cluster);
+      setManageGroup(canonical.group ?? "catalog");
     },
-    [tab, canManageOrg],
+    [tab, canManageOrg, selectedProject, panelMode, corporateCluster, manageGroup],
   );
 
   const handleManageGroupChange = useCallback(
@@ -769,7 +783,7 @@ export default function App() {
               role="tab"
               aria-selected={tab === t}
               className={tab === t ? "active" : ""}
-              onClick={() => setTab(t)}
+              onClick={() => selectTab(t)}
             >
               {label}
             </button>
@@ -786,7 +800,7 @@ export default function App() {
               role="tab"
               aria-selected={tab === t}
               className={tab === t ? "active" : ""}
-              onClick={() => setTab(t)}
+              onClick={() => selectTab(t)}
             >
               {label}
             </button>
@@ -809,8 +823,8 @@ export default function App() {
           onPause={() => { void api.pause().then(refresh); }}
           onResume={() => { void api.resume().then(refresh); }}
           onRefresh={refresh}
-          onOpenDecisions={() => setTab("decisions")}
-          onOpenInbox={() => setTab("inbox")}
+          onOpenDecisions={() => selectTab("decisions")}
+          onOpenInbox={() => selectTab("inbox")}
           status={status}
           scopeNotice={scopeNotice}
           accessBadge={accessBadge}
@@ -1380,35 +1394,35 @@ export default function App() {
         {backendVersion ? `v${backendVersion}` : ""}
       </p>
       <nav className="tabs" aria-label="Primary">
-        <button type="button" className={tab === "dashboard" ? "active" : ""} onClick={() => setTab("dashboard")}>
+        <button type="button" className={tab === "dashboard" ? "active" : ""} onClick={() => selectTab("dashboard")}>
           {primaryLabel.dashboard}
           {moreCount > 0 && <span className="tab-badge">{moreCount}</span>}
         </button>
         <button
           type="button"
           className={isWorkTab ? "active" : ""}
-          onClick={() => setTab(lastWorkTab)}
+          onClick={() => selectTab(lastWorkTab)}
         >
           {primaryLabel.work}
         </button>
         <button
           type="button"
           className={tab === "organization" ? "active" : ""}
-          onClick={() => setTab("organization")}
+          onClick={() => selectTab("organization")}
         >
           {primaryLabel.people}
         </button>
         <button
           type="button"
           className={tab === "finance" ? "active" : ""}
-          onClick={() => setTab("finance")}
+          onClick={() => selectTab("finance")}
         >
           {primaryLabel.money}
         </button>
         <button
           type="button"
           className={isMoreTab ? "active" : ""}
-          onClick={() => setTab(lastMoreTab)}
+          onClick={() => selectTab(lastMoreTab)}
         >
           More
         </button>
