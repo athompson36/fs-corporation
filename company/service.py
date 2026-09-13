@@ -636,6 +636,20 @@ function fillFinanceBilledCosts(costs) {
   });
   if (financeBilledCosts.some(item => item.id === prev)) select.value = prev;
 }
+async function applyFinancePauseFromSession() {
+  try {
+    const res = await fetch('/api/v1/session', {headers});
+    if (!res.ok) {
+      setFinanceMutateEnabled(false);
+      return;
+    }
+    const body = await res.json();
+    const scopes = Array.isArray(body.scopes) ? body.scopes : [];
+    setFinanceMutateEnabled(scopes.indexOf('company.pause') !== -1);
+  } catch (e) {
+    setFinanceMutateEnabled(false);
+  }
+}
 async function loadFinance() {
   financeExpandedInvoiceId = '';
   const err = document.getElementById('finance-load-error');
@@ -1252,7 +1266,6 @@ document.getElementById('finance-period-form').addEventListener('submit', async 
     status.textContent = ' ' + (error instanceof Error ? error.message : String(error));
   }
 });
-setFinanceMutateEnabled(true);
 document.getElementById('desk-finance-adjustment-amount').disabled =
   document.getElementById('desk-finance-adjustment-kind').value !== 'partial_credit';
 function setHqView(mode) {
@@ -1378,7 +1391,8 @@ async function openRoom(roomId) {
     'Staff: ' + listed(detail.staff, s => s.display_name + ' (' + s.position_id + ')'),
     'Deliverables: ' + listed(detail.deliverables, d => d.hash.slice(0,12)),
     'Decisions: ' + listed(detail.decisions, d => d.kind),
-    'Reserved: ' + detail.costs.reserved_cents + '¢',
+    'Simulated spend: ' + detail.costs.simulated_spend_cents + '¢ reserved '
+      + detail.costs.reserved_cents + '¢',
     detail.occupancy_note
   ];
   facts.innerHTML = '';
@@ -1716,6 +1730,7 @@ async function load() {
   document.getElementById('metric-projects').textContent = pad((pj.projects||[]).length);
   document.getElementById('metric-decisions').textContent = pad((ij.items||[]).length);
   document.getElementById('metric-departments').textContent = pad((oj.departments||[]).length);
+  await applyFinancePauseFromSession();
   await loadFinance();
   const svg = document.getElementById('floor');
   svg.innerHTML = '';
