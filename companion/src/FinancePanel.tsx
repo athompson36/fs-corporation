@@ -75,7 +75,6 @@ export function FinancePanel(props: FinancePanelProps) {
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [periodLimit, setPeriodLimit] = useState("500000");
-  const periodStartRef = useRef<HTMLInputElement>(null);
   const expandedInvoiceIdRef = useRef("");
 
   const loadAll = useCallback(async (isCancelled: () => boolean = () => false) => {
@@ -200,8 +199,6 @@ export function FinancePanel(props: FinancePanelProps) {
       async () => {
         await api.closeFinanceBudgetPeriod(String(period.id));
         setPeriodStart(toDatetimeLocalValue(String(period.period_end)));
-        onManageGroupChange("periods");
-        window.setTimeout(() => periodStartRef.current?.focus(), 0);
         await loadAll();
       },
     );
@@ -446,7 +443,7 @@ export function FinancePanel(props: FinancePanelProps) {
                     <h2>Set budget period</h2>
                   </div>
                   <label htmlFor="finance-period-start">Start</label>
-                  <input ref={periodStartRef} id="finance-period-start" type="datetime-local"
+                  <input id="finance-period-start" type="datetime-local"
                     value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} required />
                   <label htmlFor="finance-period-end">End</label>
                   <input id="finance-period-end" type="datetime-local" value={periodEnd}
