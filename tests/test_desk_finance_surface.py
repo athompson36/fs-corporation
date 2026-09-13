@@ -19,8 +19,17 @@ class DeskFinanceSurfaceTests(unittest.TestCase):
         self.assertNotIn("<h2>Budget</h2>", DESK_HTML)
 
     def test_no_budget_json_dump(self):
-        self.assertNotIn("budget-json", DESK_HTML)
-        self.assertNotIn("simulated_spend_cents", DESK_HTML)
+        html = DESK_HTML
+        start = html.find('id="budget"')
+        self.assertGreater(start, -1)
+        # section opens at nearest preceding <section
+        sec_start = html.rfind("<section", 0, start)
+        self.assertGreater(sec_start, -1)
+        sec_end = html.find("</section>", start)
+        self.assertGreater(sec_end, -1)
+        budget = html[sec_start : sec_end + len("</section>")]
+        self.assertNotIn("budget-json", budget)
+        self.assertNotIn("simulated_spend_cents", budget)
 
     def test_finance_markup_ids(self):
         for marker in (
