@@ -62,6 +62,7 @@
 | ADR-058 | 2026-09-12 | Mode/cluster/group companion URL sync | App-owned `mode`/`cluster`/`group` with replaceState; omit defaults; panels controlled; pairing unchanged. |
 | ADR-059 | 2026-09-12 | Finance Browse/Manage with URL sync | Finance ModeSwitch + ManageClusters lists-vs-forms; finance in MODE_CAPABLE_TABS; group in browse+manage; close-period stays Browse; no new APIs. |
 | ADR-060 | 2026-09-12 | Desk Finance surface | Expand `#budget` into Finance label + summary/lists/forms/close; keep id; no ModeSwitch; no new APIs. |
+| ADR-061 | 2026-09-12 | Companion finance URL polish | Drop dead Close-period focus; cold-load/popstate use defaultGroupFor; tsx urlState harness; no new APIs. |
 
 ### ADR-010 detail
 
@@ -988,6 +989,34 @@ New finance APIs or Alembic (rejected — ADR-038 math unchanged).
 **Consequences.** Desk v0.3.78 ships Finance surface parity with companion
 capabilities and no control-plane API change. Companion polish nits (dead
 `closePeriod` focus, cold-load `defaultGroupFor` bias, behavioral URL tests)
-remain owner-directed follow-ups.
+were deferred to ADR-061.
+
+### ADR-061 detail
+
+**Context.** After ADR-059 and ADR-060, companion Finance Browse/Manage and desk
+Finance surface shipped, but three companion URL polish nits remained: Browse
+Close period still focused a Manage period input and switched to Manage after
+close; cold-load and popstate fell back to manage-biased `defaultManageGroup`
+instead of mode-aware `defaultGroupFor`; and `urlState` parse/serialize had no
+behavioral regression harness beyond source contracts.
+
+**Decision.** In `FinancePanel.closePeriod`, remove dead Manage focus and
+`onManageGroupChange("periods")` after a successful Browse in-row close. In
+`App.tsx`, resolve missing `group` on initial load and popstate via
+`defaultGroupFor(tab, mode)` instead of `defaultManageGroup(tab)`. Add
+`companion/scripts/check-url-state.mts` invoked from Python unittest via
+`npx --yes tsx` to round-trip finance browse/manage, invalid group coercion,
+and projects manage defaults through `parseCompanionSearch` /
+`serializeCompanionSearch`.
+
+**Alternatives considered.** Vitest or a permanent companion test-runner
+dependency (rejected — offline starter keeps Python unittest as the gate).
+Desk pause-gate / openRoom polish in the same batch (rejected — companion-only
+scope). New finance APIs or ModeSwitch redesign (rejected — ADR-059 unchanged).
+
+**Consequences.** Companion v0.3.79 ships the three polish fixes and harness
+with no Alembic revision or control-plane API change. Desk pause-gate / openRoom
+display polish and one-frame tab-change URL flash remain owner-directed
+follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

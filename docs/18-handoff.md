@@ -1,32 +1,34 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.78**. State: **Desk Finance surface merged to
-`main`, pushed, and deployed to fs-dev.** Tip: **`a1be7cb`**.
+Date: 2026-09-12. Version: **0.3.79**. State: **Companion finance URL polish on
+`feature/companion-finance-url-polish`, pending merge to `main`.** Tip: HEAD on
+this branch after Task 5 commit.
 
-## On main / fs-dev
+## On feature branch (pending merge)
 
-- `company/service.py` — DESK_HTML rail `#budget` labeled **Finance**; structured
-  overview from `/api/v1/finance/summary`; invoice/adjustment/period lists;
-  create forms; in-row close period; `loadFinance()` + `formatFinanceUsd` +
-  `setFinanceMutateEnabled`; pause gate on 403; no `budget-json`.
-- `tests/test_desk_finance_surface.py` — source contracts; exact version **0.3.78**.
-- `tests/test_finance_browse_manage.py` — soft `0\.3\.\d+` version pin (companion
-  Finance Browse/Manage unchanged).
-- ADR-060; version **0.3.78** (Python package and companion `package.json`
+- `companion/src/FinancePanel.tsx` — Browse Close period no longer focuses Manage
+  period input or calls `onManageGroupChange("periods")` after close.
+- `companion/src/App.tsx` — cold-load and popstate resolve missing `group` via
+  `defaultGroupFor(tab, mode)` instead of manage-biased `defaultManageGroup(tab)`.
+- `companion/scripts/check-url-state.mts` — tsx behavioral harness for
+  `parseCompanionSearch` / `serializeCompanionSearch` round-trips.
+- `tests/test_companion_finance_url_polish.py` — source contracts; exact version
+  **0.3.79**.
+- `tests/test_url_state_behavior.py` — invokes harness from unittest discover.
+- `tests/test_desk_finance_surface.py` — soft `0\.3\.\d+` version pin (desk
+  Finance surface unchanged).
+- ADR-061; version **0.3.79** (Python package and companion `package.json`
   lockstep).
-- Prior on `main`: Finance Browse/Manage (0.3.77), mode/cluster/group URL sync
-  (0.3.76), empty-list unknown-project URL clear (0.3.75).
+- Prior on `main`: Desk Finance surface (0.3.78), Finance Browse/Manage (0.3.77).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **538 tests, OK**.
-- `cd companion && npm run build`: OK (package version 0.3.78).
-- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.78",...}`; desk
-  serves `href="#budget">Finance` and `finance-overview`.
+- `.venv/bin/python -m unittest discover -s tests`: **542 tests, OK**.
+- `cd companion && npm run build`: OK (package version 0.3.79).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: polish nits (dead `closePeriod` focus; cold-load
-`defaultGroupFor` bias; behavioral URL tests; 403-only pause gate / openRoom
-reserved-only) or other companion follow-ups.
+Owner-directed: merge `feature/companion-finance-url-polish` to `main` and deploy
+to fs-dev; or desk polish nits (403-only pause gate / openRoom reserved-only) /
+other companion follow-ups.

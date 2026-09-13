@@ -1,6 +1,6 @@
 # Design: Companion finance URL polish (0.3.79)
 
-Date: 2026-09-12. Status: **approved for implementation** (target **v0.3.79**).
+Date: 2026-09-12. Status: **implemented in v0.3.79**.
 
 ## Goal
 
