@@ -457,7 +457,7 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Companion tab/mode URL flash 0.3.81** on branch `feature/companion-tab-url-flash`
-(branch tip after docs commit). Batched tab/mode URL writes; tsx harness transition
-sequences; version lockstep at 0.3.81. Next: desk init-time Finance disable before
-session (desk nit) or owner-directed follow-ups.
+**Companion tab/mode URL flash 0.3.81 is on `main` and fs-dev** (tip `157b99f`).
+Batched tab/mode URL writes via `selectTab` / `handlePanelModeChange`; tsx harness
+transition sequences; version lockstep at 0.3.81. Next: desk init-time Finance
+disable before session (desk nit) or owner-directed follow-ups.
