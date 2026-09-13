@@ -434,6 +434,247 @@ function listed(items, fn) {
   return arr.length ? arr.map(fn).join(', ') : 'none';
 }
 function pad(n) { return String(n).padStart(2, '0'); }
+function formatFinanceUsd(cents) {
+  const n = Number(cents);
+  if (!Number.isFinite(n)) return '$—';
+  return new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(n / 100);
+}
+function toFinanceLocalValue(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+    + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function fromFinanceLocalValue(local) {
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) throw new Error('Invalid datetime');
+  return d.toISOString();
+}
+let financeBilledCosts = [];
+let financeExpandedInvoiceId = '';
+function setFinanceMutateEnabled(enabled) {
+  const notice = document.getElementById('finance-scope-notice');
+  notice.hidden = !!enabled;
+  [
+    'desk-finance-invoice-submit',
+    'desk-finance-adjustment-submit',
+    'desk-finance-period-submit',
+    'desk-finance-invoice-month',
+    'desk-finance-period-30d',
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !enabled;
+  });
+  document.querySelectorAll('[data-finance-close]').forEach(btn => {
+    btn.disabled = !enabled;
+  });
+}
+function renderFinanceOverview(summary) {
+  const el = document.getElementById('finance-overview');
+  if (!summary) {
+    el.textContent = 'No finance summary loaded.';
+    return;
+  }
+  const open = summary.open_budget_period;
+  el.innerHTML = '';
+  const lines = [
+    'Gross billed: ' + formatFinanceUsd(summary.billed_cost_gross_cents),
+    'Adjustments: ' + formatFinanceUsd(summary.billed_adjustment_cents),
+    'Net billed: ' + formatFinanceUsd(summary.billed_cost_cents),
+    'Revenue: ' + formatFinanceUsd(summary.revenue_cents),
+  ];
+  lines.forEach(text => {
+    const div = document.createElement('div');
+    div.textContent = text;
+    el.appendChild(div);
+  });
+  const openLine = document.createElement('p');
+  openLine.className = 'muted';
+  if (open) {
+    openLine.textContent = 'Open period: ' + open.period_start + ' → ' + open.period_end
+      + ' · limit ' + formatFinanceUsd(open.limit_cents);
+  } else {
+    openLine.textContent = 'No open budget period.';
+  }
+  el.appendChild(openLine);
+}
+async function toggleFinanceInvoice(invoiceId) {
+  const list = document.getElementById('finance-invoice-list');
+  const existing = list.querySelector('[data-invoice-detail="' + invoiceId + '"]');
+  if (financeExpandedInvoiceId === invoiceId) {
+    financeExpandedInvoiceId = '';
+    if (existing) existing.remove();
+    return;
+  }
+  financeExpandedInvoiceId = invoiceId;
+  list.querySelectorAll('[data-invoice-detail]').forEach(node => node.remove());
+  const detail = document.createElement('li');
+  detail.dataset.invoiceDetail = invoiceId;
+  detail.className = 'muted';
+  detail.textContent = 'Loading lines…';
+  const parentBtn = list.querySelector('[data-invoice-id="' + invoiceId + '"]');
+  if (parentBtn && parentBtn.parentElement) {
+    parentBtn.parentElement.insertAdjacentElement('afterend', detail);
+  } else {
+    list.appendChild(detail);
+  }
+  try {
+    const res = await fetch('/api/v1/finance/invoices/' + encodeURIComponent(invoiceId), {headers});
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof body === 'string' ? body : (body.detail || res.statusText));
+    const lines = ((body.body || {}).lines) || body.lines || [];
+    detail.textContent = '';
+    if (!lines.length) {
+      detail.textContent = 'No line items.';
+      return;
+    }
+    lines.forEach(line => {
+      const row = document.createElement('div');
+      row.textContent = (line.provider || '') + ' · ' + formatFinanceUsd(line.amount_cents)
+        + ' · ' + (line.billed_cost_id || '');
+      detail.appendChild(row);
+    });
+  } catch (error) {
+    detail.textContent = error instanceof Error ? error.message : String(error);
+  }
+}
+function renderFinanceInvoices(invoices) {
+  const list = document.getElementById('finance-invoice-list');
+  list.innerHTML = '';
+  if (!(invoices || []).length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No invoices yet.';
+    list.appendChild(li);
+    return;
+  }
+  invoices.forEach(invoice => {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.dataset.invoiceId = invoice.id;
+    btn.textContent = String(invoice.id).slice(0, 8) + '… · ' + formatFinanceUsd(invoice.total_cents);
+    btn.addEventListener('click', () => { void toggleFinanceInvoice(String(invoice.id)); });
+    const meta = document.createElement('div');
+    meta.className = 'muted';
+    meta.textContent = (invoice.period_start || '') + ' → ' + (invoice.period_end || '')
+      + ' · ' + (invoice.line_count || 0) + ' lines';
+    li.appendChild(btn);
+    li.appendChild(meta);
+    list.appendChild(li);
+  });
+}
+function renderFinanceAdjustments(adjustments) {
+  const list = document.getElementById('finance-adjustment-list');
+  list.innerHTML = '';
+  if (!(adjustments || []).length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No adjustments yet.';
+    list.appendChild(li);
+    return;
+  }
+  adjustments.forEach(item => {
+    const li = document.createElement('li');
+    li.innerHTML = '<strong></strong><div class="muted"></div>';
+    li.querySelector('strong').textContent = item.kind || '';
+    li.querySelector('div').textContent = (item.billed_cost_id || '') + ' · '
+      + formatFinanceUsd(item.amount_cents) + ' · ' + (item.reason || '');
+    list.appendChild(li);
+  });
+}
+function renderFinancePeriods(periods) {
+  const list = document.getElementById('finance-period-list');
+  list.innerHTML = '';
+  if (!(periods || []).length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No budget periods.';
+    list.appendChild(li);
+    return;
+  }
+  periods.forEach(period => {
+    const li = document.createElement('li');
+    const meta = document.createElement('div');
+    meta.textContent = (period.period_start || '') + ' → ' + (period.period_end || '')
+      + ' · limit ' + formatFinanceUsd(period.limit_cents)
+      + (period.closed_at ? ' · closed' : ' · open');
+    li.appendChild(meta);
+    if (!period.closed_at) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip';
+      btn.dataset.financeClose = String(period.id);
+      btn.textContent = 'Close period';
+      btn.addEventListener('click', () => { void closeFinancePeriod(period); });
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  });
+  setFinanceMutateEnabled(document.getElementById('finance-scope-notice').hidden);
+}
+function fillFinanceBilledCosts(costs) {
+  financeBilledCosts = costs || [];
+  const select = document.getElementById('desk-finance-billed-cost');
+  const prev = select.value;
+  select.innerHTML = '';
+  if (!financeBilledCosts.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No creditable lines';
+    select.appendChild(opt);
+    return;
+  }
+  financeBilledCosts.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = (item.provider || '') + ' · ' + formatFinanceUsd(item.amount_cents)
+      + ' · remaining ' + formatFinanceUsd(item.remaining_creditable_cents);
+    select.appendChild(opt);
+  });
+  if (financeBilledCosts.some(item => item.id === prev)) select.value = prev;
+}
+async function loadFinance() {
+  const err = document.getElementById('finance-load-error');
+  err.hidden = true;
+  err.textContent = '';
+  try {
+    const [summaryRes, invRes, adjRes, perRes, costRes] = await Promise.all([
+      fetch('/api/v1/finance/summary', {headers}),
+      fetch('/api/v1/finance/invoices', {headers}),
+      fetch('/api/v1/finance/adjustments', {headers}),
+      fetch('/api/v1/finance/budget-periods', {headers}),
+      fetch('/api/v1/finance/billed-costs', {headers}),
+    ]);
+    const summary = await summaryRes.json().catch(() => null);
+    const invoices = await invRes.json().catch(() => ({}));
+    const adjustments = await adjRes.json().catch(() => ({}));
+    const periods = await perRes.json().catch(() => ({}));
+    const costs = await costRes.json().catch(() => ({}));
+    if (![summaryRes, invRes, adjRes, perRes, costRes].every(r => r.ok)) {
+      throw new Error('Finance data could not be loaded.');
+    }
+    renderFinanceOverview(summary);
+    renderFinanceInvoices(invoices.invoices || []);
+    renderFinanceAdjustments(adjustments.adjustments || []);
+    renderFinancePeriods(periods.periods || []);
+    fillFinanceBilledCosts(costs.billed_costs || []);
+  } catch (error) {
+    renderFinanceOverview(null);
+    renderFinanceInvoices([]);
+    renderFinanceAdjustments([]);
+    renderFinancePeriods([]);
+    fillFinanceBilledCosts([]);
+    err.hidden = false;
+    err.textContent = 'Finance data could not be loaded: '
+      + (error instanceof Error ? error.message : String(error));
+  }
+}
+async function closeFinancePeriod(period) {
+  console.warn('closeFinancePeriod not wired', period && period.id);
+}
 let headquartersRooms = [];
 function renderActivityBadges(items) {
   document.querySelectorAll('.activity-badge').forEach(node => node.remove());
@@ -1346,6 +1587,7 @@ async function load() {
   document.getElementById('metric-projects').textContent = pad((pj.projects||[]).length);
   document.getElementById('metric-decisions').textContent = pad((ij.items||[]).length);
   document.getElementById('metric-departments').textContent = pad((oj.departments||[]).length);
+  await loadFinance();
   const svg = document.getElementById('floor');
   svg.innerHTML = '';
   const iso = document.getElementById('iso');
