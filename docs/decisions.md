@@ -61,6 +61,7 @@
 | ADR-057 | 2026-09-12 | Empty-list unknown-project URL clear | Gate unknown `?project=` clear on `projectsLoaded` after successful refresh; failed fetch keeps deep link; silent clear; no new APIs. |
 | ADR-058 | 2026-09-12 | Mode/cluster/group companion URL sync | App-owned `mode`/`cluster`/`group` with replaceState; omit defaults; panels controlled; pairing unchanged. |
 | ADR-059 | 2026-09-12 | Finance Browse/Manage with URL sync | Finance ModeSwitch + ManageClusters lists-vs-forms; finance in MODE_CAPABLE_TABS; group in browse+manage; close-period stays Browse; no new APIs. |
+| ADR-060 | 2026-09-12 | Desk Finance surface | Expand `#budget` into Finance label + summary/lists/forms/close; keep id; no ModeSwitch; no new APIs. |
 
 ### ADR-010 detail
 
@@ -964,5 +965,29 @@ sync (rejected — inconsistent with 0.3.76). Moving Close period to Manage
 **Consequences.** Companion v0.3.77 ships Finance Browse/Manage with URL sync and
 no Alembic revision or control-plane API change. `pushState` Back stacks and desk
 Finance surface remain owner-directed follow-ups.
+
+### ADR-060 detail
+
+**Context.** After ADR-059, companion Money had full Finance Browse/Manage with URL
+sync, but the CEO desk Money section still rendered a `#budget` JSON dump of
+simulated credits. Owner wanted companion-parity finance capabilities on the desk
+without Browse/Manage ModeSwitch or new finance APIs.
+
+**Decision.** Expand the existing `#budget` section in `company/service.py` DESK_HTML:
+visible rail and `<h2>` label **Finance** while keeping `id="budget"` and
+`href="#budget"`. Replace `budget-json` with structured overview from
+`/api/v1/finance/summary`, invoice/adjustment/period lists, create forms, and
+in-row close period via desk-native long scroll. Wire `loadFinance()` from `load()`
+using existing finance endpoints and `Idempotency-Key` mutations; pause gate
+disables mutate controls on 403.
+
+**Alternatives considered.** Renaming section id to `#finance` (rejected — owner
+lock). Desk Browse/Manage ModeSwitch like companion (rejected — desk-native scroll).
+New finance APIs or Alembic (rejected — ADR-038 math unchanged).
+
+**Consequences.** Desk v0.3.78 ships Finance surface parity with companion
+capabilities and no control-plane API change. Companion polish nits (dead
+`closePeriod` focus, cold-load `defaultGroupFor` bias, behavioral URL tests)
+remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

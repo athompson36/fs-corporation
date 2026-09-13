@@ -1,35 +1,31 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.77**. State: **Finance Browse/Manage merged to
-`main`, pushed, and deployed to fs-dev.** Tip: **`5b21dcd`**.
+Date: 2026-09-12. Version: **0.3.78**. State: **Desk Finance surface on branch
+`feature/desk-finance-surface`** (Tasks 1–5 complete; pending merge/deploy). Tip:
+**`b010a9a`**.
 
-## On main / fs-dev
+## On feature branch
 
-- `companion/src/urlState.ts` — `finance` in `MODE_CAPABLE_TABS`; mode-aware
-  browse/manage group tables; finance serializes `group` in both modes.
-- `companion/src/FinancePanel.tsx` — ModeSwitch + ManageClusters; Browse lists
-  (Overview · Invoices · Adjustments · Periods); Manage forms (Invoice ·
-  Adjustment · Period); Close period stays Browse in-row.
-- `companion/src/App.tsx` — controlled Finance props; mode-change group reset.
-- `tests/test_finance_browse_manage.py` — contracts; exact version **0.3.77**.
-- Legacy tests flipped: Finance now requires ModeSwitch/ManageClusters
-  (`test_work_people_money_browse_manage.py`, `test_projects_split_browse_polish.py`).
-- `tests/test_mode_cluster_group_url_sync.py` — soft `0\.3\.\d+` version pin.
-- ADR-059; version **0.3.77** (Python package and companion `package.json`
+- `company/service.py` — DESK_HTML rail `#budget` labeled **Finance**; structured
+  overview from `/api/v1/finance/summary`; invoice/adjustment/period lists;
+  create forms; in-row close period; `loadFinance()` + `formatFinanceUsd` +
+  `setFinanceMutateEnabled`; pause gate on 403; no `budget-json`.
+- `tests/test_desk_finance_surface.py` — source contracts; exact version **0.3.78**.
+- `tests/test_finance_browse_manage.py` — soft `0\.3\.\d+` version pin (companion
+  Finance Browse/Manage unchanged).
+- ADR-060; version **0.3.78** (Python package and companion `package.json`
   lockstep).
-- Prior on `main`: mode/cluster/group URL sync (0.3.76), empty-list unknown-project
-  URL clear (0.3.75), Manage visual groups (0.3.74), Companion URL sync (0.3.73).
+- Prior on `main`: Finance Browse/Manage (0.3.77), mode/cluster/group URL sync
+  (0.3.76), empty-list unknown-project URL clear (0.3.75).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **533 tests, OK**.
-- `cd companion && npm run build`: OK (package version 0.3.77).
-- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.77",...}`; companion
-  bundle rebuilt (`index-Ca-CDgRT.js`).
+- `.venv/bin/python -m unittest discover -s tests`: **538 tests, OK**.
+- `cd companion && npm run build`: OK (package version 0.3.78).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: desk Finance surface; remaining polish nits (dead `closePeriod`
-focus; cold-load `defaultGroupFor` bias; behavioral URL tests); or other
-companion follow-ups.
+Owner-directed: merge `feature/desk-finance-surface` to `main` and deploy to
+fs-dev; or polish nits (dead `closePeriod` focus; cold-load `defaultGroupFor`
+bias; behavioral URL tests) / other companion follow-ups.
