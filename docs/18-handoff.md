@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-12. Version: **0.3.81**. State: **Companion tab/mode URL flash on
-branch `feature/companion-tab-url-flash`.** Tip: **`43ee390`**.
+branch `feature/companion-tab-url-flash`.** Tip: **`5acf922`**.
 
 ## On feature/companion-tab-url-flash
 
