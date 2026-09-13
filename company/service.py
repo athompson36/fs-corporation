@@ -124,7 +124,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 </div>
 <div class="rail-group" role="group" aria-labelledby="rail-money">
 <span id="rail-money" class="rail-group-label">Money</span>
-<a href="#budget">Budget</a>
+<a href="#budget">Finance</a>
 </div>
 <div class="rail-group" role="group" aria-labelledby="rail-more">
 <span id="rail-more" class="rail-group-label">More</span>
@@ -318,9 +318,60 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <p class="muted">Open dispatches returned for this authenticated principal.</p>
 <ul id="head-inbox-list"></ul>
 </section>
-<section class="glass" id="budget"><h2>Budget</h2>
-<p class="muted">Simulated credits, billed cost, and revenue are separate totals.</p>
-<pre id="budget-json">Loading…</pre>
+<section class="glass" id="budget"><h2>Finance</h2>
+<p class="muted">Persisted finance totals and lists; create invoice, adjustment, and period below. API amounts are cents; display is USD.</p>
+<p id="finance-load-error" class="muted" hidden></p>
+<p id="finance-scope-notice" class="muted" hidden>Mutations require company.pause.</p>
+<h3>Overview</h3>
+<div id="finance-overview" class="muted">Loading…</div>
+<h3>Invoices</h3>
+<ul id="finance-invoice-list"></ul>
+<h3>Adjustments</h3>
+<ul id="finance-adjustment-list"></ul>
+<h3>Periods</h3>
+<ul id="finance-period-list"></ul>
+<form id="finance-invoice-form" class="compact">
+<h3>Create invoice</h3>
+<label for="desk-finance-invoice-start">Period start</label>
+<input id="desk-finance-invoice-start" type="datetime-local" required/>
+<label for="desk-finance-invoice-end">Period end</label>
+<input id="desk-finance-invoice-end" type="datetime-local" required/>
+<div class="row">
+<button type="button" class="chip" id="desk-finance-invoice-month">This calendar month</button>
+<button type="submit" class="chip" id="desk-finance-invoice-submit">Create invoice</button>
+<span class="muted" id="finance-invoice-status"></span>
+</div>
+</form>
+<form id="finance-adjustment-form" class="compact">
+<h3>Post adjustment</h3>
+<label for="desk-finance-adjustment-kind">Kind</label>
+<select id="desk-finance-adjustment-kind">
+<option value="partial_credit">partial_credit</option>
+<option value="void">void</option>
+</select>
+<label for="desk-finance-billed-cost">Creditable billed cost</label>
+<select id="desk-finance-billed-cost" required></select>
+<label for="desk-finance-adjustment-amount">Amount cents (partial_credit)</label>
+<input id="desk-finance-adjustment-amount" type="number" min="1" step="1"/>
+<label for="desk-finance-adjustment-reason">Reason</label>
+<input id="desk-finance-adjustment-reason" required/>
+<button type="submit" class="chip" id="desk-finance-adjustment-submit">Post adjustment</button>
+<span class="muted" id="finance-adjustment-status"></span>
+</form>
+<form id="finance-period-form" class="compact">
+<h3>Set budget period</h3>
+<label for="desk-finance-period-start">Start</label>
+<input id="desk-finance-period-start" type="datetime-local" required/>
+<label for="desk-finance-period-end">End</label>
+<input id="desk-finance-period-end" type="datetime-local" required/>
+<label for="desk-finance-period-limit">Limit cents</label>
+<input id="desk-finance-period-limit" type="number" min="0" step="1" value="500000" required/>
+<div class="row">
+<button type="button" class="chip" id="desk-finance-period-30d">Next 30 days</button>
+<button type="submit" class="chip" id="desk-finance-period-submit">Set period</button>
+<span class="muted" id="finance-period-status"></span>
+</div>
+</form>
 </section>
 <section class="glass" id="intelligence"><h2>Intelligence</h2><p class="muted">Impact briefs from sourced signals (no auto-publish).</p><ul id="intelligence-list"></ul></section>
 <section class="glass" id="diagnostics"><h2>Diagnostics</h2>
@@ -957,7 +1008,7 @@ async function openRoom(roomId) {
     'Staff: ' + listed(detail.staff, s => s.display_name + ' (' + s.position_id + ')'),
     'Deliverables: ' + listed(detail.deliverables, d => d.hash.slice(0,12)),
     'Decisions: ' + listed(detail.decisions, d => d.kind),
-    'Simulated spend: ' + detail.costs.simulated_spend_cents + '¢ reserved ' + detail.costs.reserved_cents + '¢',
+    'Reserved: ' + detail.costs.reserved_cents + '¢',
     detail.occupancy_note
   ];
   facts.innerHTML = '';
@@ -1292,19 +1343,9 @@ async function load() {
     try { summary = (JSON.parse(b.body||'{}').affected_summary) || ''; } catch (e) { summary = ''; }
     return (b.id||'').slice(0,12) + ' — ' + (b.status||'') + (summary ? ' — ' + summary : '');
   });
-  const dash = await fetch('/api/v1/dashboard', {headers});
-  const dashj = await dash.json();
-  const company = dashj.company || {};
   document.getElementById('metric-projects').textContent = pad((pj.projects||[]).length);
   document.getElementById('metric-decisions').textContent = pad((ij.items||[]).length);
   document.getElementById('metric-departments').textContent = pad((oj.departments||[]).length);
-  document.getElementById('budget-json').textContent = JSON.stringify({
-    simulated_spend_cents: company.simulated_spend_cents,
-    billed_cost_cents: company.billed_cost_cents,
-    revenue_cents: company.revenue_cents,
-    reserved_cents: company.reserved_cents,
-    note: 'Simulated credits stay separate from billed cost and revenue'
-  });
   const svg = document.getElementById('floor');
   svg.innerHTML = '';
   const iso = document.getElementById('iso');
