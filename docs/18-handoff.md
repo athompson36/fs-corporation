@@ -2,7 +2,7 @@
 
 Date: 2026-09-12. Version: **0.3.78**. State: **Desk Finance surface on branch
 `feature/desk-finance-surface`** (Tasks 1–5 complete; pending merge/deploy). Tip:
-**`b010a9a`**.
+**`365a0af`**.
 
 ## On feature branch
 
