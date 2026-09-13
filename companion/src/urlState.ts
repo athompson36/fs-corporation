@@ -103,6 +103,49 @@ export function defaultManageGroup(tab: CompanionTab): string | null {
   return defaultGroupFor(tab, "manage");
 }
 
+/** Canonical App URL state after a user tab change (always browse + strategy + default group). */
+export function stateAfterTabChange(
+  prev: CompanionUrlState,
+  nextTab: CompanionTab,
+): CompanionUrlState {
+  const project = nextTab === "projects" ? prev.project : null;
+  const mode: PanelMode = "browse";
+  const cluster: CorporateClusterId = "strategy";
+  const group =
+    defaultGroupFor(nextTab, "browse") ?? defaultGroupFor(nextTab, "manage");
+  return { tab: nextTab, project, mode, cluster, group };
+}
+
+/** Canonical App URL state after a Browse/Manage mode change on the current tab. */
+export function stateAfterModeChange(
+  prev: CompanionUrlState,
+  nextMode: PanelMode,
+): CompanionUrlState {
+  const capable = MODE_CAPABLE_TABS.has(prev.tab);
+  let mode: PanelMode = nextMode === "manage" ? "manage" : "browse";
+  if (!capable) mode = "browse";
+
+  let group = prev.group;
+  if (prev.tab === "finance") {
+    group = defaultGroupFor("finance", mode);
+  } else if (capable && mode === "manage") {
+    group = defaultGroupFor(prev.tab, "manage");
+  }
+
+  let cluster = prev.cluster;
+  if (prev.tab !== "corporate" || mode !== "browse") {
+    cluster = "strategy";
+  }
+
+  return {
+    tab: prev.tab,
+    project: prev.project,
+    mode,
+    cluster,
+    group,
+  };
+}
+
 export type CompanionUrlState = {
   tab: CompanionTab;
   project: string | null;
