@@ -1,7 +1,7 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.89**. State: **Measurement hardening merged to `main`
-(pushing/deploying).** Tip: **`c454c95`** (merge of 0.3.89 ship `2834239`).
+Date: 2026-09-14. Version: **0.3.89**. State: **Measurement hardening on `main` and
+deployed to fs-dev.** Tip: **`d69fe8d`** (merge record; ship `2834239`).
 
 ## Merged on main (0.3.89)
 
@@ -15,8 +15,9 @@ Date: 2026-09-14. Version: **0.3.89**. State: **Measurement hardening merged to 
 
 - `.venv/bin/python -m unittest discover -s tests`: **603 tests, OK**.
 - `cd companion && npm run build`: OK at ship.
+- fs-dev health: `{"ok":true,"version":"0.3.89",...}`; no new Alembic (still **0030**).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Deploy to fs-dev. Owner-directed follow-ups (ChatDev-in-worker, CSV import, etc.).
+Owner-directed follow-ups (ChatDev-in-worker depth, provider CSV/PDF import, etc.).
