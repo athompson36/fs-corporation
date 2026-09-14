@@ -160,5 +160,100 @@ class FinanceApiTests(unittest.TestCase):
         self.assertIn("http-bc", ids)
 
 
+class OpenNextPeriodTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.addCleanup(self.c.close)
+
+    def _closed_period(self, start_offset_days=-40, end_offset_days=-10, limit=5000):
+        start = (now() + timedelta(days=start_offset_days)).isoformat()
+        end = (now() + timedelta(days=end_offset_days)).isoformat()
+        pid = self.c.set_budget_period("human-ceo", "company", start, end, limit)
+        self.c.close_budget_period("human-ceo", pid)
+        return pid, start, end, limit
+
+    def test_open_next_defaults_contiguous(self):
+        pid, start, end, limit = self._closed_period()
+        nxt = self.c.open_next_budget_period("human-ceo", pid)
+        self.assertFalse(nxt["closed"])
+        self.assertEqual(nxt["scope"], "company")
+        self.assertEqual(nxt["period_start"], end)
+        start_dt = __import__("datetime").datetime.fromisoformat(start)
+        end_dt = __import__("datetime").datetime.fromisoformat(end)
+        expected_end = (end_dt + (end_dt - start_dt)).isoformat()
+        self.assertEqual(nxt["period_end"], expected_end)
+        self.assertEqual(nxt["limit_cents"], limit)
+
+    def test_open_next_overrides(self):
+        pid, _, end, _ = self._closed_period()
+        new_end = (now() + timedelta(days=60)).isoformat()
+        nxt = self.c.open_next_budget_period(
+            "human-ceo", pid,
+            period_start=end,
+            period_end=new_end,
+            limit_cents=9000,
+            scope="company",
+        )
+        self.assertEqual(nxt["limit_cents"], 9000)
+        self.assertEqual(nxt["period_end"], new_end)
+
+    def test_open_next_rejects_unclosed(self):
+        start = (now() - timedelta(days=1)).isoformat()
+        end = (now() + timedelta(days=30)).isoformat()
+        pid = self.c.set_budget_period("human-ceo", "company", start, end, 5000)
+        with self.assertRaises(PermissionError):
+            self.c.open_next_budget_period("human-ceo", pid)
+
+    def test_open_next_rejects_when_other_open_exists(self):
+        pid, _, end, _ = self._closed_period()
+        self.c.set_budget_period(
+            "human-ceo", "company",
+            (now() - timedelta(days=1)).isoformat(),
+            (now() + timedelta(days=30)).isoformat(),
+            1000,
+        )
+        with self.assertRaises(PermissionError):
+            self.c.open_next_budget_period("human-ceo", pid)
+
+    def test_open_next_rejects_duplicate_successor(self):
+        pid, _, end, _ = self._closed_period()
+        successor = self.c.open_next_budget_period("human-ceo", pid)
+        self.c.close_budget_period("human-ceo", successor["id"])
+        with self.assertRaises(PermissionError):
+            self.c.open_next_budget_period("human-ceo", pid)
+
+    def test_open_next_rejects_non_ceo(self):
+        pid, _, _, _ = self._closed_period()
+        with self.assertRaises(PermissionError):
+            self.c.open_next_budget_period("other-actor", pid)
+
+
+class FinancePricingHonestyTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.addCleanup(self.c.close)
+
+    def test_summary_pricing_unset(self):
+        import os
+        old = os.environ.pop("FS_CORP_MODEL_CENTS_PER_1K_TOKENS", None)
+        self.addCleanup(
+            lambda: os.environ.__setitem__("FS_CORP_MODEL_CENTS_PER_1K_TOKENS", old)
+            if old is not None else os.environ.pop("FS_CORP_MODEL_CENTS_PER_1K_TOKENS", None)
+        )
+        summary = self.c.finance_summary()
+        self.assertIn("pricing", summary)
+        self.assertFalse(summary["pricing"]["model_cents_per_1k_configured"])
+        self.assertIn("FS_CORP_MODEL_CENTS_PER_1K_TOKENS", summary["pricing"]["hint"])
+
+    def test_summary_pricing_env_set(self):
+        import os
+        os.environ["FS_CORP_MODEL_CENTS_PER_1K_TOKENS"] = "5"
+        self.addCleanup(lambda: os.environ.pop("FS_CORP_MODEL_CENTS_PER_1K_TOKENS", None))
+        summary = self.c.finance_summary()
+        self.assertTrue(summary["pricing"]["model_cents_per_1k_configured"])
+
+
 if __name__ == "__main__":
     unittest.main()

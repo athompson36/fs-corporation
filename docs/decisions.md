@@ -69,6 +69,7 @@
 | ADR-065 | 2026-09-14 | Desk Organization session mutate gate | Organization Manage fail-closes via session organization.write (markup + init + shared session with Finance + 403); seven #departments submits only. |
 | ADR-066 | 2026-09-14 | Desk corporate write forms session gate | Extend organization.write fail-closed gate to scorecard/cross-dept/corporate-upgrades static submits + dynamic Close/Accept via setOrgMutateEnabled. |
 | ADR-067 | 2026-09-14 | Desk remaining session gates | People/Activate/promotions/staffing use organization.write; dispatch submit/recommend use project.enroll via setDispatchEnrollEnabled; README/VERIFICATION honesty. |
+| ADR-068 | 2026-09-14 | Finance open-next and pricing honesty | Explicit open-next after close; pricing honesty on finance summary; no Alembic; no auto-rollover on close. |
 
 ### ADR-010 detail
 
@@ -1155,5 +1156,27 @@ Gating dispatch on `organization.write` (rejected — wrong scope). Docs-only sh
 
 **Consequences.** Desk v0.3.85 fail-closes remaining audit desk-gate gaps from first paint.
 Ship 2 (finance ledger UI + consultant measured before/after) remains separate.
+
+### ADR-068 detail
+
+**Context.** ADR-038 already delivers invoices, adjustments, and period close with billed
+snapshots. The audit still flagged period rollover and billed lines staying $0 when
+pricing is unset. Operators need an explicit successor period and honest pricing status,
+not silent calendar rollover on close or invented billed amounts.
+
+**Decision.** Add `POST /api/v1/finance/budget-periods/{period_id}/open-next` as a separate
+CEO action under `company.pause` (defaults: contiguous window, same scope/limit; body
+overrides allowed). Extend `finance_summary` with a pricing honesty block when no rate
+source is configured. Surface Open next and the hint on desk `#budget` and companion
+FinancePanel under existing finance mutate gates. No Alembic revision; close never
+auto-opens the next period.
+
+**Alternatives considered.** Silent rollover on close (rejected — poor auditability).
+Inventing billed amounts when pricing is unset (rejected — dishonest ledger). Desk-only
+ship without API (rejected — companion and automation need the same contract).
+
+**Consequences.** v0.3.86 closes the finance open-next and pricing-honesty audit gaps.
+Real provider invoices/refunds and consultant measured before/after (0.3.87) remain
+separate.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

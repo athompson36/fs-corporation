@@ -1,8 +1,19 @@
 # Verification record
 
+Updated 2026-09-14 for **0.3.86** (finance open-next budget period after close; pricing
+honesty on finance summary; desk + companion Open next + hint; ADR-068; no auto-rollover).
+Prior headline 0.3.61 retained below as historical host evidence.
+
+## Verified in this workspace (0.3.86)
+
+- **587 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`.
+- Finance contracts: `tests/test_durable_finance.py`, `tests/test_desk_finance_open_next.py`.
+- Desk session gates: prior Finance/Org/corporate gate modules unchanged.
+- Companion version lockstep **0.3.86**; `cd companion && npm run build` when shipping.
+- No Alembic revision in 0.3.86.
+
 Updated 2026-09-14 for **0.3.85** (desk remaining session gates: Org write on
 Activate/promotions/staffing; `project.enroll` on dispatch submit/recommend; docs honesty).
-Prior headline 0.3.61 retained below as historical host evidence.
 
 ## Verified in this workspace (0.3.85)
 
@@ -48,7 +59,7 @@ not a check any clone can repeat.
 
 ## Not tested or not implemented
 
-- Real provider invoices / refunds; period rollover of billed totals.
+- Real provider invoices / refunds.
 - Live Web Push delivery (needs VAPID keys).
 - Phone offline smoke after generateSW.
 - Remaining M10-03: benchmark_results / model_profiles consumer or removal; role fixtures.

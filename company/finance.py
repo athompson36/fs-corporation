@@ -2,10 +2,16 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime
 
-from company.core import money, now
+from company.core import digest, money, now
+
+PRICING_HINT = (
+    "Billed lines may stay $0 until FS_CORP_MODEL_CENTS_PER_1K_TOKENS "
+    "or a profile rate is set."
+)
 
 
 def billed_gross_cents(company) -> int:
@@ -202,6 +208,25 @@ def list_adjustments(company) -> list[dict]:
         "SELECT * FROM finance_adjustments ORDER BY created_at DESC, id")]
 
 
+def model_cents_per_1k_configured(company) -> bool:
+    """True when invoke pricing can resolve a configured rate source (env/settings or profile)."""
+    raw = (os.environ.get("FS_CORP_MODEL_CENTS_PER_1K_TOKENS") or "").strip()
+    if raw:
+        return True
+    try:
+        eff = company.effective_setting("FS_CORP_MODEL_CENTS_PER_1K_TOKENS")
+        if eff is not None and str(eff).strip() not in ("", "0"):
+            if str(eff).strip() != "0":
+                return True
+    except Exception:
+        pass
+    for row in company.list_model_profiles():
+        body = row.get("body") or {}
+        if body.get("cents_per_1k_tokens") is not None:
+            return True
+    return False
+
+
 def finance_summary(company) -> dict:
     stamp = now().isoformat()
     period = company.db.execute(
@@ -223,6 +248,10 @@ def finance_summary(company) -> dict:
         "revenue_cents": int(company.db.execute(
             "SELECT COALESCE(SUM(amount_cents),0) FROM revenue").fetchone()[0]),
         "open_budget_period": open_period,
+        "pricing": {
+            "model_cents_per_1k_configured": model_cents_per_1k_configured(company),
+            "hint": PRICING_HINT,
+        },
     }
 
 
@@ -286,3 +315,67 @@ def close_budget_period(company, actor: str, period_id: str) -> dict:
         if item["id"] == period_id:
             return item
     raise ValueError("Budget period not found after close")
+
+
+def open_next_budget_period(
+    company,
+    actor: str,
+    period_id: str,
+    *,
+    scope=None,
+    period_start=None,
+    period_end=None,
+    limit_cents=None,
+) -> dict:
+    company._ceo(actor)
+    period = company.db.execute(
+        "SELECT * FROM budget_periods WHERE id=?", (period_id,)
+    ).fetchone()
+    if not period:
+        raise ValueError("Budget period not found")
+    if not company.db.execute(
+        "SELECT 1 FROM budget_period_closures WHERE budget_period_id=?",
+        (period_id,),
+    ).fetchone():
+        raise PermissionError("Budget period is not closed")
+    for row in company.db.execute("SELECT id FROM budget_periods"):
+        closed = company.db.execute(
+            "SELECT 1 FROM budget_period_closures WHERE budget_period_id=?",
+            (row["id"],),
+        ).fetchone()
+        if not closed:
+            raise PermissionError("An open budget period already exists")
+    start = period_start or period["period_end"]
+    if period_end is None:
+        a = datetime.fromisoformat(period["period_start"])
+        b = datetime.fromisoformat(period["period_end"])
+        end = (datetime.fromisoformat(start) + (b - a)).isoformat()
+    else:
+        end = period_end
+    if datetime.fromisoformat(end) <= datetime.fromisoformat(start):
+        raise ValueError("period_end must be after period_start")
+    lim = money(limit_cents) if limit_cents is not None else int(period["limit_cents"])
+    sc = scope or period["scope"]
+    candidate_id = digest({"scope": sc, "period_start": start})
+    existing = company.db.execute(
+        "SELECT id FROM budget_periods WHERE id=?", (candidate_id,)
+    ).fetchone()
+    if existing:
+        raise PermissionError("Successor budget period already exists")
+    new_id = company.set_budget_period(actor, sc, start, end, lim)
+    company._event(
+        "budget.period_opened_next",
+        {
+            "from_period_id": period_id,
+            "id": new_id,
+            "scope": sc,
+            "period_start": start,
+            "period_end": end,
+            "limit_cents": lim,
+        },
+        actor_id=actor,
+    )
+    for item in list_budget_periods(company):
+        if item["id"] == new_id:
+            return item
+    raise ValueError("Opened period not found")
