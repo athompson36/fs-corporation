@@ -1,2 +1,2 @@
 """FS-Corporation: offline reference core, not a production authority service."""
-__version__ = "0.3.85"
+__version__ = "0.3.86"

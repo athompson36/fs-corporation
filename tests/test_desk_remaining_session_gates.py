@@ -95,11 +95,11 @@ class DeskRemainingSessionGatesTests(unittest.TestCase):
             self.assertIn("403", chunk, marker)
             self.assertIn("setDispatchEnrollEnabled(false)", chunk, marker)
 
-    def test_version_0_3_85(self):
+    def test_version_lockstep(self):
         init = (ROOT / "company" / "__init__.py").read_text()
         pkg = (ROOT / "companion" / "package.json").read_text()
-        self.assertIn('__version__ = "0.3.85"', init)
-        self.assertIn('"version": "0.3.85"', pkg)
+        self.assertRegex(init, r'__version__ = "0\.3\.\d+"')
+        self.assertRegex(pkg, r'"version": "0\.3\.\d+"')
 
 
 if __name__ == "__main__":

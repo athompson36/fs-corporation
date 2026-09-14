@@ -121,6 +121,7 @@ listed scope can still receive 403 from those routes.
 | GET /finance/budget-periods | List periods with closed flag/snapshot | company.read |
 | POST /finance/budget-periods | Set budget period | company.pause (CEO) |
 | POST /finance/budget-periods/{id}/close | Close period with auditable snapshot | company.pause (CEO) |
+| POST /finance/budget-periods/{id}/open-next | Open successor period after close | company.pause (CEO) |
 | GET /remote-access | VPN/pairing status and `pairing_levels` catalog | company.read |
 | POST /remote-access/pairing | Issue one-time pairing QR (`payload.access_level`: `read_only`, `user`, `admin`) | company.pause (owner only) |
 | POST /remote-access/redeem | Redeem ticket for scoped companion token (no auth) | — |
