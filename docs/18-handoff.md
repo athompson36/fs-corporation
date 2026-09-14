@@ -1,7 +1,7 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.88**. State: **Provider invoice allocations merged to
-`main` (pushing/deploying).** Tip: **`daed4c2`** (merge of 0.3.88 ship `ddbfdde`).
+Date: 2026-09-14. Version: **0.3.88**. State: **Provider invoice allocations on `main` and
+deployed to fs-dev.** Tip: **`12fd941`** (merge record; ship `ddbfdde`).
 
 ## Merged on main (0.3.88)
 
@@ -17,9 +17,9 @@ Date: 2026-09-14. Version: **0.3.88**. State: **Provider invoice allocations mer
 
 - `.venv/bin/python -m unittest discover -s tests`: **600 tests, OK**.
 - `cd companion && npm run build`: OK at ship.
+- fs-dev health: `{"ok":true,"version":"0.3.88",...}`; Alembic **0030** applied.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Deploy to fs-dev (Alembic **0030**). Refresh feature-completion audit canvas after
-deploy. Owner-directed follow-ups.
+Refresh feature-completion audit canvas. Owner-directed follow-ups.
