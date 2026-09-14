@@ -1,7 +1,8 @@
 # Current handoff
 
 Date: 2026-09-14. Version: **0.3.85**. State: **Desk remaining session gates
-merged to `main`, pushed, and deployed to fs-dev.** Tip: **`eed1154`** (merge).
+merged to `main`, pushed, and deployed to fs-dev.** Tip: **`17d175c`** (post-deploy
+handoff; merge `eed1154`).
 
 ## On main / fs-dev
 
