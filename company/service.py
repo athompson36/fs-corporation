@@ -321,7 +321,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass" id="budget"><h2>Finance</h2>
 <p class="muted">Persisted finance totals and lists; create invoice, adjustment, and period below. API amounts are cents; display is USD.</p>
 <p id="finance-load-error" class="muted" hidden></p>
-<p id="finance-scope-notice" class="muted" hidden>Mutations require company.pause.</p>
+<p id="finance-scope-notice" class="muted">Mutations require company.pause.</p>
 <h3>Overview</h3>
 <div id="finance-overview" class="muted">Loading…</div>
 <h3>Invoices</h3>
@@ -337,8 +337,8 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <label for="desk-finance-invoice-end">Period end</label>
 <input id="desk-finance-invoice-end" type="datetime-local" required/>
 <div class="row">
-<button type="button" class="chip" id="desk-finance-invoice-month">This calendar month</button>
-<button type="submit" class="chip" id="desk-finance-invoice-submit">Create invoice</button>
+<button type="button" class="chip" id="desk-finance-invoice-month" disabled>This calendar month</button>
+<button type="submit" class="chip" id="desk-finance-invoice-submit" disabled>Create invoice</button>
 <span class="muted" id="finance-invoice-status"></span>
 </div>
 </form>
@@ -355,7 +355,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <input id="desk-finance-adjustment-amount" type="number" min="1" step="1"/>
 <label for="desk-finance-adjustment-reason">Reason</label>
 <input id="desk-finance-adjustment-reason" required/>
-<button type="submit" class="chip" id="desk-finance-adjustment-submit">Post adjustment</button>
+<button type="submit" class="chip" id="desk-finance-adjustment-submit" disabled>Post adjustment</button>
 <span class="muted" id="finance-adjustment-status"></span>
 </form>
 <form id="finance-period-form" class="compact">
@@ -367,8 +367,8 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <label for="desk-finance-period-limit">Limit cents</label>
 <input id="desk-finance-period-limit" type="number" min="0" step="1" value="500000" required/>
 <div class="row">
-<button type="button" class="chip" id="desk-finance-period-30d">Next 30 days</button>
-<button type="submit" class="chip" id="desk-finance-period-submit">Set period</button>
+<button type="button" class="chip" id="desk-finance-period-30d" disabled>Next 30 days</button>
+<button type="submit" class="chip" id="desk-finance-period-submit" disabled>Set period</button>
 <span class="muted" id="finance-period-status"></span>
 </div>
 </form>
@@ -470,6 +470,7 @@ function setFinanceMutateEnabled(enabled) {
     btn.disabled = !enabled;
   });
 }
+setFinanceMutateEnabled(false);
 function renderFinanceOverview(summary) {
   const el = document.getElementById('finance-overview');
   if (!summary) {
