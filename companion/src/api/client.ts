@@ -247,6 +247,42 @@ export class ApiClient {
     );
   }
 
+  listProviderInvoices() {
+    return this.get<{ provider_invoices: Record<string, unknown>[] }>(
+      "/api/v1/finance/provider-invoices",
+    );
+  }
+
+  getProviderInvoice(id: string) {
+    return this.get<Record<string, unknown>>(
+      `/api/v1/finance/provider-invoices/${encodeURIComponent(id)}`,
+    );
+  }
+
+  createProviderInvoice(payload: Record<string, unknown>) {
+    return this.post(
+      "/api/v1/finance/provider-invoices",
+      payload,
+      `finance-provider-inv-${Date.now()}`,
+    );
+  }
+
+  allocateProviderInvoice(id: string, payload: Record<string, unknown>) {
+    return this.post(
+      `/api/v1/finance/provider-invoices/${encodeURIComponent(id)}/allocations`,
+      payload,
+      `finance-provider-alloc-${Date.now()}`,
+    );
+  }
+
+  voidProviderInvoice(id: string) {
+    return this.post(
+      `/api/v1/finance/provider-invoices/${encodeURIComponent(id)}/void`,
+      {},
+      `finance-provider-void-${Date.now()}`,
+    );
+  }
+
   workerHosts() {
     return this.get<{ hosts: Record<string, unknown>[] }>("/api/v1/worker-hosts");
   }
