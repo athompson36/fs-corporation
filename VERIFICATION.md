@@ -1,5 +1,16 @@
 # Verification record
 
+Updated 2026-09-14 for **0.3.85** (desk remaining session gates: Org write on
+Activate/promotions/staffing; `project.enroll` on dispatch submit/recommend; docs honesty).
+Prior headline 0.3.61 retained below as historical host evidence.
+
+## Verified in this workspace (0.3.85)
+
+- **576 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`.
+- Desk contracts: `tests/test_desk_remaining_session_gates.py` plus prior Finance/Org/corporate gate modules.
+- Companion version lockstep **0.3.85**; `cd companion && npm run build` when shipping.
+- No Alembic revision in 0.3.85.
+
 Updated 2026-09-08 for **0.3.61** (remote ChatDev egress policy on claims; opt-in auto remote
 placement; public `/welcome`; marketing `campaign` furniture; remote container-on-agent; P5; P4)
 and Corporate HQ Phases 1–8.

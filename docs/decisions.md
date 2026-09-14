@@ -68,6 +68,7 @@
 | ADR-064 | 2026-09-14 | Desk Finance init-time mutate disable | Finance mutate controls ship disabled with visible #finance-scope-notice; setFinanceMutateEnabled(false) at init; session/403 paths unchanged. |
 | ADR-065 | 2026-09-14 | Desk Organization session mutate gate | Organization Manage fail-closes via session organization.write (markup + init + shared session with Finance + 403); seven #departments submits only. |
 | ADR-066 | 2026-09-14 | Desk corporate write forms session gate | Extend organization.write fail-closed gate to scorecard/cross-dept/corporate-upgrades static submits + dynamic Close/Accept via setOrgMutateEnabled. |
+| ADR-067 | 2026-09-14 | Desk remaining session gates | People/Activate/promotions/staffing use organization.write; dispatch submit/recommend use project.enroll via setDispatchEnrollEnabled; README/VERIFICATION honesty. |
 
 ### ADR-010 detail
 
@@ -1134,6 +1135,25 @@ UX). Gating companion OrgPanel (rejected — out of scope).
 **Consequences.** Desk v0.3.84 ships fail-closed Corporate write forms from first
 paint with no Alembic revision or control-plane API change. Companion version
 locksteps at 0.3.84 with no OrgPanel changes. Promotions/staffing session gates
-remain owner-directed follow-ups.
+remain owner-directed follow-ups. Superseded for remaining gates by ADR-067.
+
+### ADR-067 detail
+
+**Context.** After ADR-066, division Activate, promotion decisions, staffing scan/decisions,
+and project dispatch chips still stayed enabled until 403. Dispatch APIs require
+`project.enroll`, not `organization.write`. README and VERIFICATION lagged the live
+version.
+
+**Decision.** Extend `setOrgMutateEnabled` for People/division dynamic chips and staffing
+scan; add `setDispatchEnrollEnabled` composed with dormancy submit gating; session apply
+sets Finance (`company.pause`), Org (`organization.write`), and Dispatch (`project.enroll`);
+refresh README + VERIFICATION for v0.3.85.
+
+**Alternatives considered.** Generic `data-requires-scope` helper (rejected — YAGNI).
+Gating dispatch on `organization.write` (rejected — wrong scope). Docs-only ship
+(rejected — leaves UX fail-open).
+
+**Consequences.** Desk v0.3.85 fail-closes remaining audit desk-gate gaps from first paint.
+Ship 2 (finance ledger UI + consultant measured before/after) remains separate.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
