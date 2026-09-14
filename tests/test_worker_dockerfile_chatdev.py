@@ -36,6 +36,13 @@ class WorkerDockerfileChatDevTests(unittest.TestCase):
         self.assertIn("FS_CORP_WORKER_CHATDEV", text)
         self.assertIn("CHATDEV_REF", text)
 
+    def test_dockerfile_opt_in_runs_uv_sync(self):
+        self.assertIn("uv sync", self.text)
+        self.assertIn("org.fs_corporation.chatdev_deps", self.text)
+
+    def test_dockerfile_default_enable_is_zero(self):
+        self.assertIn("ARG CHATDEV_ENABLE=0", self.text)
+
 
 if __name__ == "__main__":
     unittest.main()

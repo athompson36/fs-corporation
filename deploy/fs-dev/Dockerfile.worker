@@ -14,21 +14,28 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
+COPY --from=ghcr.io/astral-sh/uv:0.6.14 /uv /usr/local/bin/uv
+
 COPY pyproject.toml README.md /src/
 COPY company /src/company
 COPY fixtures /src/fixtures
 
 RUN pip install --no-cache-dir /src
 
-# Optional: embed pinned ChatDev (source + label). Full uv sync may be added when build network allows.
+# Opt-in: embed pinned ChatDev source + uv sync (fail closed). Entry point sets CHATDEV_HOME.
 RUN if [ "$CHATDEV_ENABLE" = "1" ]; then \
       git clone --depth 1 https://github.com/OpenBMB/ChatDev.git /opt/chatdev \
       && cd /opt/chatdev && git fetch --depth 1 origin "$CHATDEV_REF" && git checkout "$CHATDEV_REF" \
-      && test -f /opt/chatdev/runtime/sdk.py; \
+      && test -f /opt/chatdev/runtime/sdk.py \
+      && cd /opt/chatdev && uv sync \
+      && test -d /opt/chatdev/.venv; \
     fi
 
 LABEL org.fs_corporation.chatdev_enable="${CHATDEV_ENABLE}"
 LABEL org.fs_corporation.chatdev_pin="${CHATDEV_REF}"
+# After this ship, ENABLE=1 implies deps (uv sync is mandatory). Historical source-only
+# images lack this label → deps_ready false.
+LABEL org.fs_corporation.chatdev_deps="${CHATDEV_ENABLE}"
 
 COPY deploy/fs-dev/worker-entrypoint.sh /usr/local/bin/worker-entrypoint.sh
 RUN chmod +x /usr/local/bin/worker-entrypoint.sh
