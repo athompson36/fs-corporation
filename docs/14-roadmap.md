@@ -460,7 +460,7 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Desk Finance init-time mutate disable 0.3.82** on branch
-`feature/desk-finance-init-disable` (merge pending). Finance mutate controls ship
-disabled with visible scope notice; init `setFinanceMutateEnabled(false)`; session/403
-unchanged; version lockstep at 0.3.82. Next: owner-directed companion/desk follow-ups.
+**Desk Finance init-time mutate disable 0.3.82 is on `main` and fs-dev** (tip
+`dd352ab`). Finance mutate controls ship disabled with visible scope notice; init
+`setFinanceMutateEnabled(false)`; session/403 unchanged; version lockstep at
+0.3.82. Next: owner-directed companion/desk follow-ups.
