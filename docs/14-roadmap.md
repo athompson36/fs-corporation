@@ -468,8 +468,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Desk corporate write forms session gate 0.3.84** ships on branch
-`feature/desk-org-corporate-write-gate` (not yet merged to `main` or fs-dev).
-Corporate write forms in `#scorecard`, `#cross-department`, and
+**Desk corporate write forms session gate 0.3.84 is on `main` and fs-dev** (tip
+`c45649a`). Corporate write forms in `#scorecard`, `#cross-department`, and
 `#corporate-upgrades` fail-closed via extended session `organization.write`;
-version lockstep at 0.3.84. Next: owner-directed companion/desk follow-ups.
+version lockstep at 0.3.84. Next: owner-directed companion/desk follow-ups
+(division Activate / promotions / staffing / dispatch gates).
