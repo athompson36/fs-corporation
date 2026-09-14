@@ -1,31 +1,27 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.84**. State: **Desk corporate write forms
-session gate merged to `main`, pushed, and deployed to fs-dev.** Tip:
-**`c45649a`**.
+Date: 2026-09-14. Version: **0.3.85**. State: **Desk remaining session gates on
+branch `feature/desk-remaining-session-gates`.** Tip: **`a36874a`** (0.3.85 ship; branch HEAD may include handoff-only commits).
 
-## On main / fs-dev
+## On feature/desk-remaining-session-gates
 
-- `company/service.py` — extended `setOrgMutateEnabled` / `orgWriteEnabled`;
-  per-section `data-org-write-notice` in scorecard / cross-department /
-  corporate-upgrades; Create objective / cross-dept / Propose submits ship
-  `disabled`; Close/Accept use `data-org-write` + 403 fail-closed.
-- `tests/test_desk_org_corporate_write_gate.py` — source contracts + version
-  **0.3.84**.
-- ADR-066; version **0.3.84** (Python package and companion `package.json`
-  lockstep).
-- Prior on `main`: Desk Organization session gate (0.3.83), Finance init
-  disable (0.3.82).
+- `company/service.py` — extended `setOrgMutateEnabled` for People/division dynamic
+  chips and staffing scan; added `setDispatchEnrollEnabled` / `dispatchEnrollEnabled`
+  composed with dormancy submit gating; session apply sets Finance (`company.pause`),
+  Org (`organization.write`), and Dispatch (`project.enroll`).
+- `tests/test_desk_remaining_session_gates.py` — source contracts + version **0.3.85**.
+- `tests/test_desk_org_corporate_write_gate.py` — softened version lockstep regex.
+- ADR-067; version **0.3.85** (Python package and companion `package.json`
+  lockstep); README + VERIFICATION honesty refresh.
+- Prior on branch: Desk corporate write forms session gate (0.3.84), Organization
+  session gate (0.3.83), Finance init disable (0.3.82).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **567 tests, OK**.
-- `cd companion && npm run build`: OK (package version 0.3.84).
-- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.84",...}`; desk
-  serves `desk-org-create-objective-submit` and `data-org-write-notice`.
+- `.venv/bin/python -m unittest discover -s tests`: **576 tests, OK**.
+- `cd companion && npm run build`: OK (package version 0.3.85).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: division Activate / promotions / staffing / dispatch session
-gates; or other companion/desk follow-ups.
+Ship 2 finance B + consultant B (brainstorm/plan separately).

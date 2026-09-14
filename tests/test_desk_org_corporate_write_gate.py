@@ -1,4 +1,4 @@
-"""Desk corporate write forms session gate (v0.3.84)."""
+"""Desk corporate write forms session gate."""
 from __future__ import annotations
 
 import unittest
@@ -66,11 +66,11 @@ class DeskOrgCorporateWriteGateTests(unittest.TestCase):
         self.assertIn("403", xd_chunk)
         self.assertIn("setOrgMutateEnabled(false)", xd_chunk)
 
-    def test_version_0_3_84(self):
+    def test_version_lockstep(self):
         init = (ROOT / "company" / "__init__.py").read_text()
         pkg = (ROOT / "companion" / "package.json").read_text()
-        self.assertIn('__version__ = "0.3.84"', init)
-        self.assertIn('"version": "0.3.84"', pkg)
+        self.assertRegex(init, r'__version__ = "0\.3\.\d+"')
+        self.assertRegex(pkg, r'"version": "0\.3\.\d+"')
 
 
 if __name__ == "__main__":
