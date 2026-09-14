@@ -22,4 +22,6 @@ deployed to fs-dev.** Tip: **`12fd941`** (merge record; ship `ddbfdde`).
 
 ## Next
 
-Refresh feature-completion audit canvas. Owner-directed follow-ups.
+Owner-directed follow-ups from the feature-completion audit. Strongest remaining
+local-ish tracks: measurement deferred nits, ChatDev-in-worker depth, or
+provider CSV/PDF import. Live blockers stay credentials / second host / phone smoke.
