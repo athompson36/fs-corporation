@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-14. Version: **0.3.85**. State: **Desk remaining session gates on
-branch `feature/desk-remaining-session-gates`.** Tip: *(fill after commit)*.
+branch `feature/desk-remaining-session-gates`.** Tip: **`a36874a`**.
 
 ## On feature/desk-remaining-session-gates
 
