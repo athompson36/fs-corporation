@@ -126,7 +126,7 @@ def list_measurements(company, limit=50) -> list:
              ON bm.work_order_id=wo.id AND bm.phase='baseline'
            LEFT JOIN work_order_measurements am
              ON am.work_order_id=wo.id AND am.phase='after'
-           WHERE wo.payload LIKE '%"source":"consultant"%'
+           WHERE json_extract(wo.payload, '$.source') = 'consultant'
            ORDER BY COALESCE(bm.created_at, am.created_at, wo.id) DESC
            LIMIT ?""",
         (limit,),

@@ -1958,6 +1958,8 @@ class Company:
         if existing:
             row = dict(self.db.execute(
                 "SELECT * FROM work_order_replays WHERE id=?", (existing["id"],)).fetchone())
+            from company.measurements import ensure_measurement
+            ensure_measurement(self, actor, work_order_id, "baseline")
         else:
             rid = str(uuid.uuid4())
             body = outcome if isinstance(outcome, dict) else {"status": "authorized"}
@@ -1970,9 +1972,9 @@ class Company:
                 self._event("work_order.replay_authorized", {
                     "id": rid, "work_order_id": work_order_id, "attempt": 1,
                 }, actor_id=actor)
+                from company.measurements import ensure_measurement
+                ensure_measurement(self, actor, work_order_id, "baseline")
             row = dict(self.db.execute("SELECT * FROM work_order_replays WHERE id=?", (rid,)).fetchone())
-        from company.measurements import ensure_measurement
-        ensure_measurement(self, actor, work_order_id, "baseline")
         return row
 
     def complete_work_order_outcome(self, actor, work_order_id, outcome):
@@ -1994,8 +1996,8 @@ class Company:
             self._event("work_order.replay_completed", {
                 "id": rid, "work_order_id": work_order_id, "attempt": attempt,
             }, actor_id=actor)
-        from company.measurements import ensure_measurement
-        ensure_measurement(self, actor, work_order_id, "after")
+            from company.measurements import ensure_measurement
+            ensure_measurement(self, actor, work_order_id, "after")
         row = dict(self.db.execute("SELECT * FROM work_order_replays WHERE id=?", (rid,)).fetchone())
         row["outcome"] = json.loads(row.pop("outcome_json"))
         return row

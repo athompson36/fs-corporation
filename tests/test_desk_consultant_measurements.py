@@ -55,6 +55,17 @@ class WorkOrderMeasurementsApiTests(unittest.TestCase):
         )
         self.assertEqual(r.status_code, 200, r.text)
 
+    def test_measurements_denied_without_read_scopes(self):
+        c, _ = owner_client()
+        self.addCleanup(c.close)
+        c.register_identity("noscope", "service", "noscope-token", ["audit.read"])
+        client = TestClient(create_app(c))
+        r = client.get(
+            "/api/v1/work-orders/measurements",
+            headers={"Authorization": "Bearer noscope-token"},
+        )
+        self.assertEqual(r.status_code, 403, r.text)
+
 
 if __name__ == "__main__":
     unittest.main()
