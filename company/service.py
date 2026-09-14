@@ -3411,6 +3411,24 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         return run(ident, idempotency_key, payload | {"period_id": period_id}, lambda: (
             company.close_budget_period(ident["principal_id"], period_id), 200))
 
+    @app.post("/api/v1/finance/budget-periods/{period_id}/open-next")
+    def finance_open_next_budget_period(
+            period_id: str, body: Command,
+            authorization: str | None = Header(default=None),
+            idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"period_id": period_id}, lambda: (
+            company.open_next_budget_period(
+                ident["principal_id"],
+                period_id,
+                scope=payload.get("scope"),
+                period_start=payload.get("period_start"),
+                period_end=payload.get("period_end"),
+                limit_cents=payload.get("limit_cents"),
+            ), 200))
+
     @app.get("/api/v1/github/status")
     def github_status(authorization: str | None = Header(default=None)):
         ident = principal(authorization)

@@ -803,6 +803,10 @@ class Company:
         from company.finance import close_budget_period
         return close_budget_period(self, actor, period_id)
 
+    def open_next_budget_period(self, actor, period_id, **fields):
+        from company.finance import open_next_budget_period
+        return open_next_budget_period(self, actor, period_id, **fields)
+
     def create_worker_host(self, actor, *, label, base_url):
         from company.worker_hosts import create_worker_host
         return create_worker_host(self, actor, label=label, base_url=base_url)
