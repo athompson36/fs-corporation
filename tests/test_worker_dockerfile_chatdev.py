@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "deploy" / "fs-dev" / "Dockerfile.worker"
+ENTRYPOINT = ROOT / "deploy" / "fs-dev" / "worker-entrypoint.sh"
 INSTALL_SH = ROOT / "deploy" / "fs-dev" / "install.sh"
 ENV_EXAMPLE = ROOT / "deploy" / "fs-dev" / "env.example"
 PIN = "4fb2db0ea90375ce1059f44fe03ffbd191a7a169"
@@ -42,6 +43,13 @@ class WorkerDockerfileChatDevTests(unittest.TestCase):
 
     def test_dockerfile_default_enable_is_zero(self):
         self.assertIn("ARG CHATDEV_ENABLE=0", self.text)
+
+    def test_entrypoint_prepends_chatdev_venv_to_pythonpath(self):
+        text = ENTRYPOINT.read_text()
+        self.assertIn("/opt/chatdev/.venv", text)
+        self.assertIn("PYTHONPATH", text)
+        self.assertIn("site-packages", text)
+        self.assertIn("exec python -m company.worker", text)
 
 
 if __name__ == "__main__":

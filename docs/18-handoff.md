@@ -10,8 +10,9 @@ Date: 2026-09-14. Version: **0.3.90**. State: **ChatDev-in-worker depth on
 - Label `org.fs_corporation.chatdev_deps`; status exposes `worker_image_chatdev.deps_ready`.
 - Gateway billed contract test: `SubprocessWorkerRuntime.handle_request(invoke_model)` writes
   `billed_costs` on live invoke.
+- Worker entrypoint prepends ChatDev `.venv` site-packages to `PYTHONPATH` when present.
 - Optional smoke `scripts/exercise_chatdev_worker_billed.py` fail-closes without image,
-  egress, or model key.
+  egress, or model key; live invoke requires `FS_CORP_DB` (`--check-only` skips DB).
 - ADR-072. No Alembic. Companion lockstep **0.3.90**. Control plane still has no ChatDev
   install.
 - Prior on `main`: measurement hardening 0.3.89, provider invoices 0.3.88.

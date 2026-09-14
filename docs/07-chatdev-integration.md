@@ -61,7 +61,7 @@ Probe readiness with `GET /api/v1/chatdev/status` (requires `company.read`): `{p
 
 ### Billed smoke
 
-Optional fs-dev smoke for the worker gateway `invoke_model` → `billed_costs` path: `scripts/exercise_chatdev_worker_billed.py`. Requires a ChatDev-enabled worker image with `deps_ready`, allowlist egress (`FS_CORP_CHATDEV_WORKER_EGRESS=allowlist`, `FS_CORP_CHATDEV_EGRESS_ALLOWLIST_FILE`, `FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK`), and `MODEL_PROVIDER_API_KEY` or `ANTHROPIC_API_KEY`. Exits **2** when prerequisites are missing (fail-closed); **never** invents billed rows. Use `--check-only` to verify prerequisites without a live invoke.
+Optional fs-dev smoke for the worker gateway `invoke_model` → `billed_costs` path: `scripts/exercise_chatdev_worker_billed.py`. Requires a ChatDev-enabled worker image with `deps_ready`, allowlist egress (`FS_CORP_CHATDEV_WORKER_EGRESS=allowlist`, `FS_CORP_CHATDEV_EGRESS_ALLOWLIST_FILE`, `FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK`), and `MODEL_PROVIDER_API_KEY` or `ANTHROPIC_API_KEY`. Live invoke also requires `FS_CORP_DB`. Exits **2** when prerequisites are missing (fail-closed); invoke errors exit **1**; **never** invents billed rows. Use `--check-only` to verify image/egress/key without DB or invoke.
 
 ## Upgrades
 

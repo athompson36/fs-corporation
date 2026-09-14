@@ -5,15 +5,41 @@ Requires (all must be present or exit 2):
   - Docker + FS_CORP_WORKER_IMAGE with org.fs_corporation.chatdev_deps=1
   - FS_CORP_CHATDEV_WORKER_EGRESS=allowlist and ready allowlist/network
   - MODEL_PROVIDER_API_KEY or ANTHROPIC_API_KEY set
-  - FS_CORP_DB for local Company invoke (default path used by fs-dev)
 
-Never invents billed_costs rows. Optional --check-only skips the invoke.
+Live invoke (default) also requires FS_CORP_DB. Use --check-only to verify image,
+egress, and model key without opening the database or calling invoke_model.
+
+Never invents billed_costs rows. Invoke failures exit 1 with a clear message.
 """
 from __future__ import annotations
 
 import argparse
 import os
 import sys
+
+
+def _registry_for_keys(profile_id: str) -> dict:
+    openai_key = (os.environ.get("MODEL_PROVIDER_API_KEY") or "").strip()
+    anthropic_key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    if anthropic_key and not openai_key:
+        return {"profiles": {
+            profile_id: {
+                "provider": "anthropic",
+                "enabled": True,
+                "model": "claude-3-5-haiku-latest",
+                "capabilities": ["text"],
+                "allowed_data": ["public"],
+            },
+        }}
+    return {"profiles": {
+        profile_id: {
+            "provider": "openai",
+            "enabled": True,
+            "model": "gpt-4o-mini",
+            "capabilities": ["text"],
+            "allowed_data": ["public"],
+        },
+    }}
 
 
 def main() -> int:
@@ -66,24 +92,25 @@ def main() -> int:
     if args.check_only:
         return 0
 
-    registry = {"profiles": {
-        "live": {
-            "provider": "openai",
-            "enabled": True,
-            "model": "gpt-4o-mini",
-            "capabilities": ["text"],
-            "allowed_data": ["public"],
-        },
-    }}
-    c = Company()
+    db_path = (os.environ.get("FS_CORP_DB") or "").strip()
+    if not db_path:
+        print("FS_CORP_DB is required for live invoke (omit with --check-only)", file=sys.stderr)
+        return 2
+
+    registry = _registry_for_keys(args.profile_id)
+    c = Company(db_path)
     try:
         before = int(c.db.execute("SELECT COUNT(*) FROM billed_costs").fetchone()[0])
-        out = SubprocessWorkerRuntime.handle_request(c, {
-            "op": "invoke_model",
-            "profile_id": args.profile_id,
-            "prompt": "fs-corp chatdev billed smoke",
-            "registry": registry,
-        })
+        try:
+            out = SubprocessWorkerRuntime.handle_request(c, {
+                "op": "invoke_model",
+                "profile_id": args.profile_id,
+                "prompt": "fs-corp chatdev billed smoke",
+                "registry": registry,
+            })
+        except Exception as exc:
+            print(f"invoke_model failed: {exc}", file=sys.stderr)
+            return 1
         after = int(c.db.execute("SELECT COUNT(*) FROM billed_costs").fetchone()[0])
     finally:
         c.close()

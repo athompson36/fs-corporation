@@ -1268,7 +1268,9 @@ deps honesty on whether dependencies were installed. The worker gateway billed p
 **Decision.** When `CHATDEV_ENABLE=1`, `deploy/fs-dev/Dockerfile.worker` installs `uv` and
 runs `uv sync` at the pinned checkout (fail closed on sync failure). Label
 `org.fs_corporation.chatdev_deps="${CHATDEV_ENABLE}"`; status exposes
-`worker_image_chatdev.deps_ready` from that label. CI proves
+`worker_image_chatdev.deps_ready` from that label. `worker-entrypoint.sh` prepends the
+ChatDev `.venv` site-packages to `PYTHONPATH` when present (system Python still runs
+`company.worker`). CI proves
 `SubprocessWorkerRuntime.handle_request(invoke_model)` writes `billed_costs` on live invoke.
 Optional `scripts/exercise_chatdev_worker_billed.py` fail-closes without image, egress, or
 model key. The control-plane venv still has no ChatDev install.
