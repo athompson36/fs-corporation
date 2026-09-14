@@ -2,7 +2,7 @@
 
 Date: 2026-09-14. Version: **0.3.84**. State: **Desk corporate write forms
 session gate on `feature/desk-org-corporate-write-gate`** (not merged to `main`;
-no fs-dev deploy claim). Tip: **`3780654`**.
+no fs-dev deploy claim). Tip: **`977562d`**.
 
 ## On feature/desk-org-corporate-write-gate
 
