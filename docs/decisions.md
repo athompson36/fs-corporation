@@ -72,6 +72,7 @@
 | ADR-068 | 2026-09-14 | Finance open-next and pricing honesty | Explicit open-next after close; pricing honesty on finance summary; no Alembic; no auto-rollover on close. |
 | ADR-069 | 2026-09-14 | Consultant work-order measured before/after | Baseline/after ops snapshots on authorize/complete; GET measurements; desk + companion Home; no invented scores; Alembic 0029. |
 | ADR-070 | 2026-09-14 | Provider invoice allocations | New `provider_invoices` + `provider_invoice_allocations`; immutable billed rows; variance informational only; no Stripe; API + desk + companion; Alembic 0030. |
+| ADR-071 | 2026-09-14 | Work-order measurement hardening | Co-commit baseline/after with replay writes; `json_extract` list filter; denied-scope GET test; no Alembic; no UI/auth change. |
 
 ### ADR-010 detail
 
@@ -1233,5 +1234,27 @@ variance (rejected — dishonest without explicit CEO action).
 **Consequences.** v0.3.88 closes the real provider invoice allocation audit gap.
 Refunds beyond existing partial_credit, provider CSV/PDF import, and multi-currency
 remain separate follow-ups.
+
+### ADR-071 detail
+
+**Context.** ADR-069 shipped consultant work-order baseline/after measurements in v0.3.87
+with three deferred nits: measurement inserts ran outside the authorize/complete
+transaction (baseline/after could commit without the matching replay row), the list
+filter used a brittle `LIKE` on JSON text, and denied-scope GET coverage was missing.
+
+**Decision.** Co-commit `ensure_measurement(..., "baseline")` inside
+`record_work_order_authorized`'s `tx()` alongside the replay insert, and
+`ensure_measurement(..., "after")` inside `complete_work_order_outcome`'s `tx()`.
+Replace the list filter with `json_extract(wo.payload, '$.source') = 'consultant'`.
+Add a test that principals without `consultant.read` and without `company.read` receive
+**403** on `GET /api/v1/work-orders/measurements`. No Alembic revision; auth scopes
+and UI unchanged.
+
+**Alternatives considered.** New Alembic column for source (rejected — payload already
+stores structured JSON). Desk-only filter fix (rejected — API list is the contract).
+Weakening auth for measurement GETs (rejected — fail closed).
+
+**Consequences.** v0.3.89 closes the three 0.3.87 measurement deferred nits without
+changing metrics, scores, or companion/desk surfaces beyond version lockstep.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

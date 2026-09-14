@@ -75,3 +75,56 @@ class MeasurementLifecycleTests(unittest.TestCase):
             "human-ceo", oid, {"status": "done", "again": True})
         a2 = self.c.get_work_order_measurements(oid)["after"]["created_at"]
         self.assertEqual(a1, a2)
+
+
+class ListFilterTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.addCleanup(self.c.close)
+
+    def test_json_extract_not_like_false_positive(self):
+        with self.c.tx():
+            self.c.db.execute(
+                "INSERT INTO work_orders VALUES(?,?,?,?,?,?,?)",
+                ("wo-noise", "t1", 1, "digest", 0,
+                 '{"note":"source:consultant elsewhere","source":"engineering"}',
+                 "authorized"),
+            )
+        desk = ConsultantDesk(self.c)
+        pid = desk.submit("consultant", PROPOSAL)
+        desk.decide("human-ceo", pid, "approved", "ok")
+        oid = desk.to_work_order("human-ceo", pid)
+        ids = {row["work_order_id"] for row in self.c.list_work_order_measurements()}
+        self.assertIn(oid, ids)
+        self.assertNotIn("wo-noise", ids)
+
+
+class CoCommitTests(unittest.TestCase):
+    def setUp(self):
+        self.c = Company()
+        install(self.c, policy(self.c))
+        self.addCleanup(self.c.close)
+
+    def test_failed_measurement_rolls_back_new_replay(self):
+        import company.measurements as m
+        real = m.ensure_measurement
+
+        def boom(company, actor, work_order_id, phase):
+            raise RuntimeError("force rollback")
+
+        with self.c.tx():
+            self.c.db.execute(
+                "INSERT INTO work_orders VALUES(?,?,?,?,?,?,?)",
+                ("wo-co", "t-co", 1, "d-co", 100,
+                 '{"source":"consultant","proposal_id":"p"}', "authorized"),
+            )
+        m.ensure_measurement = boom
+        try:
+            with self.assertRaises(RuntimeError):
+                self.c.record_work_order_authorized("human-ceo", "wo-co", "d-co")
+        finally:
+            m.ensure_measurement = real
+        replay = self.c.db.execute(
+            "SELECT 1 FROM work_order_replays WHERE work_order_id='wo-co'").fetchone()
+        self.assertIsNone(replay)

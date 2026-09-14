@@ -1,27 +1,26 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.88**. State: **Provider invoice allocations on `main` and
-deployed to fs-dev.** Tip: **`12fd941`** (merge record; ship `ddbfdde`).
+Date: 2026-09-14. Version: **0.3.89**. State: **Measurement hardening on
+`feature/measurement-hardening`; `main` remains 0.3.88.** Tip: **`2834239`**
+(0.3.89 ship; branch HEAD may include handoff-only commits).
 
-## Merged on main (0.3.88)
+## Shipped on feature branch (0.3.89)
 
-- Alembic **0030** — `provider_invoices` + `provider_invoice_allocations`.
-- `company/finance.py` — create/list/get/allocate/void; summary
-  `provider_invoice_variance_cents` (informational; does not change net billed).
-- API under `/api/v1/finance/provider-invoices`; desk `#budget` + companion Finance
-  Browse/Manage `provider`; urlState allowlists.
-- ADR-070. Immutable `billed_costs`; no Stripe; no auto-adjustments.
-- Prior: consultant measurements 0.3.87, finance open-next 0.3.86, desk gates 0.3.85.
+- Co-commit `ensure_measurement` baseline/after inside authorize/complete `tx()` blocks.
+- `json_extract(wo.payload, '$.source') = 'consultant'` list filter (replaces LIKE).
+- Denied-scope GET test: 403 without `consultant.read` or `company.read`.
+- ADR-071. No Alembic; no UI/auth change.
+- Prior on `main`: provider invoice allocations 0.3.88, consultant measurements 0.3.87.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **600 tests, OK**.
+- `.venv/bin/python -m unittest discover -s tests`: **603 tests, OK**.
 - `cd companion && npm run build`: OK at ship.
-- fs-dev health: `{"ok":true,"version":"0.3.88",...}`; Alembic **0030** applied.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed follow-ups from the feature-completion audit. Strongest remaining
-local-ish tracks: measurement deferred nits, ChatDev-in-worker depth, or
-provider CSV/PDF import. Live blockers stay credentials / second host / phone smoke.
+Merge `feature/measurement-hardening` to `main` and deploy fs-dev when owner-ready.
+Strongest remaining local-ish tracks: ChatDev-in-worker depth, provider CSV/PDF import,
+or furnished-art / scheduled consultant triggers. Live blockers stay credentials / second
+host / phone smoke.

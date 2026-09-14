@@ -1,5 +1,17 @@
 # Verification record
 
+Updated 2026-09-14 for **0.3.89** (work-order measurement hardening: co-commit
+baseline/after with replay writes; `json_extract` list filter; denied-scope GET test;
+ADR-071; no Alembic; no UI/auth change).
+
+## Verified in this workspace (0.3.89)
+
+- **603 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`.
+- Measurement hardening contracts: `tests/test_work_order_measurements.py`,
+  `tests/test_desk_consultant_measurements.py`.
+- Alembic head **0030_provider_invoices** (unchanged; no new revision).
+- Companion version lockstep **0.3.89**; `cd companion && npm run build` when shipping.
+
 Updated 2026-09-14 for **0.3.88** (provider invoice headers + allocations onto immutable
 `billed_costs`; informational `provider_invoice_variance_cents` on finance summary;
 desk `#budget` + companion Finance Browse/Manage provider group; ADR-070; Alembic
