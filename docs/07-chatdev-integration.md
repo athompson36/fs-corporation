@@ -57,7 +57,11 @@ Contract tests in `tests/test_chatdev_adapter.py` use a fake SDK and `fixtures/c
 | `CHATDEV_ALLOW_CONTROL_PLANE` | Set to `1` to allow live SDK in the API process (desk/dev only; workers pass `allow_control_plane=True` internally) |
 | `FS_CORP_WORKER_IMAGE` | Worker image tag probed for ChatDev build labels (default `fs-corporation-worker:local`) |
 
-Probe readiness with `GET /api/v1/chatdev/status` (requires `company.read`): `{pin, home_set, configured, pin_verified, control_plane_allowed, worker_live_ready, workflow, worker_image_chatdev}` plus optional `pin_check_skipped` — no secrets returned. `worker_live_ready` mirrors pin-verified home readiness; `control_plane_allowed` reflects the escape hatch env. `worker_image_chatdev` is `null` when Docker is unavailable or `docker image inspect` fails on `FS_CORP_WORKER_IMAGE` (default `fs-corporation-worker:local`); otherwise `{image, enabled, pin?}` from labels `org.fs_corporation.chatdev_enable` and `org.fs_corporation.chatdev_pin` set at worker image build time.
+Probe readiness with `GET /api/v1/chatdev/status` (requires `company.read`): `{pin, home_set, configured, pin_verified, control_plane_allowed, worker_live_ready, workflow, worker_image_chatdev}` plus optional `pin_check_skipped` — no secrets returned. `worker_live_ready` mirrors pin-verified home readiness; `control_plane_allowed` reflects the escape hatch env. `worker_image_chatdev` is `null` when Docker is unavailable or `docker image inspect` fails on `FS_CORP_WORKER_IMAGE` (default `fs-corporation-worker:local`); otherwise `{image, enabled, pin?, deps_ready}` from labels `org.fs_corporation.chatdev_enable`, `org.fs_corporation.chatdev_pin`, and `org.fs_corporation.chatdev_deps` set at worker image build time (`deps_ready: true` when the deps label is `1` after `uv sync`).
+
+### Billed smoke
+
+Optional fs-dev smoke for the worker gateway `invoke_model` → `billed_costs` path: `scripts/exercise_chatdev_worker_billed.py`. Requires a ChatDev-enabled worker image with `deps_ready`, allowlist egress (`FS_CORP_CHATDEV_WORKER_EGRESS=allowlist`, `FS_CORP_CHATDEV_EGRESS_ALLOWLIST_FILE`, `FS_CORP_CHATDEV_EGRESS_DOCKER_NETWORK`), and `MODEL_PROVIDER_API_KEY` or `ANTHROPIC_API_KEY`. Exits **2** when prerequisites are missing (fail-closed); **never** invents billed rows. Use `--check-only` to verify prerequisites without a live invoke.
 
 ## Upgrades
 
