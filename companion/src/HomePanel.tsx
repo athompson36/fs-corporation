@@ -1,6 +1,11 @@
 import type { FormEvent } from "react";
-import type { DecisionItem, OwnerRequest } from "./api/client";
+import type { DecisionItem, OwnerRequest, WorkOrderMeasurementItem } from "./api/client";
 import { canApprove, canPause, canRespondInbox, canResume } from "./scopes";
+
+function formatDelta(key: string, value: number): string {
+  const sign = value > 0 ? "+" : "";
+  return `${key}: ${sign}${value}`;
+}
 
 type StatusFn = (key: string) => React.ReactNode;
 type ScopeNoticeFn = (action: string, scope: string) => React.ReactNode;
@@ -9,12 +14,14 @@ export type HomePanelProps = {
   scopes: string[] | undefined;
   decisions: DecisionItem[];
   inbox: OwnerRequest[];
+  workOrderMeasurements: WorkOrderMeasurementItem[];
   company: Record<string, unknown>;
   dashboard: Record<string, unknown> | null;
   ownerResponseDrafts: Record<string, string>;
   setOwnerResponseDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   onDecide: (item: DecisionItem, decision: "approved" | "rejected") => void;
   onRespond: (req: OwnerRequest) => void;
+  onCompleteWorkOrderOutcome: (workOrderId: string) => void;
   onPause: () => void;
   onResume: () => void;
   onRefresh: () => void;
@@ -27,11 +34,14 @@ export type HomePanelProps = {
 
 export function HomePanel(props: HomePanelProps) {
   const {
-    scopes, decisions, inbox, company, dashboard,
+    scopes, decisions, inbox, workOrderMeasurements, company, dashboard,
     ownerResponseDrafts, setOwnerResponseDrafts,
-    onDecide, onRespond, onPause, onResume, onRefresh,
+    onDecide, onRespond, onCompleteWorkOrderOutcome, onPause, onResume, onRefresh,
     onOpenDecisions, onOpenInbox, status, scopeNotice, accessBadge,
   } = props;
+
+  const awaitingAfter = workOrderMeasurements.filter((m) => m.baseline && !m.after);
+  const withDeltas = workOrderMeasurements.filter((m) => m.deltas);
 
   return (
     <section className="home-panel">
@@ -96,12 +106,45 @@ export function HomePanel(props: HomePanelProps) {
           </div>
         ))}
 
-        {!decisions.length && !inbox.length && (
+        {awaitingAfter.map((item) => (
+          <div key={`m-await-${item.work_order_id}`} className="card nested-card">
+            <div className="tag tag-proposal">work-order measure</div>
+            <strong>{item.proposal_id || item.work_order_id}</strong>
+            <p className="muted">Baseline captured — awaiting after metrics.</p>
+            {canPause(scopes) && (
+              <div className="actions">
+                <button
+                  className="primary"
+                  type="button"
+                  onClick={() => onCompleteWorkOrderOutcome(item.work_order_id)}
+                >
+                  Complete outcome
+                </button>
+              </div>
+            )}
+            {status(`measure-${item.work_order_id}`)}
+          </div>
+        ))}
+
+        {withDeltas.map((item) => (
+          <div key={`m-delta-${item.work_order_id}`} className="card nested-card">
+            <div className="tag tag-proposal">work-order measure</div>
+            <strong>{item.proposal_id || item.work_order_id}</strong>
+            <p className="muted">Measured deltas (baseline → after):</p>
+            {item.deltas && Object.entries(item.deltas).map(([key, value]) => (
+              <div key={key} className="muted">{formatDelta(key, value)}</div>
+            ))}
+          </div>
+        ))}
+
+        {!decisions.length && !inbox.length && !awaitingAfter.length && !withDeltas.length && (
           <p className="muted">Nothing needs you right now.</p>
         )}
         {decisions.length > 0 && !canApprove(scopes) && scopeNotice("decide proposals", "policy.approve")}
         {inbox.length > 0 && !canRespondInbox(scopes)
           && scopeNotice("respond to owner requests", "company.pause")}
+        {awaitingAfter.length > 0 && !canPause(scopes)
+          && scopeNotice("complete work-order outcomes", "company.pause")}
       </div>
 
       <div className="card">
