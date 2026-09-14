@@ -325,7 +325,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <ul id="head-inbox-list"></ul>
 </section>
 <section class="glass" id="budget"><h2>Finance</h2>
-<p class="muted">Persisted finance totals and lists; create invoice, adjustment, and period below. API amounts are cents; display is USD.</p>
+<p class="muted">Persisted finance totals and lists; create invoice, provider invoice, adjustment, and period below. API amounts are cents; display is USD.</p>
 <p id="finance-load-error" class="muted" hidden></p>
 <p id="finance-scope-notice" class="muted">Mutations require company.pause.</p>
 <h3>Overview</h3>

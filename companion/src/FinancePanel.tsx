@@ -382,8 +382,8 @@ export function FinancePanel(props: FinancePanelProps) {
   return (
     <section>
       <p className="lede">
-        Persisted finance totals and lists in Browse; create invoice, adjustment, and
-        period actions in Manage.
+        Persisted finance totals and lists in Browse; create invoice, provider invoice,
+        adjustment, and period actions in Manage.
       </p>
       <ModeSwitch mode={mode} onChange={onModeChange} label="Finance mode" />
       {loadError && <p className="error">Finance data could not be loaded: {loadError}</p>}
