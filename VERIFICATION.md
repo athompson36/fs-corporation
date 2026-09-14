@@ -7,7 +7,7 @@ install).
 
 ## Verified in this workspace (0.3.90)
 
-- **609 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`.
+- **610 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`.
 - ChatDev worker depth contracts: `tests/test_worker_dockerfile_chatdev.py`,
   `tests/test_chatdev_adapter.py`, `tests/test_worker_chatdev_billed.py`.
 - Optional smoke: `scripts/exercise_chatdev_worker_billed.py` (fail-closed without image,

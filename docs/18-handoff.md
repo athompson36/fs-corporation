@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-14. Version: **0.3.90**. State: **ChatDev-in-worker depth on
-`feature/chatdev-worker-depth`.** Tip: **`2907ca6`** (ship commit).
+`feature/chatdev-worker-depth`.** Tip: **`f85431a`** (venv PYTHONPATH + smoke harden).
 
 ## Shipped on feature branch (0.3.90)
 
@@ -19,7 +19,7 @@ Date: 2026-09-14. Version: **0.3.90**. State: **ChatDev-in-worker depth on
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **609 tests, OK** (at ship).
+- `.venv/bin/python -m unittest discover -s tests`: **610 tests, OK** (at tip).
 - `cd companion && npm run build`: OK at ship.
 - Alembic head **0030** (unchanged).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
