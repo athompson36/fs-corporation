@@ -267,6 +267,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass" id="departments"><h2>Organization</h2>
 <p class="muted">Catalog, persisted seat status, and roster. Vacant and dormant seats are not active workers.</p>
 <ul id="org-list"></ul>
+<p id="org-scope-notice" class="muted">Mutations require organization.write.</p>
 <form id="create-department-form" class="compact">
 <h3>Create department</h3>
 <label for="desk-dept-id">Id</label><input id="desk-dept-id" required/>
@@ -275,18 +276,18 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <label for="desk-dept-mission">Mission</label><input id="desk-dept-mission" required/>
 <label for="desk-dept-room">Room type</label><input id="desk-dept-room" value="boardroom" required/>
 <label for="desk-dept-active"><input type="checkbox" id="desk-dept-active"/> Initially active</label>
-<button type="submit" class="chip">Create department</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-create-dept-submit" disabled>Create department</button><span class="muted"></span>
 </form>
 <form id="appoint-head-form" class="compact">
 <h3>Appoint department head</h3>
 <label for="desk-appoint-department">Department id</label><input id="desk-appoint-department" required/>
 <label for="desk-appoint-principal">Principal id</label><input id="desk-appoint-principal" required/>
-<button type="submit" class="chip">Appoint head</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-appoint-head-submit" disabled>Appoint head</button><span class="muted"></span>
 </form>
 <form id="vacate-head-form" class="compact">
 <h3>Vacate department head</h3>
 <label for="desk-vacate-department">Department id</label><input id="desk-vacate-department" required/>
-<button type="submit" class="chip">Vacate head</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-vacate-head-submit" disabled>Vacate head</button><span class="muted"></span>
 </form>
 <form id="assign-position-form" class="compact">
 <h3>Assign position</h3>
@@ -294,24 +295,24 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <label for="desk-position-principal">Principal id</label><input id="desk-position-principal" required/>
 <label for="desk-position-reports-to">Reports-to seat id (optional)</label>
 <input id="desk-position-reports-to" placeholder="seat:engineering"/>
-<button type="submit" class="chip">Assign position</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-assign-position-submit" disabled>Assign position</button><span class="muted"></span>
 </form>
 <form id="release-assignment-form" class="compact">
 <h3>Release assignment</h3>
 <label for="desk-release-assignment">Assignment id</label><input id="desk-release-assignment" required/>
-<button type="submit" class="chip">Release assignment</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-release-assignment-submit" disabled>Release assignment</button><span class="muted"></span>
 </form>
 <form id="create-position-form" class="compact">
 <h3>Create position</h3>
 <label for="desk-create-pos-dept">Department id</label><input id="desk-create-pos-dept" required/>
 <label for="desk-create-pos-title">Title</label><input id="desk-create-pos-title" required/>
-<button type="submit" class="chip">Create position</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-create-position-submit" disabled>Create position</button><span class="muted"></span>
 </form>
 <form id="reorder-departments-form" class="compact">
 <h3>Reorder departments</h3>
 <label for="desk-reorder-items">Items JSON</label>
 <textarea id="desk-reorder-items" placeholder='[{"id":"engineering","display_order":10},{"id":"art","display_order":5}]' required></textarea>
-<button type="submit" class="chip">Reorder</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-reorder-submit" disabled>Reorder</button><span class="muted"></span>
 </form>
 </section>
 <section class="glass" id="head-inbox"><h2>Head inbox</h2>
@@ -471,6 +472,23 @@ function setFinanceMutateEnabled(enabled) {
   });
 }
 setFinanceMutateEnabled(false);
+function setOrgMutateEnabled(enabled) {
+  const notice = document.getElementById('org-scope-notice');
+  if (notice) notice.hidden = !!enabled;
+  [
+    'desk-org-create-dept-submit',
+    'desk-org-appoint-head-submit',
+    'desk-org-vacate-head-submit',
+    'desk-org-assign-position-submit',
+    'desk-org-release-assignment-submit',
+    'desk-org-create-position-submit',
+    'desk-org-reorder-submit',
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !enabled;
+  });
+}
+setOrgMutateEnabled(false);
 function renderFinanceOverview(summary) {
   const el = document.getElementById('finance-overview');
   if (!summary) {
@@ -642,13 +660,16 @@ async function applyFinancePauseFromSession() {
     const res = await fetch('/api/v1/session', {headers});
     if (!res.ok) {
       setFinanceMutateEnabled(false);
+      setOrgMutateEnabled(false);
       return;
     }
     const body = await res.json();
     const scopes = Array.isArray(body.scopes) ? body.scopes : [];
     setFinanceMutateEnabled(scopes.indexOf('company.pause') !== -1);
+    setOrgMutateEnabled(scopes.indexOf('organization.write') !== -1);
   } catch (e) {
     setFinanceMutateEnabled(false);
+    setOrgMutateEnabled(false);
   }
 }
 async function loadFinance() {
@@ -972,7 +993,11 @@ async function submitOrgCommand(form, path, payload, success) {
     headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'desk-org-' + Date.now()},
     body: JSON.stringify({payload})
   });
-  status.textContent = res.ok ? ' ' + success : ' ' + await res.text();
+  const text = await res.text();
+  if (res.status === 403) {
+    setOrgMutateEnabled(false);
+  }
+  status.textContent = res.ok ? ' ' + success : ' ' + text;
   if (res.ok) { form.reset(); load(); }
 }
 document.getElementById('create-department-form').addEventListener('submit', async event => {
