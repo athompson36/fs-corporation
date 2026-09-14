@@ -75,6 +75,18 @@ const cases: Array<{
     check: (s) => assert(s.group === "adjustment", "group adjustment"),
   },
   {
+    name: "finance manage provider",
+    input: "?tab=finance&mode=manage&group=provider",
+    expectSerialize: "?tab=finance&mode=manage&group=provider",
+    check: (s) => assert(s.group === "provider", "group provider"),
+  },
+  {
+    name: "finance browse provider-invoices",
+    input: "?tab=finance&group=provider-invoices",
+    expectSerialize: "?tab=finance&group=provider-invoices",
+    check: (s) => assert(s.group === "provider-invoices", "group provider-invoices"),
+  },
+  {
     name: "invalid finance browse group → overview",
     input: "?tab=finance&group=not-a-group",
     expectSerialize: "?tab=finance",

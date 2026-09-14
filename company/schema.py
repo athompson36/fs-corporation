@@ -185,6 +185,25 @@ CREATE TABLE IF NOT EXISTS invoices(
   id TEXT PRIMARY KEY, created_at TEXT NOT NULL, created_by TEXT NOT NULL,
   period_start TEXT NOT NULL, period_end TEXT NOT NULL, total_cents INTEGER NOT NULL,
   line_count INTEGER NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS provider_invoices(
+  id TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  external_id TEXT NOT NULL,
+  total_cents INTEGER NOT NULL,
+  issued_at TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,
+  UNIQUE(provider, external_id));
+CREATE TABLE IF NOT EXISTS provider_invoice_allocations(
+  id TEXT PRIMARY KEY,
+  provider_invoice_id TEXT NOT NULL,
+  billed_cost_id TEXT NOT NULL,
+  allocated_cents INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  UNIQUE(provider_invoice_id, billed_cost_id));
 CREATE TABLE IF NOT EXISTS budget_period_closures(
   id TEXT PRIMARY KEY, budget_period_id TEXT NOT NULL, closed_at TEXT NOT NULL,
   closed_by TEXT NOT NULL, snapshot TEXT NOT NULL);

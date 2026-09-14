@@ -325,13 +325,15 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <ul id="head-inbox-list"></ul>
 </section>
 <section class="glass" id="budget"><h2>Finance</h2>
-<p class="muted">Persisted finance totals and lists; create invoice, adjustment, and period below. API amounts are cents; display is USD.</p>
+<p class="muted">Persisted finance totals and lists; create invoice, provider invoice, adjustment, and period below. API amounts are cents; display is USD.</p>
 <p id="finance-load-error" class="muted" hidden></p>
 <p id="finance-scope-notice" class="muted">Mutations require company.pause.</p>
 <h3>Overview</h3>
 <div id="finance-overview" class="muted">Loading…</div>
 <h3>Invoices</h3>
 <ul id="finance-invoice-list"></ul>
+<h3>Provider invoices</h3>
+<ul id="finance-provider-invoice-list"></ul>
 <h3>Adjustments</h3>
 <ul id="finance-adjustment-list"></ul>
 <h3>Periods</h3>
@@ -347,6 +349,32 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <button type="submit" class="chip" id="desk-finance-invoice-submit" disabled>Create invoice</button>
 <span class="muted" id="finance-invoice-status"></span>
 </div>
+</form>
+<form id="finance-provider-invoice-form" class="compact">
+<h3>Provider invoice</h3>
+<label for="desk-finance-provider-name">Provider</label>
+<input id="desk-finance-provider-name" required/>
+<label for="desk-finance-provider-external-id">External id</label>
+<input id="desk-finance-provider-external-id" required/>
+<label for="desk-finance-provider-total">Total cents</label>
+<input id="desk-finance-provider-total" type="number" min="0" step="1" required/>
+<label for="desk-finance-provider-issued">Issued at</label>
+<input id="desk-finance-provider-issued" type="datetime-local" required/>
+<label for="desk-finance-provider-note">Note (optional)</label>
+<input id="desk-finance-provider-note"/>
+<button type="submit" class="chip" id="desk-finance-provider-invoice-submit" disabled>Create provider invoice</button>
+<span class="muted" id="finance-provider-invoice-status"></span>
+</form>
+<form id="finance-provider-invoice-allocate-form" class="compact">
+<h3>Allocate provider invoice</h3>
+<label for="desk-finance-provider-invoice-select">Provider invoice</label>
+<select id="desk-finance-provider-invoice-select" required></select>
+<label for="desk-finance-provider-billed-cost">Billed cost</label>
+<select id="desk-finance-provider-billed-cost" required></select>
+<label for="desk-finance-provider-allocated">Allocated cents</label>
+<input id="desk-finance-provider-allocated" type="number" min="0" step="1" required/>
+<button type="submit" class="chip" id="desk-finance-provider-allocate-submit" disabled>Allocate</button>
+<span class="muted" id="finance-provider-allocate-status"></span>
 </form>
 <form id="finance-adjustment-form" class="compact">
 <h3>Post adjustment</h3>
@@ -513,7 +541,9 @@ function fromFinanceLocalValue(local) {
   return d.toISOString();
 }
 let financeBilledCosts = [];
+let financeProviderInvoices = [];
 let financeExpandedInvoiceId = '';
+let financeExpandedProviderInvoiceId = '';
 let deskPauseEnabled = false;
 function setFinanceMutateEnabled(enabled) {
   deskPauseEnabled = !!enabled;
@@ -525,11 +555,13 @@ function setFinanceMutateEnabled(enabled) {
     'desk-finance-period-submit',
     'desk-finance-invoice-month',
     'desk-finance-period-30d',
+    'desk-finance-provider-invoice-submit',
+    'desk-finance-provider-allocate-submit',
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !enabled;
   });
-  document.querySelectorAll('[data-finance-close], [data-finance-open-next]').forEach(btn => {
+  document.querySelectorAll('[data-finance-close], [data-finance-open-next], [data-finance-provider-void]').forEach(btn => {
     btn.disabled = !enabled;
   });
 }
@@ -575,6 +607,9 @@ function renderFinanceOverview(summary) {
     'Net billed: ' + formatFinanceUsd(summary.billed_cost_cents),
     'Revenue: ' + formatFinanceUsd(summary.revenue_cents),
   ];
+  if (summary.provider_invoice_variance_cents != null) {
+    lines.push('Provider invoice variance: ' + formatFinanceUsd(summary.provider_invoice_variance_cents));
+  }
   lines.forEach(text => {
     const div = document.createElement('div');
     div.textContent = text;
@@ -665,6 +700,155 @@ function renderFinanceInvoices(invoices) {
     list.appendChild(li);
   });
 }
+async function toggleFinanceProviderInvoice(invoiceId) {
+  const list = document.getElementById('finance-provider-invoice-list');
+  const existing = list.querySelector('[data-provider-invoice-detail="' + invoiceId + '"]');
+  if (financeExpandedProviderInvoiceId === invoiceId) {
+    financeExpandedProviderInvoiceId = '';
+    if (existing) existing.remove();
+    return;
+  }
+  financeExpandedProviderInvoiceId = invoiceId;
+  list.querySelectorAll('[data-provider-invoice-detail]').forEach(node => node.remove());
+  const detail = document.createElement('li');
+  detail.dataset.providerInvoiceDetail = invoiceId;
+  detail.className = 'muted';
+  detail.textContent = 'Loading allocations…';
+  const parentBtn = list.querySelector('[data-provider-invoice-id="' + invoiceId + '"]');
+  if (parentBtn && parentBtn.parentElement) {
+    parentBtn.parentElement.insertAdjacentElement('afterend', detail);
+  } else {
+    list.appendChild(detail);
+  }
+  try {
+    const res = await fetch('/api/v1/finance/provider-invoices/' + encodeURIComponent(invoiceId), {headers});
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof body === 'string' ? body : (body.detail || res.statusText));
+    detail.textContent = '';
+    const allocations = body.allocations || [];
+    if (!allocations.length) {
+      detail.textContent = 'No allocations yet.';
+      return;
+    }
+    allocations.forEach(line => {
+      const row = document.createElement('div');
+      row.textContent = (line.billed_cost_id || '') + ' · est ' + formatFinanceUsd(line.estimated_cents)
+        + ' · alloc ' + formatFinanceUsd(line.allocated_cents)
+        + ' · variance ' + formatFinanceUsd(line.variance_cents);
+      detail.appendChild(row);
+    });
+  } catch (error) {
+    detail.textContent = error instanceof Error ? error.message : String(error);
+  }
+}
+function renderFinanceProviderInvoices(invoices) {
+  financeProviderInvoices = invoices || [];
+  const list = document.getElementById('finance-provider-invoice-list');
+  list.innerHTML = '';
+  if (!financeProviderInvoices.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'No provider invoices yet.';
+    list.appendChild(li);
+    fillProviderInvoiceSelect([]);
+    fillProviderBilledCostSelect([]);
+    return;
+  }
+  financeProviderInvoices.forEach(invoice => {
+    const li = document.createElement('li');
+    const row = document.createElement('div');
+    row.className = 'row';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.dataset.providerInvoiceId = invoice.id;
+    btn.textContent = (invoice.provider || '') + ' · ' + (invoice.external_id || '')
+      + ' · ' + formatFinanceUsd(invoice.total_cents);
+    btn.addEventListener('click', () => { void toggleFinanceProviderInvoice(String(invoice.id)); });
+    row.appendChild(btn);
+    if (invoice.status === 'open') {
+      const voidBtn = document.createElement('button');
+      voidBtn.type = 'button';
+      voidBtn.className = 'chip';
+      voidBtn.dataset.financeProviderVoid = String(invoice.id);
+      voidBtn.textContent = 'Void';
+      voidBtn.disabled = !deskPauseEnabled;
+      voidBtn.addEventListener('click', () => { void voidFinanceProviderInvoice(invoice); });
+      row.appendChild(voidBtn);
+    }
+    li.appendChild(row);
+    const meta = document.createElement('div');
+    meta.className = 'muted';
+    meta.textContent = (invoice.status || '') + ' · allocated ' + formatFinanceUsd(invoice.allocated_cents)
+      + ' · unallocated ' + formatFinanceUsd(invoice.unallocated_cents)
+      + ' · variance ' + formatFinanceUsd(invoice.variance_cents);
+    li.appendChild(meta);
+    list.appendChild(li);
+  });
+  fillProviderInvoiceSelect(financeProviderInvoices);
+  fillProviderBilledCostSelect(financeBilledCosts);
+  setFinanceMutateEnabled(document.getElementById('finance-scope-notice').hidden);
+}
+function fillProviderInvoiceSelect(invoices) {
+  const select = document.getElementById('desk-finance-provider-invoice-select');
+  const prev = select.value;
+  select.innerHTML = '';
+  const open = (invoices || []).filter(item => item.status === 'open');
+  if (!open.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No open provider invoices';
+    select.appendChild(opt);
+    return;
+  }
+  open.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = (item.provider || '') + ' · ' + (item.external_id || '')
+      + ' · unallocated ' + formatFinanceUsd(item.unallocated_cents);
+    select.appendChild(opt);
+  });
+  if (open.some(item => item.id === prev)) select.value = prev;
+}
+function fillProviderBilledCostSelect(costs) {
+  const select = document.getElementById('desk-finance-provider-billed-cost');
+  const prev = select.value;
+  select.innerHTML = '';
+  if (!(costs || []).length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No billed costs';
+    select.appendChild(opt);
+    return;
+  }
+  costs.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = (item.provider || '') + ' · ' + formatFinanceUsd(item.amount_cents)
+      + ' · ' + (item.id || '');
+    select.appendChild(opt);
+  });
+  if (costs.some(item => item.id === prev)) select.value = prev;
+}
+async function voidFinanceProviderInvoice(invoice) {
+  if (!deskPauseEnabled) {
+    alert('Void requires CEO company.pause scope.');
+    return;
+  }
+  if (!window.confirm('Void provider invoice ' + (invoice.external_id || invoice.id) + '?')) return;
+  try {
+    await postFinanceCommand(
+      '/api/v1/finance/provider-invoices/' + encodeURIComponent(String(invoice.id)) + '/void',
+      {},
+      'desk-finance-provider-void-' + invoice.id + '-' + Date.now(),
+    );
+    document.getElementById('finance-provider-invoice-status').textContent = ' Provider invoice voided.';
+    await loadFinance();
+  } catch (error) {
+    document.getElementById('finance-provider-invoice-status').textContent =
+      ' ' + (error instanceof Error ? error.message : String(error));
+  }
+}
 function renderFinanceAdjustments(adjustments) {
   const list = document.getElementById('finance-adjustment-list');
   list.innerHTML = '';
@@ -743,6 +927,7 @@ function fillFinanceBilledCosts(costs) {
     select.appendChild(opt);
   });
   if (financeBilledCosts.some(item => item.id === prev)) select.value = prev;
+  fillProviderBilledCostSelect(financeBilledCosts);
 }
 async function applyFinancePauseFromSession() {
   try {
@@ -766,33 +951,38 @@ async function applyFinancePauseFromSession() {
 }
 async function loadFinance() {
   financeExpandedInvoiceId = '';
+  financeExpandedProviderInvoiceId = '';
   const err = document.getElementById('finance-load-error');
   err.hidden = true;
   err.textContent = '';
   try {
-    const [summaryRes, invRes, adjRes, perRes, costRes] = await Promise.all([
+    const [summaryRes, invRes, provInvRes, adjRes, perRes, costRes] = await Promise.all([
       fetch('/api/v1/finance/summary', {headers}),
       fetch('/api/v1/finance/invoices', {headers}),
+      fetch('/api/v1/finance/provider-invoices', {headers}),
       fetch('/api/v1/finance/adjustments', {headers}),
       fetch('/api/v1/finance/budget-periods', {headers}),
       fetch('/api/v1/finance/billed-costs', {headers}),
     ]);
     const summary = await summaryRes.json().catch(() => null);
     const invoices = await invRes.json().catch(() => ({}));
+    const providerInvoices = await provInvRes.json().catch(() => ({}));
     const adjustments = await adjRes.json().catch(() => ({}));
     const periods = await perRes.json().catch(() => ({}));
     const costs = await costRes.json().catch(() => ({}));
-    if (![summaryRes, invRes, adjRes, perRes, costRes].every(r => r.ok)) {
+    if (![summaryRes, invRes, provInvRes, adjRes, perRes, costRes].every(r => r.ok)) {
       throw new Error('Finance data could not be loaded.');
     }
     renderFinanceOverview(summary);
     renderFinanceInvoices(invoices.invoices || []);
+    renderFinanceProviderInvoices(providerInvoices.provider_invoices || []);
     renderFinanceAdjustments(adjustments.adjustments || []);
     renderFinancePeriods(periods.periods || []);
     fillFinanceBilledCosts(costs.billed_costs || []);
   } catch (error) {
     renderFinanceOverview(null);
     renderFinanceInvoices([]);
+    renderFinanceProviderInvoices([]);
     renderFinanceAdjustments([]);
     renderFinancePeriods([]);
     fillFinanceBilledCosts([]);
@@ -1358,6 +1548,54 @@ document.getElementById('desk-finance-period-30d').addEventListener('click', () 
 document.getElementById('desk-finance-adjustment-kind').addEventListener('change', () => {
   const kind = document.getElementById('desk-finance-adjustment-kind').value;
   document.getElementById('desk-finance-adjustment-amount').disabled = kind !== 'partial_credit';
+});
+document.getElementById('finance-provider-invoice-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const status = document.getElementById('finance-provider-invoice-status');
+  try {
+    const note = document.getElementById('desk-finance-provider-note').value.trim();
+    const payload = {
+      provider: document.getElementById('desk-finance-provider-name').value.trim(),
+      external_id: document.getElementById('desk-finance-provider-external-id').value.trim(),
+      total_cents: Number(document.getElementById('desk-finance-provider-total').value),
+      issued_at: fromFinanceLocalValue(document.getElementById('desk-finance-provider-issued').value),
+    };
+    if (note) payload.note = note;
+    await postFinanceCommand(
+      '/api/v1/finance/provider-invoices',
+      payload,
+      'desk-finance-provider-inv-' + Date.now(),
+    );
+    status.textContent = ' Provider invoice created.';
+    event.target.reset();
+    await loadFinance();
+  } catch (error) {
+    status.textContent = ' ' + (error instanceof Error ? error.message : String(error));
+  }
+});
+document.getElementById('finance-provider-invoice-allocate-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const status = document.getElementById('finance-provider-allocate-status');
+  try {
+    const invoiceId = document.getElementById('desk-finance-provider-invoice-select').value;
+    const billedCostId = document.getElementById('desk-finance-provider-billed-cost').value;
+    const allocated = Number(document.getElementById('desk-finance-provider-allocated').value);
+    if (!invoiceId) throw new Error('Select a provider invoice.');
+    if (!billedCostId) throw new Error('Select a billed cost.');
+    if (!Number.isFinite(allocated) || allocated < 0) {
+      throw new Error('Allocated cents must be a non-negative number.');
+    }
+    await postFinanceCommand(
+      '/api/v1/finance/provider-invoices/' + encodeURIComponent(invoiceId) + '/allocations',
+      {billed_cost_id: billedCostId, allocated_cents: allocated},
+      'desk-finance-provider-alloc-' + Date.now(),
+    );
+    status.textContent = ' Allocation recorded.';
+    document.getElementById('desk-finance-provider-allocated').value = '';
+    await loadFinance();
+  } catch (error) {
+    status.textContent = ' ' + (error instanceof Error ? error.message : String(error));
+  }
 });
 document.getElementById('finance-invoice-form').addEventListener('submit', async event => {
   event.preventDefault();
@@ -3532,6 +3770,58 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 period_end=payload.get("period_end"),
                 limit_cents=payload.get("limit_cents"),
             ), 200))
+
+    @app.get("/api/v1/finance/provider-invoices")
+    def finance_list_provider_invoices(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"provider_invoices": company.list_provider_invoices()}
+
+    @app.get("/api/v1/finance/provider-invoices/{invoice_id}")
+    def finance_get_provider_invoice(invoice_id: str,
+                                     authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.get_provider_invoice(invoice_id)
+
+    @app.post("/api/v1/finance/provider-invoices")
+    def finance_create_provider_invoice(body: Command,
+                                        authorization: str | None = Header(default=None),
+                                        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_provider_invoice(
+                ident["principal_id"],
+                provider=payload["provider"],
+                external_id=payload["external_id"],
+                total_cents=payload["total_cents"],
+                issued_at=payload["issued_at"],
+                note=payload.get("note") or ""), 200))
+
+    @app.post("/api/v1/finance/provider-invoices/{invoice_id}/allocations")
+    def finance_allocate_provider_invoice(invoice_id: str, body: Command,
+                                          authorization: str | None = Header(default=None),
+                                          idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"invoice_id": invoice_id}, lambda: (
+            company.allocate_provider_invoice(
+                ident["principal_id"], invoice_id,
+                billed_cost_id=payload["billed_cost_id"],
+                allocated_cents=payload["allocated_cents"]), 200))
+
+    @app.post("/api/v1/finance/provider-invoices/{invoice_id}/void")
+    def finance_void_provider_invoice(invoice_id: str, body: Command,
+                                      authorization: str | None = Header(default=None),
+                                      idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"invoice_id": invoice_id}, lambda: (
+            company.void_provider_invoice(ident["principal_id"], invoice_id), 200))
 
     @app.get("/api/v1/github/status")
     def github_status(authorization: str | None = Header(default=None)):

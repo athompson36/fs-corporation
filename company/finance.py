@@ -227,6 +227,215 @@ def model_cents_per_1k_configured(company) -> bool:
     return False
 
 
+def _invoice_totals(company, invoice_id: str) -> tuple[int, int]:
+    rows = company.db.execute(
+        """
+        SELECT a.allocated_cents, COALESCE(b.amount_cents, 0) AS estimated_cents
+        FROM provider_invoice_allocations a
+        LEFT JOIN billed_costs b ON b.id = a.billed_cost_id
+        WHERE a.provider_invoice_id = ?
+        """,
+        (invoice_id,),
+    ).fetchall()
+    allocated = sum(int(r["allocated_cents"]) for r in rows)
+    variance = sum(int(r["allocated_cents"]) - int(r["estimated_cents"]) for r in rows)
+    return allocated, variance
+
+
+def _open_provider_invoice_variance_cents(company) -> int:
+    total = 0
+    for row in company.db.execute(
+        "SELECT id FROM provider_invoices WHERE status='open'"
+    ):
+        _, variance = _invoice_totals(company, row["id"])
+        total += variance
+    return total
+
+
+def _provider_invoice_list_item(company, row) -> dict:
+    data = dict(row)
+    allocated, variance = _invoice_totals(company, data["id"])
+    total = int(data["total_cents"])
+    return {
+        "id": data["id"],
+        "created_at": data["created_at"],
+        "created_by": data["created_by"],
+        "provider": data["provider"],
+        "external_id": data["external_id"],
+        "total_cents": total,
+        "issued_at": data["issued_at"],
+        "note": data["note"],
+        "status": data["status"],
+        "allocated_cents": allocated,
+        "unallocated_cents": total - allocated,
+        "variance_cents": variance,
+    }
+
+
+def create_provider_invoice(
+    company,
+    actor: str,
+    *,
+    provider: str,
+    external_id: str,
+    total_cents: int,
+    issued_at: str,
+    note: str = "",
+) -> dict:
+    company._ceo(actor)
+    if not isinstance(provider, str) or not provider.strip():
+        raise ValueError("provider required")
+    if not isinstance(external_id, str) or not external_id.strip():
+        raise ValueError("external_id required")
+    total = money(total_cents)
+    if total < 0:
+        raise ValueError("total_cents must be >= 0")
+    issued = _parse_iso(issued_at)
+    note_text = (note or "").strip()
+    provider_key = provider.strip()
+    external_key = external_id.strip()
+    if company.db.execute(
+        "SELECT 1 FROM provider_invoices WHERE provider=? AND external_id=?",
+        (provider_key, external_key),
+    ).fetchone():
+        raise ValueError("Provider invoice already exists for provider/external_id")
+    iid = str(uuid.uuid4())
+    with company.tx():
+        company.db.execute(
+            "INSERT INTO provider_invoices VALUES(?,?,?,?,?,?,?,?,?)",
+            (iid, now().isoformat(), actor, provider_key, external_key,
+             total, issued, note_text, "open"),
+        )
+        company._event(
+            "finance.provider_invoice_created",
+            {"id": iid, "provider": provider_key, "external_id": external_key,
+             "total_cents": total},
+            actor_id=actor,
+        )
+    return get_provider_invoice(company, iid)
+
+
+def list_provider_invoices(company) -> list[dict]:
+    return [
+        _provider_invoice_list_item(company, row)
+        for row in company.db.execute(
+            "SELECT * FROM provider_invoices ORDER BY created_at DESC, id"
+        )
+    ]
+
+
+def get_provider_invoice(company, invoice_id: str) -> dict:
+    row = company.db.execute(
+        "SELECT * FROM provider_invoices WHERE id=?", (invoice_id,)
+    ).fetchone()
+    if not row:
+        raise ValueError("Provider invoice not found")
+    item = _provider_invoice_list_item(company, row)
+    allocations = []
+    for a in company.db.execute(
+        """
+        SELECT a.*, COALESCE(b.amount_cents, 0) AS estimated_cents
+        FROM provider_invoice_allocations a
+        LEFT JOIN billed_costs b ON b.id = a.billed_cost_id
+        WHERE a.provider_invoice_id = ?
+        ORDER BY a.created_at, a.id
+        """,
+        (invoice_id,),
+    ):
+        alloc = int(a["allocated_cents"])
+        est = int(a["estimated_cents"])
+        allocations.append({
+            "id": a["id"],
+            "billed_cost_id": a["billed_cost_id"],
+            "estimated_cents": est,
+            "allocated_cents": alloc,
+            "variance_cents": alloc - est,
+            "created_at": a["created_at"],
+            "created_by": a["created_by"],
+        })
+    item["allocations"] = allocations
+    return item
+
+
+def allocate_provider_invoice(
+    company,
+    actor: str,
+    invoice_id: str,
+    *,
+    billed_cost_id: str,
+    allocated_cents: int,
+) -> dict:
+    company._ceo(actor)
+    inv = company.db.execute(
+        "SELECT * FROM provider_invoices WHERE id=?", (invoice_id,)
+    ).fetchone()
+    if not inv:
+        raise ValueError("Provider invoice not found")
+    if inv["status"] == "void":
+        raise PermissionError("Provider invoice is void")
+    if not company.db.execute(
+        "SELECT 1 FROM billed_costs WHERE id=?", (billed_cost_id,)
+    ).fetchone():
+        raise ValueError("Billed cost not found")
+    if company.db.execute(
+        """SELECT 1 FROM provider_invoice_allocations
+           WHERE provider_invoice_id=? AND billed_cost_id=?""",
+        (invoice_id, billed_cost_id),
+    ).fetchone():
+        raise ValueError("Billed cost already allocated on this invoice")
+    if company.db.execute(
+        """
+        SELECT 1 FROM provider_invoice_allocations a
+        JOIN provider_invoices pi ON pi.id = a.provider_invoice_id
+        WHERE a.billed_cost_id=? AND pi.status='open' AND pi.id != ?
+        """,
+        (billed_cost_id, invoice_id),
+    ).fetchone():
+        raise PermissionError(
+            "Billed cost already allocated on another open provider invoice")
+    amount = money(allocated_cents)
+    if amount < 0:
+        raise ValueError("allocated_cents must be >= 0")
+    existing_allocated, _ = _invoice_totals(company, invoice_id)
+    if existing_allocated + amount > int(inv["total_cents"]):
+        raise ValueError("Allocation would exceed invoice total")
+    aid = str(uuid.uuid4())
+    with company.tx():
+        company.db.execute(
+            "INSERT INTO provider_invoice_allocations VALUES(?,?,?,?,?,?)",
+            (aid, invoice_id, billed_cost_id, amount, now().isoformat(), actor),
+        )
+        company._event(
+            "finance.provider_invoice_allocated",
+            {"id": aid, "provider_invoice_id": invoice_id,
+             "billed_cost_id": billed_cost_id, "allocated_cents": amount},
+            actor_id=actor,
+        )
+    return get_provider_invoice(company, invoice_id)
+
+
+def void_provider_invoice(company, actor: str, invoice_id: str) -> dict:
+    company._ceo(actor)
+    inv = company.db.execute(
+        "SELECT * FROM provider_invoices WHERE id=?", (invoice_id,)
+    ).fetchone()
+    if not inv:
+        raise ValueError("Provider invoice not found")
+    if inv["status"] == "void":
+        raise PermissionError("Provider invoice already void")
+    with company.tx():
+        company.db.execute(
+            "UPDATE provider_invoices SET status='void' WHERE id=?",
+            (invoice_id,),
+        )
+        company._event(
+            "finance.provider_invoice_voided",
+            {"id": invoice_id},
+            actor_id=actor,
+        )
+    return get_provider_invoice(company, invoice_id)
+
+
 def finance_summary(company) -> dict:
     stamp = now().isoformat()
     period = company.db.execute(
@@ -248,6 +457,7 @@ def finance_summary(company) -> dict:
         "revenue_cents": int(company.db.execute(
             "SELECT COALESCE(SUM(amount_cents),0) FROM revenue").fetchone()[0]),
         "open_budget_period": open_period,
+        "provider_invoice_variance_cents": _open_provider_invoice_variance_cents(company),
         "pricing": {
             "model_cents_per_1k_configured": model_cents_per_1k_configured(company),
             "hint": PRICING_HINT,

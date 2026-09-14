@@ -1,9 +1,22 @@
 # Verification record
 
+Updated 2026-09-14 for **0.3.88** (provider invoice headers + allocations onto immutable
+`billed_costs`; informational `provider_invoice_variance_cents` on finance summary;
+desk `#budget` + companion Finance Browse/Manage provider group; ADR-070; Alembic
+**0030_provider_invoices**; no Stripe, no auto-adjustments, no billed mutate).
+Prior headline 0.3.61 retained below as historical host evidence.
+
+## Verified in this workspace (0.3.88)
+
+- **600 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`.
+- Provider invoice contracts: `tests/test_provider_invoices.py`,
+  `tests/test_desk_provider_invoices.py`.
+- Alembic head **0030_provider_invoices** (linear single head).
+- Companion version lockstep **0.3.88**; `cd companion && npm run build` when shipping.
+
 Updated 2026-09-14 for **0.3.87** (consultant work-order baseline/after ops measurements;
 GET measurements list + detail with arithmetic deltas; desk `#consultant` + companion
 Home Needs-you; ADR-069; Alembic **0029_work_order_measurements**; no invented scores).
-Prior headline 0.3.61 retained below as historical host evidence.
 
 ## Verified in this workspace (0.3.87)
 

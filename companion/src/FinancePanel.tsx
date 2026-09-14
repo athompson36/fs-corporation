@@ -27,6 +27,7 @@ type FinanceSummary = {
   billed_cost_cents: number;
   revenue_cents: number;
   open_budget_period: Record<string, unknown> | null;
+  provider_invoice_variance_cents?: number;
   pricing?: { model_cents_per_1k_configured: boolean; hint: string };
 };
 
@@ -61,14 +62,26 @@ export function FinancePanel(props: FinancePanelProps) {
   } = props;
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [invoices, setInvoices] = useState<Record<string, unknown>[]>([]);
+  const [providerInvoices, setProviderInvoices] = useState<Record<string, unknown>[]>([]);
   const [adjustments, setAdjustments] = useState<Record<string, unknown>[]>([]);
   const [periods, setPeriods] = useState<Record<string, unknown>[]>([]);
   const [billedCosts, setBilledCosts] = useState<BilledCost[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedInvoice, setExpandedInvoice] = useState<Record<string, unknown> | null>(null);
   const [expandedInvoiceId, setExpandedInvoiceId] = useState("");
+  const [expandedProviderInvoice, setExpandedProviderInvoice] = useState<Record<string, unknown> | null>(null);
+  const [expandedProviderInvoiceId, setExpandedProviderInvoiceId] = useState("");
   const [invoiceStart, setInvoiceStart] = useState("");
   const [invoiceEnd, setInvoiceEnd] = useState("");
+  const [providerName, setProviderName] = useState("");
+  const [providerExternalId, setProviderExternalId] = useState("");
+  const [providerTotalCents, setProviderTotalCents] = useState("");
+  const [providerIssuedAt, setProviderIssuedAt] = useState("");
+  const [providerNote, setProviderNote] = useState("");
+  const [selectedProviderInvoiceId, setSelectedProviderInvoiceId] = useState("");
+  const [providerAllocateBilledCostId, setProviderAllocateBilledCostId] = useState("");
+  const [providerAllocatedCents, setProviderAllocatedCents] = useState("");
+  const [voidProviderInvoiceId, setVoidProviderInvoiceId] = useState("");
   const [adjustmentKind, setAdjustmentKind] = useState<"void" | "partial_credit">("partial_credit");
   const [selectedBilledCostId, setSelectedBilledCostId] = useState("");
   const [adjustmentAmount, setAdjustmentAmount] = useState("");
@@ -77,36 +90,55 @@ export function FinancePanel(props: FinancePanelProps) {
   const [periodEnd, setPeriodEnd] = useState("");
   const [periodLimit, setPeriodLimit] = useState("500000");
   const expandedInvoiceIdRef = useRef("");
+  const expandedProviderInvoiceIdRef = useRef("");
 
   const loadAll = useCallback(async (isCancelled: () => boolean = () => false) => {
     if (!hasToken) return;
     try {
-      const [summaryBody, invoiceBody, adjustmentBody, periodBody, billedCostBody] =
+      const [summaryBody, invoiceBody, providerInvoiceBody, adjustmentBody, periodBody, billedCostBody] =
         await Promise.all([
           api.financeSummary(),
           api.financeInvoices(),
+          api.listProviderInvoices(),
           api.financeAdjustments(),
           api.financeBudgetPeriods(),
           api.financeBilledCosts(),
         ]);
       if (isCancelled()) return;
       const costs = billedCostBody.billed_costs as BilledCost[];
+      const providerList = providerInvoiceBody.provider_invoices || [];
       setSummary(summaryBody);
       setInvoices(invoiceBody.invoices || []);
+      setProviderInvoices(providerList);
       setAdjustments(adjustmentBody.adjustments || []);
       setPeriods(periodBody.periods || []);
       setBilledCosts(costs);
       setSelectedBilledCostId((current) =>
         costs.some((item) => item.id === current) ? current : costs[0]?.id || "");
+      const openProvider = providerList.filter((item) => item.status === "open");
+      setSelectedProviderInvoiceId((current) =>
+        openProvider.some((item) => String(item.id) === current)
+          ? current
+          : String(openProvider[0]?.id || ""));
+      setProviderAllocateBilledCostId((current) =>
+        costs.some((item) => item.id === current) ? current : costs[0]?.id || "");
+      setVoidProviderInvoiceId((current) =>
+        openProvider.some((item) => String(item.id) === current)
+          ? current
+          : String(openProvider[0]?.id || ""));
       setLoadError(null);
     } catch (error) {
       if (isCancelled()) return;
       setSummary(null);
       setInvoices([]);
+      setProviderInvoices([]);
       setAdjustments([]);
       setPeriods([]);
       setBilledCosts([]);
       setSelectedBilledCostId("");
+      setSelectedProviderInvoiceId("");
+      setProviderAllocateBilledCostId("");
+      setVoidProviderInvoiceId("");
       setLoadError(error instanceof Error ? error.message : String(error));
     }
   }, [api, hasToken]);
@@ -149,6 +181,97 @@ export function FinancePanel(props: FinancePanelProps) {
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0);
     setInvoiceStart(toDatetimeLocalValue(start.toISOString()));
     setInvoiceEnd(toDatetimeLocalValue(end.toISOString()));
+  }
+
+  async function toggleProviderInvoice(invoiceId: string) {
+    if (expandedProviderInvoiceId === invoiceId) {
+      expandedProviderInvoiceIdRef.current = "";
+      setExpandedProviderInvoiceId("");
+      setExpandedProviderInvoice(null);
+      return;
+    }
+    expandedProviderInvoiceIdRef.current = invoiceId;
+    setExpandedProviderInvoiceId(invoiceId);
+    setExpandedProviderInvoice(null);
+    try {
+      const detail = await api.getProviderInvoice(invoiceId);
+      if (expandedProviderInvoiceIdRef.current !== invoiceId) return;
+      setExpandedProviderInvoice(detail);
+    } catch (error) {
+      if (expandedProviderInvoiceIdRef.current !== invoiceId) return;
+      setExpandedProviderInvoice({
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  async function createProviderInvoice(event: FormEvent) {
+    event.preventDefault();
+    await runAction("financeProviderInvoice", "Provider invoice created.", async () => {
+      if (!providerName.trim()) throw new Error("Provider is required.");
+      if (!providerExternalId.trim()) throw new Error("External id is required.");
+      const total = Number(providerTotalCents);
+      if (!Number.isFinite(total) || total < 0) {
+        throw new Error("Total cents must be a non-negative number.");
+      }
+      if (!providerIssuedAt) throw new Error("Issued at is required.");
+      const payload: Record<string, unknown> = {
+        provider: providerName.trim(),
+        external_id: providerExternalId.trim(),
+        total_cents: total,
+        issued_at: fromDatetimeLocalValue(providerIssuedAt),
+      };
+      if (providerNote.trim()) payload.note = providerNote.trim();
+      await api.createProviderInvoice(payload);
+      setProviderName("");
+      setProviderExternalId("");
+      setProviderTotalCents("");
+      setProviderIssuedAt("");
+      setProviderNote("");
+      await loadAll();
+    });
+  }
+
+  async function allocateProviderInvoice(event: FormEvent) {
+    event.preventDefault();
+    await runAction("financeProviderAllocate", "Allocation recorded.", async () => {
+      if (!selectedProviderInvoiceId) throw new Error("Select a provider invoice.");
+      if (!providerAllocateBilledCostId) throw new Error("Select a billed cost.");
+      const allocated = Number(providerAllocatedCents);
+      if (!Number.isFinite(allocated) || allocated < 0) {
+        throw new Error("Allocated cents must be a non-negative number.");
+      }
+      await api.allocateProviderInvoice(selectedProviderInvoiceId, {
+        billed_cost_id: providerAllocateBilledCostId,
+        allocated_cents: allocated,
+      });
+      setProviderAllocatedCents("");
+      await loadAll();
+    });
+  }
+
+  async function voidProviderInvoice(invoiceId: string, externalId: string) {
+    if (!window.confirm(`Void provider invoice ${externalId || invoiceId}?`)) return;
+    await runAction(
+      `finance-provider-void-${invoiceId}`,
+      "Provider invoice voided.",
+      async () => {
+        await api.voidProviderInvoice(invoiceId);
+        await loadAll();
+      },
+    );
+  }
+
+  async function voidProviderInvoiceFromManage(event: FormEvent) {
+    event.preventDefault();
+    if (!voidProviderInvoiceId) throw new Error("Select a provider invoice.");
+    const selected = openProviderInvoices.find(
+      (item) => String(item.id) === voidProviderInvoiceId,
+    );
+    await voidProviderInvoice(
+      voidProviderInvoiceId,
+      selected ? String(selected.external_id) : voidProviderInvoiceId,
+    );
   }
 
   async function createInvoice(event: FormEvent) {
@@ -249,11 +372,18 @@ export function FinancePanel(props: FinancePanelProps) {
       ? ((expandedInvoice.body as Record<string, unknown>).lines as Record<string, unknown>[] | undefined) || []
       : [];
 
+  const providerAllocations =
+    expandedProviderInvoice && Array.isArray(expandedProviderInvoice.allocations)
+      ? (expandedProviderInvoice.allocations as Record<string, unknown>[])
+      : [];
+
+  const openProviderInvoices = providerInvoices.filter((item) => item.status === "open");
+
   return (
     <section>
       <p className="lede">
-        Persisted finance totals and lists in Browse; create invoice, adjustment, and
-        period actions in Manage.
+        Persisted finance totals and lists in Browse; create invoice, provider invoice,
+        adjustment, and period actions in Manage.
       </p>
       <ModeSwitch mode={mode} onChange={onModeChange} label="Finance mode" />
       {loadError && <p className="error">Finance data could not be loaded: {loadError}</p>}
@@ -277,6 +407,12 @@ export function FinancePanel(props: FinancePanelProps) {
                       <div>Adjustments: {formatUsd(summary.billed_adjustment_cents)}</div>
                       <div>Net billed: {formatUsd(summary.billed_cost_cents)}</div>
                       <div>Revenue: {formatUsd(summary.revenue_cents)}</div>
+                      {summary.provider_invoice_variance_cents != null && (
+                        <div>
+                          Provider invoice variance:{" "}
+                          {formatUsd(summary.provider_invoice_variance_cents)}
+                        </div>
+                      )}
                       {summary.open_budget_period ? (
                         <p className="muted">
                           Open period: {String(summary.open_budget_period.period_start)} →{" "}
@@ -321,6 +457,51 @@ export function FinancePanel(props: FinancePanelProps) {
                     );
                   })}
                   {!invoices.length && <p className="panel-empty">No invoices yet.</p>}
+                </div>
+              ),
+            },
+            {
+              id: "provider-invoices",
+              label: "Provider invoices",
+              content: (
+                <div className="card">
+                  {providerInvoices.map((invoice) => {
+                    const id = String(invoice.id);
+                    return (
+                      <div key={id} style={{ marginBottom: "0.65rem" }}>
+                        <button type="button" onClick={() => void toggleProviderInvoice(id)}>
+                          {String(invoice.provider)} · {String(invoice.external_id)} ·{" "}
+                          {formatUsd(cents(invoice.total_cents))}
+                        </button>
+                        <div className="muted">
+                          {String(invoice.status)} · allocated{" "}
+                          {formatUsd(cents(invoice.allocated_cents))} · unallocated{" "}
+                          {formatUsd(cents(invoice.unallocated_cents))} · variance{" "}
+                          {formatUsd(cents(invoice.variance_cents))}
+                        </div>
+                        {expandedProviderInvoiceId === id && Boolean(expandedProviderInvoice?.error) && (
+                          <p className="error">{String(expandedProviderInvoice?.error)}</p>
+                        )}
+                        {expandedProviderInvoiceId === id && providerAllocations.map((line, index) => (
+                          <div className="muted" key={`${String(line.billed_cost_id)}-${index}`}>
+                            {String(line.billed_cost_id)} · est{" "}
+                            {formatUsd(cents(line.estimated_cents))} · alloc{" "}
+                            {formatUsd(cents(line.allocated_cents))} · variance{" "}
+                            {formatUsd(cents(line.variance_cents))}
+                          </div>
+                        ))}
+                        {canPause && invoice.status === "open" && (
+                          <button type="button" onClick={() => void voidProviderInvoice(id, String(invoice.external_id))}>
+                            Void
+                          </button>
+                        )}
+                        {status(`finance-provider-void-${id}`)}
+                      </div>
+                    );
+                  })}
+                  {!providerInvoices.length && (
+                    <p className="panel-empty">No provider invoices yet.</p>
+                  )}
                 </div>
               ),
             },
@@ -452,6 +633,106 @@ export function FinancePanel(props: FinancePanelProps) {
                   {status("financeAdjustment")}
                 </form>
               ) : scopeNotice("post adjustments", "company.pause"),
+            },
+            {
+              id: "provider",
+              label: "Provider",
+              content: canPause ? (
+                <>
+                  <form className="card" onSubmit={createProviderInvoice}>
+                    <div className="section-head">
+                      <h2>Provider invoice</h2>
+                    </div>
+                    <label htmlFor="finance-provider-name">Provider</label>
+                    <input id="finance-provider-name" value={providerName}
+                      onChange={(event) => setProviderName(event.target.value)} required />
+                    <label htmlFor="finance-provider-external-id">External id</label>
+                    <input id="finance-provider-external-id" value={providerExternalId}
+                      onChange={(event) => setProviderExternalId(event.target.value)} required />
+                    <label htmlFor="finance-provider-total">Total cents</label>
+                    <input id="finance-provider-total" type="number" min={0} step={1}
+                      value={providerTotalCents}
+                      onChange={(event) => setProviderTotalCents(event.target.value)} required />
+                    <label htmlFor="finance-provider-issued">Issued at</label>
+                    <input id="finance-provider-issued" type="datetime-local" value={providerIssuedAt}
+                      onChange={(event) => setProviderIssuedAt(event.target.value)} required />
+                    <label htmlFor="finance-provider-note">Note (optional)</label>
+                    <input id="finance-provider-note" value={providerNote}
+                      onChange={(event) => setProviderNote(event.target.value)} />
+                    <div className="actions">
+                      <button className="primary" type="submit">Create provider invoice</button>
+                    </div>
+                    {status("financeProviderInvoice")}
+                  </form>
+                  <form className="card" onSubmit={allocateProviderInvoice}>
+                    <div className="section-head">
+                      <h2>Allocate provider invoice</h2>
+                    </div>
+                    <label htmlFor="finance-provider-invoice-select">Provider invoice</label>
+                    <select id="finance-provider-invoice-select" value={selectedProviderInvoiceId}
+                      onChange={(event) => setSelectedProviderInvoiceId(event.target.value)}
+                      disabled={openProviderInvoices.length === 0} required>
+                      {openProviderInvoices.map((item) => (
+                        <option key={String(item.id)} value={String(item.id)}>
+                          {String(item.provider)} · {String(item.external_id)} · unallocated{" "}
+                          {formatUsd(cents(item.unallocated_cents))}
+                        </option>
+                      ))}
+                    </select>
+                    {openProviderInvoices.length === 0 && (
+                      <p className="panel-empty">No open provider invoices.</p>
+                    )}
+                    <label htmlFor="finance-provider-billed-cost">Billed cost</label>
+                    <select id="finance-provider-billed-cost" value={providerAllocateBilledCostId}
+                      onChange={(event) => setProviderAllocateBilledCostId(event.target.value)}
+                      disabled={billedCosts.length === 0} required>
+                      {billedCosts.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.provider} · {formatUsd(item.amount_cents)} · {item.id}
+                        </option>
+                      ))}
+                    </select>
+                    {billedCosts.length === 0 && (
+                      <p className="panel-empty">No billed costs.</p>
+                    )}
+                    <label htmlFor="finance-provider-allocated">Allocated cents</label>
+                    <input id="finance-provider-allocated" type="number" min={0} step={1}
+                      value={providerAllocatedCents}
+                      onChange={(event) => setProviderAllocatedCents(event.target.value)} required />
+                    <div className="actions">
+                      <button className="primary" type="submit"
+                        disabled={openProviderInvoices.length === 0 || billedCosts.length === 0}>
+                        Allocate
+                      </button>
+                    </div>
+                    {status("financeProviderAllocate")}
+                  </form>
+                  <form className="card" onSubmit={(event) => void voidProviderInvoiceFromManage(event)}>
+                    <div className="section-head">
+                      <h2>Void provider invoice</h2>
+                    </div>
+                    <label htmlFor="finance-provider-void-select">Provider invoice</label>
+                    <select id="finance-provider-void-select" value={voidProviderInvoiceId}
+                      onChange={(event) => setVoidProviderInvoiceId(event.target.value)}
+                      disabled={openProviderInvoices.length === 0} required>
+                      {openProviderInvoices.map((item) => (
+                        <option key={String(item.id)} value={String(item.id)}>
+                          {String(item.provider)} · {String(item.external_id)}
+                        </option>
+                      ))}
+                    </select>
+                    {openProviderInvoices.length === 0 && (
+                      <p className="panel-empty">No open provider invoices.</p>
+                    )}
+                    <div className="actions">
+                      <button type="submit" disabled={openProviderInvoices.length === 0}>
+                        Void
+                      </button>
+                    </div>
+                    {voidProviderInvoiceId && status(`finance-provider-void-${voidProviderInvoiceId}`)}
+                  </form>
+                </>
+              ) : scopeNotice("manage provider invoices", "company.pause"),
             },
             {
               id: "period",

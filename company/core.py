@@ -807,6 +807,32 @@ class Company:
         from company.finance import open_next_budget_period
         return open_next_budget_period(self, actor, period_id, **fields)
 
+    def create_provider_invoice(self, actor, *, provider, external_id, total_cents,
+                                issued_at, note=""):
+        from company.finance import create_provider_invoice
+        return create_provider_invoice(
+            self, actor, provider=provider, external_id=external_id,
+            total_cents=total_cents, issued_at=issued_at, note=note)
+
+    def list_provider_invoices(self):
+        from company.finance import list_provider_invoices
+        return list_provider_invoices(self)
+
+    def get_provider_invoice(self, invoice_id):
+        from company.finance import get_provider_invoice
+        return get_provider_invoice(self, invoice_id)
+
+    def allocate_provider_invoice(self, actor, invoice_id, *, billed_cost_id,
+                                  allocated_cents):
+        from company.finance import allocate_provider_invoice
+        return allocate_provider_invoice(
+            self, actor, invoice_id, billed_cost_id=billed_cost_id,
+            allocated_cents=allocated_cents)
+
+    def void_provider_invoice(self, actor, invoice_id):
+        from company.finance import void_provider_invoice
+        return void_provider_invoice(self, actor, invoice_id)
+
     def create_worker_host(self, actor, *, label, base_url):
         from company.worker_hosts import create_worker_host
         return create_worker_host(self, actor, label=label, base_url=base_url)

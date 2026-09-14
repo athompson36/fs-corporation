@@ -51,7 +51,7 @@ const MANAGE_GROUPS: Record<string, ReadonlySet<string>> = {
   corporate: new Set(["goals", "structure", "coordination", "ops"]),
   projects: new Set(["enroll", "github"]),
   workers: new Set(["hosts", "token"]),
-  finance: new Set(["invoice", "adjustment", "period"]),
+  finance: new Set(["invoice", "adjustment", "provider", "period"]),
 };
 
 const MANAGE_DEFAULT: Record<string, string> = {
@@ -71,6 +71,7 @@ const DEFAULT_GROUP = MANAGE_DEFAULT;
 const FINANCE_BROWSE_GROUPS = new Set([
   "overview",
   "invoices",
+  "provider-invoices",
   "adjustments",
   "periods",
 ]);

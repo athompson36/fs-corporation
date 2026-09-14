@@ -37,6 +37,8 @@ class DeskFinanceInitDisableTests(unittest.TestCase):
             "desk-finance-period-submit",
             "desk-finance-invoice-month",
             "desk-finance-period-30d",
+            "desk-finance-provider-invoice-submit",
+            "desk-finance-provider-allocate-submit",
         ):
             self.assertRegex(
                 section,

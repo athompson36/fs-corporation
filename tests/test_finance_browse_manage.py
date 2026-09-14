@@ -16,10 +16,12 @@ class FinanceBrowseManageTests(unittest.TestCase):
         self.assertIn("defaultGroupFor", text)
         self.assertIn('"overview"', text)
         self.assertIn('"invoices"', text)
+        self.assertIn('"provider-invoices"', text)
         self.assertIn('"adjustments"', text)
         self.assertIn('"periods"', text)
         self.assertIn('"invoice"', text)
         self.assertIn('"adjustment"', text)
+        self.assertIn('"provider"', text)
         self.assertIn('"period"', text)
         # finance writes group in browse — look for finance-specific serialize path
         self.assertRegex(text, r"tab\s*===\s*[\"']finance[\"']")

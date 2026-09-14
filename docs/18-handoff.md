@@ -1,31 +1,31 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.87**. State: **Consultant work-order measured
-before/after on `main` and deployed to fs-dev.** Tip: **`60914c9`**
-(0.3.87 merge record; ship `592cde7`).
+Date: 2026-09-14. Version: **0.3.88**. State: **Provider invoice allocations on
+`feature/provider-invoice-allocations` ready to merge.** Tip: **`ddbfdde`**
+(0.3.88 ship; branch HEAD may include handoff-only commits).
 
-## Merged on main (0.3.87)
+## On branch (0.3.88)
 
-- `company/measurements.py` — `capture_ops_metrics`, baseline/after persist, list/detail
-  read helpers (five integer keys; idempotent phases).
-- `alembic/versions/0029_work_order_measurements.py` — `work_order_measurements` table.
-- Hooks on authorize and complete-outcome; `GET /api/v1/work-orders/measurements` and
-  `GET /api/v1/work-orders/{id}/measurements`; desk `#consultant` Work-order measures +
-  CEO Complete outcome; companion Home Needs-you awaiting after / delta cards.
-- ADR-069; API contract; README + VERIFICATION; companion lockstep **0.3.87**.
-- Prior: Finance open-next + pricing honesty (0.3.86), Desk remaining session gates (0.3.85).
+- `company/finance.py` — `create_provider_invoice`, `allocate_provider_invoice`,
+  `void_provider_invoice`, list/detail helpers; informational
+  `provider_invoice_variance_cents` on `finance_summary`.
+- `alembic/versions/0030_provider_invoices.py` — `provider_invoices` +
+  `provider_invoice_allocations` tables.
+- Five finance API routes under `/api/v1/finance/provider-invoices`; desk `#budget`
+  list/forms/expand/void; companion Finance Browse + Manage `provider` group.
+- ADR-070; API contract; README + VERIFICATION; companion lockstep **0.3.88**.
+- Prior on main: Consultant measured before/after (0.3.87), Finance open-next (0.3.86).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **595 tests, OK**.
+- `.venv/bin/python -m unittest discover -s tests`: **600 tests, OK**.
 - `cd companion && npm run build`: OK at ship.
-- fs-dev health: `{"ok":true,"version":"0.3.87",...}`; Alembic **0029** applied.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
 Owner-directed follow-ups from the refreshed feature-completion audit (canvas at
 `canvases/feature-completion-audit.canvas.tsx`). Strongest remaining local-ish tracks:
-real invoice/refund modeling (no invented cents), measurement deferred nits, or
+provider CSV/PDF import, refunds beyond partial_credit, measurement deferred nits, or
 ChatDev-in-worker depth. Live blockers stay credentials / second host / phone smoke.
-
+Refresh audit canvas after merge+deploy.
