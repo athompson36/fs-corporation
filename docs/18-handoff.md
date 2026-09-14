@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-14. Version: **0.3.86**. State: **Finance open-next and pricing honesty
-on branch `feature/finance-open-next-pricing`.** Tip: **`e448433`**.
+on branch `feature/finance-open-next-pricing`.** Tip: **`845a236`** (Task 3 docs; ship commit `6bd6a90`).
 
 ## On feature branch
 
