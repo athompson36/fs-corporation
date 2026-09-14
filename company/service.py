@@ -1002,6 +1002,10 @@ document.getElementById('dispatch-form').addEventListener('submit', async event 
     status.textContent = 'Select at least one department with a budget.';
     return;
   }
+  if (!dispatchEnrollEnabled) {
+    status.textContent = 'project.enroll required.';
+    return;
+  }
   if (document.getElementById('dispatch-submit-btn').disabled) {
     status.textContent = 'Activate dormant departments before dispatch.';
     return;

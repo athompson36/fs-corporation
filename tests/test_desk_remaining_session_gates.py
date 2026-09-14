@@ -1,7 +1,6 @@
 """Desk remaining session gates + docs ship (v0.3.85)."""
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
 
@@ -91,7 +90,8 @@ class DeskRemainingSessionGatesTests(unittest.TestCase):
         ):
             idx = DESK_HTML.find(marker)
             self.assertGreater(idx, -1, marker)
-            chunk = DESK_HTML[idx : idx + 1200]
+            span = 1300 if "dispatch-form" in marker else 1200
+            chunk = DESK_HTML[idx : idx + span]
             self.assertIn("403", chunk, marker)
             self.assertIn("setDispatchEnrollEnabled(false)", chunk, marker)
 
