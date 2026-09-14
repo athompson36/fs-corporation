@@ -2,7 +2,7 @@
 
 Date: 2026-09-14. Version: **0.3.82**. State: **Desk Finance init-time mutate
 disable on branch `feature/desk-finance-init-disable`** (merge pending). Tip:
-**`d7ac855`**.
+**`022fffd`**.
 
 ## On branch (pending merge)
 
