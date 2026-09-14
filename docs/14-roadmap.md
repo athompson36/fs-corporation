@@ -464,7 +464,7 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Desk Organization session mutate gate 0.3.83** ships on branch
-`feature/desk-org-session-gate` (not yet merged to `main` or fs-dev). Organization
-Manage in `#departments` fail-closes via session `organization.write`; version
-lockstep at 0.3.83. Next: owner-directed companion/desk follow-ups.
+**Desk Organization session mutate gate 0.3.83 is on `main` and fs-dev** (tip
+`493f9d8`). Organization Manage in `#departments` fail-closes via session
+`organization.write`; shared session with Finance; version lockstep at 0.3.83.
+Next: owner-directed companion/desk follow-ups.
