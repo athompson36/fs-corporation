@@ -1,8 +1,8 @@
 # Current handoff
 
 Date: 2026-09-14. Version: **0.3.87**. State: **Consultant work-order measured
-before/after on branch `feature/consultant-work-order-measurements`.** Tip: fill after
-Task 3 ship commit (0.3.87 ship; branch HEAD may include handoff-only commits).
+before/after on branch `feature/consultant-work-order-measurements`.** Tip: **`592cde7`**
+(0.3.87 ship; branch HEAD may include handoff-only commits).
 
 ## On feature branch
 
