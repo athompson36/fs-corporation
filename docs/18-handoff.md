@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-14. Version: **0.3.89**. State: **Measurement hardening on
-`feature/measurement-hardening`; `main` remains 0.3.88.** Tip: **`f59f10c`**
+`feature/measurement-hardening`; `main` remains 0.3.88.** Tip: **`2834239`**
 (0.3.89 ship; branch HEAD may include handoff-only commits).
 
 ## Shipped on feature branch (0.3.89)
