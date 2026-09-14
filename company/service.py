@@ -186,6 +186,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <pre id="scorecard-metrics">Loading…</pre>
 <h3>Objectives</h3>
 <ul id="objective-list"></ul>
+<p class="muted" data-org-write-notice>Mutations require organization.write.</p>
 <form id="objective-create-form" class="compact">
 <h3>Create objective</h3>
 <label for="objective-title">Title</label><input id="objective-title" required/>
@@ -193,7 +194,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <label for="objective-division">Division id (optional)</label><input id="objective-division"/>
 <label for="objective-target">Target JSON (optional)</label>
 <textarea id="objective-target" placeholder='{"accepted_artifacts": 5}'></textarea>
-<button type="submit" class="chip">Create objective</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-create-objective-submit" disabled>Create objective</button><span class="muted"></span>
 </form>
 </section>
 <section class="glass" id="projects"><h2>Projects</h2><ul id="project-list"></ul>
@@ -226,6 +227,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <h2>Cross-department requests</h2>
 <p class="muted">Governed work between departments. List is scoped to the delivering head or CEO.</p>
 <ul id="cross-dept-list"></ul>
+<p class="muted" data-org-write-notice>Mutations require organization.write.</p>
 <form id="cross-dept-create-form" class="compact">
 <h3>Create request</h3>
 <label for="xd-project">Project id</label><input id="xd-project" required/>
@@ -238,7 +240,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <label for="xd-budget">Budget cents</label><input id="xd-budget" type="number" min="0" required/>
 <label for="xd-due">Due at</label><input id="xd-due" type="datetime-local" required/>
 <label for="xd-escalation">Escalation path</label><input id="xd-escalation" value="owner" required/>
-<button type="submit" class="chip">Create request</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-create-cross-dept-submit" disabled>Create request</button><span class="muted"></span>
 </form>
 </section>
 <section class="glass" id="corporate-upgrades">
@@ -246,13 +248,14 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <p class="muted">Industry packs are templates. Divisions remain proposals until the CEO activates them.</p>
 <h3>Industry packs</h3><ul id="industry-pack-list"></ul>
 <h3>Divisions</h3><ul id="division-list"></ul>
+<p class="muted" data-org-write-notice>Mutations require organization.write.</p>
 <form id="division-proposal-form" class="compact">
 <h3>Propose division</h3>
 <label for="division-pack-id">Industry pack id</label><input id="division-pack-id" required/>
 <label for="division-name">Division name</label><input id="division-name" required/>
 <label for="division-mode">Mode</label>
 <select id="division-mode"><option value="minimal">Minimal</option><option value="full">Full</option></select>
-<button type="submit" class="chip">Propose</button><span class="muted"></span>
+<button type="submit" class="chip" id="desk-org-propose-division-submit" disabled>Propose</button><span class="muted"></span>
 </form>
 </section>
 <section class="glass" id="people">
@@ -267,7 +270,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass" id="departments"><h2>Organization</h2>
 <p class="muted">Catalog, persisted seat status, and roster. Vacant and dormant seats are not active workers.</p>
 <ul id="org-list"></ul>
-<p id="org-scope-notice" class="muted">Mutations require organization.write.</p>
+<p id="org-scope-notice" class="muted" data-org-write-notice>Mutations require organization.write.</p>
 <form id="create-department-form" class="compact">
 <h3>Create department</h3>
 <label for="desk-dept-id">Id</label><input id="desk-dept-id" required/>
@@ -472,9 +475,12 @@ function setFinanceMutateEnabled(enabled) {
   });
 }
 setFinanceMutateEnabled(false);
+let orgWriteEnabled = false;
 function setOrgMutateEnabled(enabled) {
-  const notice = document.getElementById('org-scope-notice');
-  if (notice) notice.hidden = !!enabled;
+  orgWriteEnabled = !!enabled;
+  document.querySelectorAll('[data-org-write-notice]').forEach(notice => {
+    notice.hidden = !!enabled;
+  });
   [
     'desk-org-create-dept-submit',
     'desk-org-appoint-head-submit',
@@ -483,9 +489,15 @@ function setOrgMutateEnabled(enabled) {
     'desk-org-release-assignment-submit',
     'desk-org-create-position-submit',
     'desk-org-reorder-submit',
+    'desk-org-create-objective-submit',
+    'desk-org-create-cross-dept-submit',
+    'desk-org-propose-division-submit',
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !enabled;
+  });
+  document.querySelectorAll('[data-org-write]').forEach(btn => {
+    btn.disabled = !enabled;
   });
 }
 setOrgMutateEnabled(false);
@@ -1105,13 +1117,17 @@ function renderCrossDept(items) {
       btn.type = 'button';
       btn.className = 'chip';
       btn.textContent = 'Accept';
+      btn.setAttribute('data-org-write', '');
+      btn.disabled = !orgWriteEnabled;
       btn.addEventListener('click', async () => {
         const res = await fetch('/api/v1/cross-department-requests/' + item.id + '/accept', {
           method: 'POST',
           headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'xd-accept-' + item.id},
           body: JSON.stringify({payload: {}})
         });
-        if (!res.ok) { alert(await res.text()); return; }
+        const text = await res.text();
+        if (res.status === 403) setOrgMutateEnabled(false);
+        if (!res.ok) { alert(text); return; }
         load();
       });
       li.appendChild(btn);
@@ -1604,6 +1620,8 @@ function renderObjectives(items) {
       button.type = 'button';
       button.className = 'chip';
       button.textContent = 'Close';
+      button.setAttribute('data-org-write', '');
+      button.disabled = !orgWriteEnabled;
       button.addEventListener('click', async () => {
         const res = await fetch('/api/v1/objectives/' + objective.id + '/close', {
           method: 'POST',
@@ -1611,7 +1629,9 @@ function renderObjectives(items) {
             'Idempotency-Key': 'desk-objective-close-' + objective.id},
           body: JSON.stringify({payload: {}})
         });
-        if (!res.ok) { alert(await res.text()); return; }
+        const text = await res.text();
+        if (res.status === 403) setOrgMutateEnabled(false);
+        if (!res.ok) { alert(text); return; }
         load();
       });
       li.appendChild(button);

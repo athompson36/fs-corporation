@@ -31,7 +31,7 @@ class DeskOrgSessionGateTests(unittest.TestCase):
     def test_org_scope_notice_visible(self):
         self.assertRegex(
             DESK_HTML,
-            r'<p id="org-scope-notice" class="muted">Mutations require organization\.write\.</p>',
+            r'<p id="org-scope-notice" class="muted"(?:\s+data-org-write-notice)?>Mutations require organization\.write\.</p>',
         )
         self.assertNotRegex(DESK_HTML, r'<p id="org-scope-notice"[^>]*\bhidden\b')
 
