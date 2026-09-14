@@ -3533,6 +3533,58 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
                 limit_cents=payload.get("limit_cents"),
             ), 200))
 
+    @app.get("/api/v1/finance/provider-invoices")
+    def finance_list_provider_invoices(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return {"provider_invoices": company.list_provider_invoices()}
+
+    @app.get("/api/v1/finance/provider-invoices/{invoice_id}")
+    def finance_get_provider_invoice(invoice_id: str,
+                                     authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped(ident, "company.read")
+        return company.get_provider_invoice(invoice_id)
+
+    @app.post("/api/v1/finance/provider-invoices")
+    def finance_create_provider_invoice(body: Command,
+                                        authorization: str | None = Header(default=None),
+                                        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload, lambda: (
+            company.create_provider_invoice(
+                ident["principal_id"],
+                provider=payload["provider"],
+                external_id=payload["external_id"],
+                total_cents=payload["total_cents"],
+                issued_at=payload["issued_at"],
+                note=payload.get("note") or ""), 200))
+
+    @app.post("/api/v1/finance/provider-invoices/{invoice_id}/allocations")
+    def finance_allocate_provider_invoice(invoice_id: str, body: Command,
+                                          authorization: str | None = Header(default=None),
+                                          idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"invoice_id": invoice_id}, lambda: (
+            company.allocate_provider_invoice(
+                ident["principal_id"], invoice_id,
+                billed_cost_id=payload["billed_cost_id"],
+                allocated_cents=payload["allocated_cents"]), 200))
+
+    @app.post("/api/v1/finance/provider-invoices/{invoice_id}/void")
+    def finance_void_provider_invoice(invoice_id: str, body: Command,
+                                      authorization: str | None = Header(default=None),
+                                      idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+        ident = principal(authorization)
+        scoped(ident, "company.pause")
+        payload = envelope(ident, body)
+        return run(ident, idempotency_key, payload | {"invoice_id": invoice_id}, lambda: (
+            company.void_provider_invoice(ident["principal_id"], invoice_id), 200))
+
     @app.get("/api/v1/github/status")
     def github_status(authorization: str | None = Header(default=None)):
         ident = principal(authorization)
