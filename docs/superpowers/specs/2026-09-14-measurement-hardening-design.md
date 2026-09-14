@@ -1,6 +1,6 @@
 # Design: Work-order measurement hardening (0.3.89)
 
-Date: 2026-09-14. Status: **approved (pending implement)**.
+Date: 2026-09-14. Status: **approved** (plan ready; pending implement).
 
 ## Goal
 
