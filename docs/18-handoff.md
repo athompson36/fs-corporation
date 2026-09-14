@@ -1,25 +1,25 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.85**. State: **Desk remaining session gates on
-branch `feature/desk-remaining-session-gates`.** Tip: **`a36874a`** (0.3.85 ship; branch HEAD may include handoff-only commits).
+Date: 2026-09-14. Version: **0.3.85**. State: **Desk remaining session gates
+merged to `main`, pushed, and deployed to fs-dev.** Tip: **`eed1154`** (merge).
 
-## On feature/desk-remaining-session-gates
+## On main / fs-dev
 
 - `company/service.py` — extended `setOrgMutateEnabled` for People/division dynamic
   chips and staffing scan; added `setDispatchEnrollEnabled` / `dispatchEnrollEnabled`
   composed with dormancy submit gating; session apply sets Finance (`company.pause`),
   Org (`organization.write`), and Dispatch (`project.enroll`).
 - `tests/test_desk_remaining_session_gates.py` — source contracts + version **0.3.85**.
-- `tests/test_desk_org_corporate_write_gate.py` — softened version lockstep regex.
-- ADR-067; version **0.3.85** (Python package and companion `package.json`
-  lockstep); README + VERIFICATION honesty refresh.
-- Prior on branch: Desk corporate write forms session gate (0.3.84), Organization
-  session gate (0.3.83), Finance init disable (0.3.82).
+- ADR-067; README + VERIFICATION honesty; companion lockstep **0.3.85**.
+- Prior on `main`: Desk corporate write gate (0.3.84), Org session gate (0.3.83),
+  Finance init disable (0.3.82).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **576 tests, OK**.
-- `cd companion && npm run build`: OK (package version 0.3.85).
+- `.venv/bin/python -m unittest discover -s tests`: **576 tests, OK** (pre-merge).
+- Gate module recheck after merge: `tests.test_desk_remaining_session_gates` OK.
+- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.85",...}` after
+  `deploy_to_fs_dev.sh` + `sudo bash ~/fs-corporation-deploy/run-install.sh`.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
