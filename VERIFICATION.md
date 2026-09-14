@@ -1,5 +1,20 @@
 # Verification record
 
+Updated 2026-09-14 for **0.3.90** (ChatDev-in-worker depth: opt-in Dockerfile `uv sync`
+at pin; `org.fs_corporation.chatdev_deps` label; `deps_ready` on status; gateway billed
+contract test; optional fail-closed smoke; ADR-072; no Alembic; no control-plane ChatDev
+install).
+
+## Verified in this workspace (0.3.90)
+
+- **609 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`.
+- ChatDev worker depth contracts: `tests/test_worker_dockerfile_chatdev.py`,
+  `tests/test_chatdev_adapter.py`, `tests/test_worker_chatdev_billed.py`.
+- Optional smoke: `scripts/exercise_chatdev_worker_billed.py` (fail-closed without image,
+  egress, or model key).
+- Alembic head **0030_provider_invoices** (unchanged; no new revision).
+- Companion version lockstep **0.3.90**; `cd companion && npm run build` when shipping.
+
 Updated 2026-09-14 for **0.3.89** (work-order measurement hardening: co-commit
 baseline/after with replay writes; `json_extract` list filter; denied-scope GET test;
 ADR-071; no Alembic; no UI/auth change).

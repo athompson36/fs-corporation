@@ -1,6 +1,6 @@
 # ChatDev-in-Worker Depth Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Ship v0.3.90 with opt-in worker-image `uv sync` at the ChatDev pin, `deps_ready` status honesty, CI proof that worker gateway `invoke_model` writes `billed_costs`, and an optional fs-dev smoke that fail-closes without credentials.
 
@@ -48,7 +48,7 @@
 **Interfaces:**
 - Produces: label `org.fs_corporation.chatdev_deps`; `worker_image_chatdev_summary()` always includes `deps_ready: bool` when summary is non-null
 
-- [ ] **Step 1: Create branch**
+- [x] **Step 1: Create branch**
 
 ```bash
 cd /Users/andrew/Documents/FS-Tech/fs-corporation
@@ -57,7 +57,7 @@ git pull --ff-only
 git checkout -b feature/chatdev-worker-depth
 ```
 
-- [ ] **Step 2: Write failing Dockerfile + status tests**
+- [x] **Step 2: Write failing Dockerfile + status tests**
 
 Append to `tests/test_worker_dockerfile_chatdev.py`:
 
@@ -101,7 +101,7 @@ Update `tests/test_chatdev_adapter.py` — in `test_worker_image_chatdev_from_in
 
 Also update existing `test_worker_image_chatdev_from_inspect_labels` to assert `self.assertFalse(summary["deps_ready"])` when deps label is absent (same as sibling), or include `"org.fs_corporation.chatdev_deps":"1"` and `assertTrue`. Prefer keeping the existing test without deps label and asserting `deps_ready is False`, then the new test covers True.
 
-- [ ] **Step 3: Run — expect FAIL**
+- [x] **Step 3: Run — expect FAIL**
 
 ```bash
 .venv/bin/python -m unittest tests.test_worker_dockerfile_chatdev tests.test_chatdev_adapter -v
@@ -109,7 +109,7 @@ Also update existing `test_worker_image_chatdev_from_inspect_labels` to assert `
 
 Expected: FAIL — `uv sync` / `chatdev_deps` missing from Dockerfile; `deps_ready` KeyError or assertion fail.
 
-- [ ] **Step 4: Implement Dockerfile**
+- [x] **Step 4: Implement Dockerfile**
 
 Replace `deploy/fs-dev/Dockerfile.worker` ChatDev section so the file is:
 
@@ -162,7 +162,7 @@ ENTRYPOINT ["/usr/local/bin/worker-entrypoint.sh"]
 
 Note: `worker-entrypoint.sh` already exports `CHATDEV_HOME=/opt/chatdev` when `sdk.py` exists — keep that; do not set a static `ENV CHATDEV_HOME` on the mock image.
 
-- [ ] **Step 5: Implement `deps_ready` in `worker_image_chatdev_summary`**
+- [x] **Step 5: Implement `deps_ready` in `worker_image_chatdev_summary`**
 
 In `company/chatdev_runtime.py`:
 
@@ -181,7 +181,7 @@ At end of `worker_image_chatdev_summary`, before `return out`:
 
 Always set `deps_ready` whenever a summary dict is returned.
 
-- [ ] **Step 6: Run — expect PASS**
+- [x] **Step 6: Run — expect PASS**
 
 ```bash
 .venv/bin/python -m unittest tests.test_worker_dockerfile_chatdev tests.test_chatdev_adapter -v
@@ -189,7 +189,7 @@ Always set `deps_ready` whenever a summary dict is returned.
 
 Expected: OK.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add deploy/fs-dev/Dockerfile.worker company/chatdev_runtime.py \
@@ -217,7 +217,7 @@ EOF
 - Consumes: `SubprocessWorkerRuntime.handle_request(company, msg)` → `company.invoke_model`
 - Produces: CI assertion that gateway live invoke writes one `billed_costs` row; smoke exits non-zero without prereqs
 
-- [ ] **Step 1: Write failing billed gateway test**
+- [x] **Step 1: Write failing billed gateway test**
 
 Create `tests/test_worker_chatdev_billed.py` (mirror `tests/test_m10_finance.py` live path through the worker gateway):
 
@@ -298,7 +298,7 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run — expect PASS if gateway already wires invoke_model; else FAIL**
+- [x] **Step 2: Run — expect PASS if gateway already wires invoke_model; else FAIL**
 
 ```bash
 .venv/bin/python -m unittest tests.test_worker_chatdev_billed -v
@@ -306,7 +306,7 @@ if __name__ == "__main__":
 
 Expected: PASS (gateway already calls `company.invoke_model`). If FAIL, fix only the test message shape — do not invent billed rows in production.
 
-- [ ] **Step 3: Write smoke script**
+- [x] **Step 3: Write smoke script**
 
 Create `scripts/exercise_chatdev_worker_billed.py`:
 
@@ -417,7 +417,7 @@ if __name__ == "__main__":
 
 Make executable: `chmod +x scripts/exercise_chatdev_worker_billed.py`.
 
-- [ ] **Step 4: Document smoke in integration docs**
+- [x] **Step 4: Document smoke in integration docs**
 
 In `docs/07-chatdev-integration.md` status paragraph, add `deps_ready` to `worker_image_chatdev` fields. Add a short “Billed smoke” subsection pointing at `scripts/exercise_chatdev_worker_billed.py` and the env names above.
 
@@ -425,7 +425,7 @@ In `docs/23-isolated-workers.md`, note that worker gateway `invoke_model` writes
 
 In `docs/25-fs-dev-deployment.md`, add a short bullet under ChatDev/worker: optional smoke requires ChatDev-enabled image with deps, allowlist egress, and model key; never invents billed rows.
 
-- [ ] **Step 5: Run unit test again**
+- [x] **Step 5: Run unit test again**
 
 ```bash
 .venv/bin/python -m unittest tests.test_worker_chatdev_billed -v
@@ -433,7 +433,7 @@ In `docs/25-fs-dev-deployment.md`, add a short bullet under ChatDev/worker: opti
 
 Expected: OK.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/test_worker_chatdev_billed.py scripts/exercise_chatdev_worker_billed.py \
@@ -461,11 +461,11 @@ EOF
 **Interfaces:**
 - Produces: version **0.3.90**; ADR-072; API note for `deps_ready`
 
-- [ ] **Step 1: Bump versions**
+- [x] **Step 1: Bump versions**
 
 Set `company/__init__.py` `__version__` and `companion/package.json` `"version"` to `0.3.90`.
 
-- [ ] **Step 2: ADR-072 in `docs/decisions.md`**
+- [x] **Step 2: ADR-072 in `docs/decisions.md`**
 
 Add index row + body:
 
@@ -473,22 +473,22 @@ Add index row + body:
 - Decision: When `CHATDEV_ENABLE=1`, Dockerfile runs `uv sync` (fail closed), labels `org.fs_corporation.chatdev_deps`, status exposes `deps_ready`; CI proves `SubprocessWorkerRuntime.handle_request(invoke_model)` writes `billed_costs`; optional smoke fail-closes without image/egress/key; control-plane still has no ChatDev install.
 - Consequences: Rebuild with `FS_CORP_WORKER_CHATDEV=1` required for live ChatDev workers; historical source-only images report `deps_ready: false`.
 
-- [ ] **Step 3: API contract**
+- [x] **Step 3: API contract**
 
 In `docs/16-api-contract.md` `GET /chatdev/status` row, note `worker_image_chatdev` may include `deps_ready` (bool) from `org.fs_corporation.chatdev_deps`.
 
-- [ ] **Step 4: README / VERIFICATION / handoff / roadmap**
+- [x] **Step 4: README / VERIFICATION / handoff / roadmap**
 
 - README capability row: ChatDev worker image may include uv-synced deps when opt-in; `deps_ready` on status.
 - VERIFICATION: 0.3.90 checklist items for Dockerfile/uv/deps_ready/billed gateway test/smoke.
 - Roadmap: mark ChatDev-in-worker depth done at 0.3.90.
 - Handoff: version 0.3.90, tip SHA after ship commit, next owner follow-up.
 
-- [ ] **Step 5: Mark design implemented**
+- [x] **Step 5: Mark design implemented**
 
 In design doc header: `Status: **implemented in v0.3.90**.`
 
-- [ ] **Step 6: Full suite + companion build**
+- [x] **Step 6: Full suite + companion build**
 
 ```bash
 .venv/bin/python -m unittest discover -s tests
@@ -497,7 +497,7 @@ cd companion && npm run build
 
 Expected: all tests OK; companion build OK.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add company/__init__.py companion/package.json docs/decisions.md docs/16-api-contract.md \

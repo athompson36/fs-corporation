@@ -105,7 +105,7 @@ listed scope can still receive 403 from those routes.
 | GET /github/status | GitHub App connectivity + `webhook_secret_configured` (no secrets returned) | company.read |
 | POST /github/webhooks | Signed GitHub App webhook ingress (HMAC; no bearer) | webhook secret |
 | GET /model/status | Model provider connectivity (no secrets returned) | company.read |
-| GET /chatdev/status | ChatDev opt-in readiness: pin, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, `worker_image_chatdev`, `worker_egress_mode`, `allowlist_configured`, `allowlist_count`, `worker_egress_ready`, `docker_network_configured`, workflow path; optional `pin_check_skipped` / `allowlist_error` (no secrets; no host list) | company.read |
+| GET /chatdev/status | ChatDev opt-in readiness: pin, `home_set`, `configured`, `pin_verified`, `control_plane_allowed`, `worker_live_ready`, `worker_image_chatdev` (may include `deps_ready` bool from `org.fs_corporation.chatdev_deps`), `worker_egress_mode`, `allowlist_configured`, `allowlist_count`, `worker_egress_ready`, `docker_network_configured`, workflow path; optional `pin_check_skipped` / `allowlist_error` (no secrets; no host list) | company.read |
 | GET /feeds | List market feed sources (status: approved/paused/revoked) | company.read |
 | POST /feeds | Approve or re-approve an HTTPS feed URL (`payload.id`, `payload.url`) | project.enroll (CEO) |
 | POST /feeds/{id}/pause | Pause an enrolled feed (poll denied until re-approved) | company.pause (CEO) |
@@ -227,7 +227,8 @@ of them.
 - **`GET /chatdev/status`** — `pin`, `home_set`, `configured`, `pin_verified`,
   `control_plane_allowed`, `worker_live_ready`, `workflow` (a path string), and optional
   `pin_check_skipped`. `worker_image_chatdev` is `null` when Docker is unavailable or the image
-  inspect fails; otherwise `{image, enabled, pin?}` read from image labels.
+  inspect fails; otherwise `{image, enabled, pin?, deps_ready?}` read from image labels
+  (`deps_ready` is `true` when `org.fs_corporation.chatdev_deps` is `"1"`).
 - **`GET /github/status`** — `configured`, `live`, `webhook_secret_configured`, and
   `funnel_webhooks` (`{opt_in, path, public_url, cli}`). When live it adds `app_slug`, `app_id`,
   `installation_id`, and `account`; on failure it adds `error`.

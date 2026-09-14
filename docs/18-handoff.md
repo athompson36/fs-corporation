@@ -1,23 +1,30 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.89**. State: **Measurement hardening on `main` and
-deployed to fs-dev.** Tip: **`d69fe8d`** (merge record; ship `2834239`).
+Date: 2026-09-14. Version: **0.3.90**. State: **ChatDev-in-worker depth on
+`feature/chatdev-worker-depth`.** Tip: **`TBD`** (ship commit pending).
 
-## Merged on main (0.3.89)
+## Shipped on feature branch (0.3.90)
 
-- Co-commit `ensure_measurement` with new authorize/complete replay inserts.
-- List filter: `json_extract(payload, '$.source') = 'consultant'`.
-- Denied-scope GET test for measurements list.
-- ADR-071. No Alembic. Companion lockstep **0.3.89**.
-- Prior: provider invoices 0.3.88, consultant measurements 0.3.87.
+- Opt-in `Dockerfile.worker` runs `uv sync` at pinned ChatDev checkout when
+  `CHATDEV_ENABLE=1` (fail closed).
+- Label `org.fs_corporation.chatdev_deps`; status exposes `worker_image_chatdev.deps_ready`.
+- Gateway billed contract test: `SubprocessWorkerRuntime.handle_request(invoke_model)` writes
+  `billed_costs` on live invoke.
+- Optional smoke `scripts/exercise_chatdev_worker_billed.py` fail-closes without image,
+  egress, or model key.
+- ADR-072. No Alembic. Companion lockstep **0.3.90**. Control plane still has no ChatDev
+  install.
+- Prior on `main`: measurement hardening 0.3.89, provider invoices 0.3.88.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **603 tests, OK**.
+- `.venv/bin/python -m unittest discover -s tests`: **609 tests, OK** (at ship).
 - `cd companion && npm run build`: OK at ship.
-- fs-dev health: `{"ok":true,"version":"0.3.89",...}`; no new Alembic (still **0030**).
+- Alembic head **0030** (unchanged).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed follow-ups (ChatDev-in-worker depth, provider CSV/PDF import, etc.).
+Owner-directed follow-ups: merge `feature/chatdev-worker-depth`, fs-dev rebuild with
+`FS_CORP_WORKER_CHATDEV=1`, provider CSV/PDF import, optional second worker host, live
+documentation fetch, etc.

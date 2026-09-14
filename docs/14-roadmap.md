@@ -2,7 +2,10 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.89 status:** Work-order measurement hardening (co-commit baseline/after with
+**v0.3.90 status:** ChatDev-in-worker depth (opt-in Dockerfile `uv sync` at pin;
+`org.fs_corporation.chatdev_deps` label; `deps_ready` on status; gateway billed contract
+test; optional fail-closed smoke; ADR-072; no Alembic; no control-plane ChatDev install).
+Joins **v0.3.89 status:** Work-order measurement hardening (co-commit baseline/after with
 replay writes; `json_extract` list filter; denied-scope GET test; ADR-071; no Alembic;
 no UI/auth change). Joins **v0.3.88 status:** Provider invoice allocations (provider
 invoice headers + allocations onto immutable `billed_costs`; informational variance on
@@ -351,6 +354,9 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Work-order measurement hardening (0.3.89) — co-commit baseline/after with replay
       writes; `json_extract` list filter; denied-scope GET test; ADR-071; no Alembic;
       no UI/auth change
+- [x] ChatDev-in-worker depth (0.3.90) — opt-in Dockerfile `uv sync` at pin; deps label
+      and `deps_ready` on status; gateway billed contract test; optional fail-closed smoke;
+      ADR-072; no Alembic; no control-plane ChatDev install
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -494,9 +500,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Ship 2 / audit code-local complete on `main` + fs-dev (0.3.88 after merge; 0.3.89
-measurement hardening on `feature/measurement-hardening`).** Remaining work is
-owner-directed: provider CSV/PDF import, refunds beyond partial_credit, optional second
-worker host, live documentation fetch, ChatDev-in-worker depth, or deferred design
-(furnished art / scheduled consultant triggers). Refresh the feature-completion audit
-canvas after merge+deploy.
+**Ship 2 / audit code-local complete on `main` + fs-dev (0.3.89 measurement hardening
+merged; 0.3.90 ChatDev-in-worker depth on `feature/chatdev-worker-depth`).** Remaining
+work is owner-directed: provider CSV/PDF import, refunds beyond partial_credit, optional
+second worker host, live documentation fetch, or deferred design (furnished art /
+scheduled consultant triggers). Refresh the feature-completion audit canvas after
+merge+deploy.
