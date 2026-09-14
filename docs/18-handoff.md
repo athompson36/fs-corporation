@@ -2,7 +2,7 @@
 
 Date: 2026-09-14. Version: **0.3.83**. State: **Desk Organization session mutate
 gate on `feature/desk-org-session-gate`** (not merged to `main`; no fs-dev deploy
-claim). Tip: **`c00ff86`**.
+claim). Tip: **`4777ff5`**.
 
 ## On feature/desk-org-session-gate
 
