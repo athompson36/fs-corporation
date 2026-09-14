@@ -66,6 +66,7 @@
 | ADR-062 | 2026-09-12 | Desk Finance polish | Session pause gate via /api/v1/session; openRoom simulated spend; #budget-scoped dump ban; no new APIs. |
 | ADR-063 | 2026-09-12 | Companion tab/mode URL flash fix | Batch tab/mode sibling resets in selectTab / handlePanelModeChange; remove lagging reset effects; extend tsx harness; no Router. |
 | ADR-064 | 2026-09-14 | Desk Finance init-time mutate disable | Finance mutate controls ship disabled with visible #finance-scope-notice; setFinanceMutateEnabled(false) at init; session/403 paths unchanged. |
+| ADR-065 | 2026-09-14 | Desk Organization session mutate gate | Organization Manage fail-closes via session organization.write (markup + init + shared session with Finance + 403); seven #departments submits only. |
 
 ### ADR-010 detail
 
@@ -1086,5 +1087,28 @@ render). 403-only reactive gating (rejected — poor UX). Companion changes
 first paint with no Alembic revision or control-plane API change. Companion
 version locksteps at 0.3.82 with no FinancePanel changes. Broader desk session
 use for other mutate UIs remains an owner-directed follow-up.
+
+### ADR-065 detail
+
+**Context.** After ADR-064, Finance Manage forms fail-closed from first paint
+via session scopes, but Organization Manage submit chips in `#departments`
+stayed enabled until `submitOrgCommand` returned 403.
+
+**Decision.** Desk Organization Manage fail-closes via session
+`organization.write`: markup `disabled` + visible `#org-scope-notice`; call
+`setOrgMutateEnabled(false)` at init; one shared `GET /api/v1/session` applies
+Finance (`company.pause`) and Org (`organization.write`); 403 in
+`submitOrgCommand` remains backup. Gate only the seven `#departments` submit
+chips.
+
+**Alternatives considered.** Separate session fetches for Finance and Org
+(rejected — redundant network). 403-only reactive gating (rejected — poor UX).
+Gating objectives, cross-department, or companion OrgPanel (rejected — out of
+scope).
+
+**Consequences.** Desk v0.3.83 ships fail-closed Organization Manage from first
+paint with no Alembic revision or control-plane API change. Companion version
+locksteps at 0.3.83 with no OrgPanel changes. Other desk mutate UIs remain
+owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.
