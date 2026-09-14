@@ -472,7 +472,7 @@ function setFinanceMutateEnabled(enabled) {
     const el = document.getElementById(id);
     if (el) el.disabled = !enabled;
   });
-  document.querySelectorAll('[data-finance-close]').forEach(btn => {
+  document.querySelectorAll('[data-finance-close], [data-finance-open-next]').forEach(btn => {
     btn.disabled = !enabled;
   });
 }
@@ -532,6 +532,14 @@ function renderFinanceOverview(summary) {
     openLine.textContent = 'No open budget period.';
   }
   el.appendChild(openLine);
+  if (summary.pricing && summary.pricing.model_cents_per_1k_configured === false) {
+    const hint = document.createElement('p');
+    hint.className = 'muted';
+    hint.id = 'finance-pricing-hint';
+    hint.textContent = summary.pricing.hint
+      || 'Billed lines may stay $0 until FS_CORP_MODEL_CENTS_PER_1K_TOKENS or a profile rate is set.';
+    el.appendChild(hint);
+  }
 }
 async function toggleFinanceInvoice(invoiceId) {
   const list = document.getElementById('finance-invoice-list');
@@ -632,17 +640,26 @@ function renderFinancePeriods(periods) {
   periods.forEach(period => {
     const li = document.createElement('li');
     const meta = document.createElement('div');
+    const closed = !!period.closed;
     meta.textContent = (period.period_start || '') + ' → ' + (period.period_end || '')
       + ' · limit ' + formatFinanceUsd(period.limit_cents)
-      + (period.closed_at ? ' · closed' : ' · open');
+      + (closed ? ' · closed' : ' · open');
     li.appendChild(meta);
-    if (!period.closed_at) {
+    if (!closed) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'chip';
       btn.dataset.financeClose = String(period.id);
       btn.textContent = 'Close period';
       btn.addEventListener('click', () => { void closeFinancePeriod(period); });
+      li.appendChild(btn);
+    } else {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip';
+      btn.dataset.financeOpenNext = String(period.id);
+      btn.textContent = 'Open next period';
+      btn.addEventListener('click', () => { void openFinanceNextPeriod(period); });
       li.appendChild(btn);
     }
     list.appendChild(li);
@@ -760,6 +777,20 @@ async function closeFinancePeriod(period) {
     document.getElementById('desk-finance-period-start').value =
       toFinanceLocalValue(String(period.period_end));
     document.getElementById('finance-period-status').textContent = ' Period closed.';
+    await loadFinance();
+  } catch (error) {
+    document.getElementById('finance-period-status').textContent =
+      ' ' + (error instanceof Error ? error.message : String(error));
+  }
+}
+async function openFinanceNextPeriod(period) {
+  try {
+    await postFinanceCommand(
+      '/api/v1/finance/budget-periods/' + encodeURIComponent(String(period.id)) + '/open-next',
+      {},
+      'desk-finance-open-next-' + period.id + '-' + Date.now(),
+    );
+    document.getElementById('finance-period-status').textContent = ' Next period opened.';
     await loadFinance();
   } catch (error) {
     document.getElementById('finance-period-status').textContent =

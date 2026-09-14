@@ -27,6 +27,7 @@ type FinanceSummary = {
   billed_cost_cents: number;
   revenue_cents: number;
   open_budget_period: Record<string, unknown> | null;
+  pricing?: { model_cents_per_1k_configured: boolean; hint: string };
 };
 
 type BilledCost = Record<string, unknown> & {
@@ -204,6 +205,17 @@ export function FinancePanel(props: FinancePanelProps) {
     );
   }
 
+  async function openNextPeriod(period: Record<string, unknown>) {
+    await runAction(
+      `finance-open-next-${String(period.id)}`,
+      "Next period opened.",
+      async () => {
+        await api.openFinanceBudgetPeriodNext(String(period.id));
+        await loadAll();
+      },
+    );
+  }
+
   function setNextThirtyDays() {
     const start = new Date();
     const end = new Date(start);
@@ -272,6 +284,9 @@ export function FinancePanel(props: FinancePanelProps) {
                           {formatUsd(cents(summary.open_budget_period.limit_cents))}
                         </p>
                       ) : <p className="muted">No open budget period.</p>}
+                      {summary.pricing && !summary.pricing.model_cents_per_1k_configured && (
+                        <p className="muted">{summary.pricing.hint}</p>
+                      )}
                     </>
                   ) : <p className="panel-empty">No finance summary loaded.</p>}
                 </div>
@@ -342,7 +357,11 @@ export function FinancePanel(props: FinancePanelProps) {
                       {canPause && !period.closed && (
                         <button type="button" onClick={() => void closePeriod(period)}>Close period</button>
                       )}
+                      {canPause && !!period.closed && (
+                        <button type="button" onClick={() => void openNextPeriod(period)}>Open next period</button>
+                      )}
                       {status(`finance-close-${String(period.id)}`)}
+                      {status(`finance-open-next-${String(period.id)}`)}
                     </div>
                   ))}
                   {!periods.length && <p className="panel-empty">No budget periods.</p>}

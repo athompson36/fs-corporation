@@ -218,7 +218,8 @@ class OpenNextPeriodTests(unittest.TestCase):
 
     def test_open_next_rejects_duplicate_successor(self):
         pid, _, end, _ = self._closed_period()
-        self.c.open_next_budget_period("human-ceo", pid)
+        successor = self.c.open_next_budget_period("human-ceo", pid)
+        self.c.close_budget_period("human-ceo", successor["id"])
         with self.assertRaises(PermissionError):
             self.c.open_next_budget_period("human-ceo", pid)
 

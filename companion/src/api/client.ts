@@ -239,6 +239,14 @@ export class ApiClient {
     );
   }
 
+  openFinanceBudgetPeriodNext(periodId: string) {
+    return this.post(
+      `/api/v1/finance/budget-periods/${encodeURIComponent(periodId)}/open-next`,
+      {},
+      `finance-open-next-${periodId}-${Date.now()}`,
+    );
+  }
+
   workerHosts() {
     return this.get<{ hosts: Record<string, unknown>[] }>("/api/v1/worker-hosts");
   }
