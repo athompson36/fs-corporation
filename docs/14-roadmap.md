@@ -481,7 +481,8 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Consultant work-order measured before/after 0.3.87** ships on branch
-`feature/consultant-work-order-measurements`. Baseline/after ops snapshots, GET
-measurements, desk + companion Home Needs-you; version lockstep at 0.3.87.
-Ship 2 / audit code-local complete; next work is owner-directed follow-ups.
+**Ship 2 / audit code-local complete on `main` + fs-dev (0.3.87).** Remaining work is
+owner-directed: real provider invoices/refunds, optional second worker host, live
+documentation fetch, ChatDev-in-worker depth, or deferred design (furnished art /
+scheduled consultant triggers). Refresh the feature-completion audit canvas after each
+ship.

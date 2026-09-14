@@ -24,4 +24,8 @@ before/after on `main` and deployed to fs-dev.** Tip: **`60914c9`**
 
 ## Next
 
-Ship 2 / audit code-local complete. Owner-directed follow-ups.
+Owner-directed follow-ups from the refreshed feature-completion audit (canvas at
+`canvases/feature-completion-audit.canvas.tsx`). Strongest remaining local-ish tracks:
+real invoice/refund modeling (no invented cents), measurement deferred nits, or
+ChatDev-in-worker depth. Live blockers stay credentials / second host / phone smoke.
+
