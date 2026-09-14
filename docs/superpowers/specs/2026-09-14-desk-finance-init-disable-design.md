@@ -1,6 +1,6 @@
 # Design: Desk Finance init-time mutate disable (0.3.82)
 
-Date: 2026-09-14. Status: **approved for planning** (owner locks below).
+Date: 2026-09-14. Status: **implemented in v0.3.82**.
 
 ## Goal
 

@@ -1,32 +1,27 @@
 # Current handoff
 
-Date: 2026-09-12. Version: **0.3.81**. State: **Companion tab/mode URL flash
-merged to `main`, pushed, and deployed to fs-dev.** Tip: **`157b99f`**.
+Date: 2026-09-14. Version: **0.3.82**. State: **Desk Finance init-time mutate
+disable on branch `feature/desk-finance-init-disable`** (merge pending). Tip:
+**`d7ac855`**.
 
-## On main / fs-dev
+## On branch (pending merge)
 
-- `companion/src/urlState.ts` — `stateAfterTabChange` / `stateAfterModeChange`
-  pure helpers.
-- `companion/src/App.tsx` — `selectTab` / `handlePanelModeChange` batch sibling
-  resets; all five mode-capable panels wired; same-tab re-tap no-ops; lagging
-  tab/mode reset effects removed.
-- `companion/scripts/check-url-state.mts` — transition sequence harness cases 1–5.
-- `tests/test_companion_tab_url_flash.py` — source contracts + version **0.3.81**.
-- `tests/test_desk_finance_polish.py` — soft `0\.3\.\d+` version pin (lockstep).
-- ADR-063; version **0.3.81** (Python package and companion `package.json`
+- `company/service.py` — Finance mutate controls ship `disabled` in markup;
+  visible `#finance-scope-notice`; `setFinanceMutateEnabled(false)` at init;
+  `applyFinancePauseFromSession()` / 403 paths unchanged.
+- `tests/test_desk_finance_init_disable.py` — source contracts for init-time disable.
+- ADR-064; version **0.3.82** (Python package and companion `package.json`
   lockstep).
-- Prior on `main`: Desk Finance polish (0.3.80), companion finance URL polish
-  (0.3.79), Desk Finance surface (0.3.78).
+- Prior on `main`: Companion tab/mode URL flash (0.3.81), Desk Finance polish
+  (0.3.80), companion finance URL polish (0.3.79), Desk Finance surface (0.3.78).
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **551 tests, OK**.
-- `cd companion && npm run build`: OK (package version 0.3.81).
-- fs-dev: `GET /api/v1/health` → `{"ok":true,"version":"0.3.81",...}`; companion
-  build `fs-corporation-companion@0.3.81` served after install.
+- `.venv/bin/python -m unittest discover -s tests`: run full suite; expect OK.
+- `cd companion && npm run build`: OK (package version 0.3.82).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed: desk init-time Finance disable before session fetch; or other
-companion/desk follow-ups.
+Owner-directed: broader desk session use for other mutate UIs; permission-clamp
+companion URL timing if a flash is found; or other companion/desk follow-ups.

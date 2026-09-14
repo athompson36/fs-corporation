@@ -65,6 +65,7 @@
 | ADR-061 | 2026-09-12 | Companion finance URL polish | Drop dead Close-period focus; cold-load/popstate use defaultGroupFor; tsx urlState harness; no new APIs. |
 | ADR-062 | 2026-09-12 | Desk Finance polish | Session pause gate via /api/v1/session; openRoom simulated spend; #budget-scoped dump ban; no new APIs. |
 | ADR-063 | 2026-09-12 | Companion tab/mode URL flash fix | Batch tab/mode sibling resets in selectTab / handlePanelModeChange; remove lagging reset effects; extend tsx harness; no Router. |
+| ADR-064 | 2026-09-14 | Desk Finance init-time mutate disable | Finance mutate controls ship disabled with visible #finance-scope-notice; setFinanceMutateEnabled(false) at init; session/403 paths unchanged. |
 
 ### ADR-010 detail
 
@@ -1066,5 +1067,24 @@ sibling state). Deferred `replaceState` (rejected — masks symptom). React Rout
 **Consequences.** Companion v0.3.81 ships batched tab/mode URL writes with no
 Alembic revision or control-plane API change. Desk init-time Finance disable and
 clamp timing remain follow-ups.
+
+### ADR-064 detail
+
+**Context.** After ADR-062 shipped desk Finance session gating in `load()`,
+mutate controls still rendered enabled in markup until `applyFinancePauseFromSession()`
+completed, so read-only tokens briefly saw enabled forms on cold load.
+
+**Decision.** Desk Finance mutate controls ship `disabled` with visible
+`#finance-scope-notice`; call `setFinanceMutateEnabled(false)` at init;
+session/403 paths unchanged.
+
+**Alternatives considered.** Session fetch before paint (rejected — blocks desk
+render). 403-only reactive gating (rejected — poor UX). Companion changes
+(rejected — desk-only scope).
+
+**Consequences.** Desk v0.3.82 ships fail-closed Finance mutate controls from
+first paint with no Alembic revision or control-plane API change. Companion
+version locksteps at 0.3.82 with no FinancePanel changes. Broader desk session
+use for other mutate UIs remains an owner-directed follow-up.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

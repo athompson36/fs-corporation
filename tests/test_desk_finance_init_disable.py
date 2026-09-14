@@ -1,7 +1,6 @@
 """Desk Finance init-time mutate disable (v0.3.82)."""
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
 
