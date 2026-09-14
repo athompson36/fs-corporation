@@ -71,6 +71,7 @@
 | ADR-067 | 2026-09-14 | Desk remaining session gates | People/Activate/promotions/staffing use organization.write; dispatch submit/recommend use project.enroll via setDispatchEnrollEnabled; README/VERIFICATION honesty. |
 | ADR-068 | 2026-09-14 | Finance open-next and pricing honesty | Explicit open-next after close; pricing honesty on finance summary; no Alembic; no auto-rollover on close. |
 | ADR-069 | 2026-09-14 | Consultant work-order measured before/after | Baseline/after ops snapshots on authorize/complete; GET measurements; desk + companion Home; no invented scores; Alembic 0029. |
+| ADR-070 | 2026-09-14 | Provider invoice allocations | New `provider_invoices` + `provider_invoice_allocations`; immutable billed rows; variance informational only; no Stripe; API + desk + companion; Alembic 0030. |
 
 ### ADR-010 detail
 
@@ -1203,5 +1204,34 @@ contract).
 
 **Consequences.** v0.3.87 closes the Ship 2 consultant measured before/after audit gap.
 Real provider invoices/refunds and owner-directed follow-ups remain separate.
+
+### ADR-070 detail
+
+**Context.** ADR-026/038 already separate estimated `billed_costs`, internal window
+invoices, and adjustments. Live invoke still estimates via optional token pricing
+(`amount_cents` may be 0). Operators need to record a provider's invoice total and
+allocate it onto billed lines to see estimate-vs-provider variance without inventing
+cents or mutating invoke rows.
+
+**Decision.** Add `provider_invoices` and `provider_invoice_allocations` (Alembic
+**0030_provider_invoices**), separate from ADR-038 internal invoices. Headers carry
+`provider`, unique `(provider, external_id)`, `total_cents`, and `open`/`void` status.
+Allocations link one `billed_cost_id` per invoice (at most one open invoice per billed
+line; void releases lines). Sum of allocations must be ≤ `total_cents`. Keep
+`billed_costs.amount_cents` immutable; variance is informational only — net billed
+changes only via existing void/partial_credit paths. Extend `finance_summary` with
+`provider_invoice_variance_cents` (open invoices only). Expose list/detail/create/
+allocate/void under `company.pause` + CEO/admin gate. Surface on desk `#budget` and
+companion Finance Browse + Manage `provider` group. No Stripe, no auto-adjustments,
+no provider import.
+
+**Alternatives considered.** Extend ADR-038 `invoices` table (rejected — conflates
+internal snapshots with provider invoices). Mutating `billed_costs.amount_cents` on
+allocate (rejected — breaks invoke audit trail). Auto-posting finance adjustments from
+variance (rejected — dishonest without explicit CEO action).
+
+**Consequences.** v0.3.88 closes the real provider invoice allocation audit gap.
+Refunds beyond existing partial_credit, provider CSV/PDF import, and multi-currency
+remain separate follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

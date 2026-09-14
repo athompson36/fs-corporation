@@ -111,7 +111,7 @@ listed scope can still receive 403 from those routes.
 | POST /feeds/{id}/pause | Pause an enrolled feed (poll denied until re-approved) | company.pause (CEO) |
 | POST /feeds/{id}/revoke | Revoke an enrolled feed (poll denied until re-approved) | company.pause (CEO) |
 | POST /feeds/{id}/poll | Poll an **approved** feed and ingest signals | company.pause (CEO) |
-| GET /finance/summary | Gross/net billed, adjustments, revenue, open budget period | company.read |
+| GET /finance/summary | Gross/net billed, adjustments, revenue, open budget period; informational `provider_invoice_variance_cents` (open provider invoices only; does not change net billed) | company.read |
 | GET /finance/billed-costs | Creditable billed lines + remaining_creditable_cents | company.read |
 | GET /finance/invoices | List internal invoices | company.read |
 | GET /finance/invoices/{id} | Invoice detail with lines | company.read |
@@ -122,6 +122,11 @@ listed scope can still receive 403 from those routes.
 | POST /finance/budget-periods | Set budget period | company.pause (CEO) |
 | POST /finance/budget-periods/{id}/close | Close period with auditable snapshot | company.pause (CEO) |
 | POST /finance/budget-periods/{id}/open-next | Open successor period after close | company.pause (CEO) |
+| GET /finance/provider-invoices | List provider invoice headers with allocated/unallocated/variance cents | company.read |
+| GET /finance/provider-invoices/{id} | Provider invoice detail with allocation lines (estimated, allocated, variance per line) | company.read |
+| POST /finance/provider-invoices | Create provider invoice (`provider`, `external_id`, `total_cents`, `issued_at`, optional `note`) | company.pause (CEO) |
+| POST /finance/provider-invoices/{id}/allocations | Allocate billed line (`billed_cost_id`, `allocated_cents`); reject over-total, duplicate line, line on another open invoice, void invoice | company.pause (CEO) |
+| POST /finance/provider-invoices/{id}/void | Void provider invoice header (releases lines for re-allocation; does not mutate billed costs) | company.pause (CEO) |
 | GET /remote-access | VPN/pairing status and `pairing_levels` catalog | company.read |
 | POST /remote-access/pairing | Issue one-time pairing QR (`payload.access_level`: `read_only`, `user`, `admin`) | company.pause (owner only) |
 | POST /remote-access/redeem | Redeem ticket for scoped companion token (no auth) | — |
