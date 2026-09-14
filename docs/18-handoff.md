@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-14. Version: **0.3.88**. State: **Provider invoice allocations on
-`feature/provider-invoice-allocations` ready to merge.** Tip: pending ship commit
+`feature/provider-invoice-allocations` ready to merge.** Tip: **`ddbfdde`**
 (0.3.88 ship; branch HEAD may include handoff-only commits).
 
 ## On branch (0.3.88)
