@@ -1930,20 +1930,24 @@ class Company:
             (work_order_id,),
         ).fetchone()
         if existing:
-            return dict(self.db.execute(
+            row = dict(self.db.execute(
                 "SELECT * FROM work_order_replays WHERE id=?", (existing["id"],)).fetchone())
-        rid = str(uuid.uuid4())
-        body = outcome if isinstance(outcome, dict) else {"status": "authorized"}
-        with self.tx():
-            self.db.execute(
-                "INSERT INTO work_order_replays VALUES(?,?,?,?,?,?,?,?)",
-                (rid, work_order_id, 1, workflow_digest, "authorized",
-                 json.dumps(body), now().isoformat(), actor),
-            )
-            self._event("work_order.replay_authorized", {
-                "id": rid, "work_order_id": work_order_id, "attempt": 1,
-            }, actor_id=actor)
-        return dict(self.db.execute("SELECT * FROM work_order_replays WHERE id=?", (rid,)).fetchone())
+        else:
+            rid = str(uuid.uuid4())
+            body = outcome if isinstance(outcome, dict) else {"status": "authorized"}
+            with self.tx():
+                self.db.execute(
+                    "INSERT INTO work_order_replays VALUES(?,?,?,?,?,?,?,?)",
+                    (rid, work_order_id, 1, workflow_digest, "authorized",
+                     json.dumps(body), now().isoformat(), actor),
+                )
+                self._event("work_order.replay_authorized", {
+                    "id": rid, "work_order_id": work_order_id, "attempt": 1,
+                }, actor_id=actor)
+            row = dict(self.db.execute("SELECT * FROM work_order_replays WHERE id=?", (rid,)).fetchone())
+        from company.measurements import ensure_measurement
+        ensure_measurement(self, actor, work_order_id, "baseline")
+        return row
 
     def complete_work_order_outcome(self, actor, work_order_id, outcome):
         """Store a frozen outcome for later identical-digest replay."""
@@ -1964,9 +1968,19 @@ class Company:
             self._event("work_order.replay_completed", {
                 "id": rid, "work_order_id": work_order_id, "attempt": attempt,
             }, actor_id=actor)
+        from company.measurements import ensure_measurement
+        ensure_measurement(self, actor, work_order_id, "after")
         row = dict(self.db.execute("SELECT * FROM work_order_replays WHERE id=?", (rid,)).fetchone())
         row["outcome"] = json.loads(row.pop("outcome_json"))
         return row
+
+    def get_work_order_measurements(self, work_order_id):
+        from company.measurements import get_measurements
+        return get_measurements(self, work_order_id)
+
+    def list_work_order_measurements(self, limit=50):
+        from company.measurements import list_measurements
+        return list_measurements(self, limit=limit)
 
     def replay_work_order(self, actor, work_order_id, workflow_digest):
         """Return prior frozen outcome for the same digest; append a replayed row."""

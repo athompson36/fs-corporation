@@ -66,6 +66,10 @@ CREATE TABLE IF NOT EXISTS work_order_replays(
   id TEXT PRIMARY KEY, work_order_id TEXT NOT NULL, attempt INTEGER NOT NULL,
   workflow_digest TEXT NOT NULL, status TEXT NOT NULL, outcome_json TEXT NOT NULL,
   created_at TEXT NOT NULL, created_by TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS work_order_measurements(
+  id TEXT PRIMARY KEY, work_order_id TEXT NOT NULL, phase TEXT NOT NULL,
+  metrics_json TEXT NOT NULL, created_at TEXT NOT NULL, created_by TEXT NOT NULL,
+  UNIQUE(work_order_id, phase));
 CREATE TABLE IF NOT EXISTS queue(
   id TEXT PRIMARY KEY, task_id TEXT NOT NULL UNIQUE, actor TEXT NOT NULL, project TEXT NOT NULL,
   action TEXT NOT NULL, cost INTEGER NOT NULL, payload TEXT NOT NULL,
