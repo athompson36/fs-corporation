@@ -1,6 +1,6 @@
 # Design: Provider invoice allocations (0.3.88)
 
-Date: 2026-09-14. Status: **approved (pending implement)**.
+Date: 2026-09-14. Status: **approved** (plan ready; pending implement).
 
 ## Goal
 
