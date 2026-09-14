@@ -1,20 +1,17 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.88**. State: **Provider invoice allocations on
-`feature/provider-invoice-allocations` ready to merge.** Tip: **`ddbfdde`**
-(0.3.88 ship; branch HEAD may include handoff-only commits).
+Date: 2026-09-14. Version: **0.3.88**. State: **Provider invoice allocations merged to
+`main` (pushing/deploying).** Tip: **`daed4c2`** (merge of 0.3.88 ship `ddbfdde`).
 
-## On branch (0.3.88)
+## Merged on main (0.3.88)
 
-- `company/finance.py` — `create_provider_invoice`, `allocate_provider_invoice`,
-  `void_provider_invoice`, list/detail helpers; informational
-  `provider_invoice_variance_cents` on `finance_summary`.
-- `alembic/versions/0030_provider_invoices.py` — `provider_invoices` +
-  `provider_invoice_allocations` tables.
-- Five finance API routes under `/api/v1/finance/provider-invoices`; desk `#budget`
-  list/forms/expand/void; companion Finance Browse + Manage `provider` group.
-- ADR-070; API contract; README + VERIFICATION; companion lockstep **0.3.88**.
-- Prior on main: Consultant measured before/after (0.3.87), Finance open-next (0.3.86).
+- Alembic **0030** — `provider_invoices` + `provider_invoice_allocations`.
+- `company/finance.py` — create/list/get/allocate/void; summary
+  `provider_invoice_variance_cents` (informational; does not change net billed).
+- API under `/api/v1/finance/provider-invoices`; desk `#budget` + companion Finance
+  Browse/Manage `provider`; urlState allowlists.
+- ADR-070. Immutable `billed_costs`; no Stripe; no auto-adjustments.
+- Prior: consultant measurements 0.3.87, finance open-next 0.3.86, desk gates 0.3.85.
 
 ## Verification
 
@@ -24,8 +21,5 @@ Date: 2026-09-14. Version: **0.3.88**. State: **Provider invoice allocations on
 
 ## Next
 
-Owner-directed follow-ups from the refreshed feature-completion audit (canvas at
-`canvases/feature-completion-audit.canvas.tsx`). Strongest remaining local-ish tracks:
-provider CSV/PDF import, refunds beyond partial_credit, measurement deferred nits, or
-ChatDev-in-worker depth. Live blockers stay credentials / second host / phone smoke.
-Refresh audit canvas after merge+deploy.
+Deploy to fs-dev (Alembic **0030**). Refresh feature-completion audit canvas after
+deploy. Owner-directed follow-ups.
