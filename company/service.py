@@ -210,9 +210,10 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <div id="dispatch-dept-list" class="dispatch-dept-list"></div>
 <label for="dispatch-budgets">Department budgets (advanced; synced from list)</label>
 <textarea id="dispatch-budgets" placeholder="engineering=500&#10;product=300" required></textarea>
+<p id="dispatch-scope-notice" class="muted">Mutations require project.enroll.</p>
 <div class="row" role="group" aria-label="Dispatch actions">
-<button type="button" class="chip" id="dispatch-recommend-btn">Recommend for this project</button>
-<button type="submit" class="chip" id="dispatch-submit-btn">Dispatch</button>
+<button type="button" class="chip" id="dispatch-recommend-btn" disabled>Recommend for this project</button>
+<button type="submit" class="chip" id="dispatch-submit-btn" disabled>Dispatch</button>
 </div>
 <details id="dispatch-valid-values"><summary>Valid values</summary>
 <pre id="dispatch-valid-values-body" class="muted">Load a project id to see templates, presets, and department status.</pre>
@@ -260,9 +261,10 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 </section>
 <section class="glass" id="people">
 <h2>People</h2><ul id="people-list"></ul>
+<p class="muted" data-org-write-notice>Mutations require organization.write.</p>
 <h3>Pending promotions</h3><ul id="promotion-list"></ul>
 <div class="row">
-<button type="button" class="chip" id="staffing-scan-btn">Scan staffing gaps</button>
+<button type="button" class="chip" id="staffing-scan-btn" disabled>Scan staffing gaps</button>
 <span id="staffing-scan-status" class="muted"></span>
 </div>
 <h3>Pending staffing proposals</h3><ul id="staffing-proposal-list"></ul>
@@ -492,6 +494,7 @@ function setOrgMutateEnabled(enabled) {
     'desk-org-create-objective-submit',
     'desk-org-create-cross-dept-submit',
     'desk-org-propose-division-submit',
+    'staffing-scan-btn',
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = !enabled;
@@ -673,15 +676,18 @@ async function applyFinancePauseFromSession() {
     if (!res.ok) {
       setFinanceMutateEnabled(false);
       setOrgMutateEnabled(false);
+      setDispatchEnrollEnabled(false);
       return;
     }
     const body = await res.json();
     const scopes = Array.isArray(body.scopes) ? body.scopes : [];
     setFinanceMutateEnabled(scopes.indexOf('company.pause') !== -1);
     setOrgMutateEnabled(scopes.indexOf('organization.write') !== -1);
+    setDispatchEnrollEnabled(scopes.indexOf('project.enroll') !== -1);
   } catch (e) {
     setFinanceMutateEnabled(false);
     setOrgMutateEnabled(false);
+    setDispatchEnrollEnabled(false);
   }
 }
 async function loadFinance() {
@@ -835,6 +841,7 @@ function syncBudgetsTextarea() {
   document.getElementById('dispatch-budgets').value = lines.join('\\n');
   updateDispatchSubmitGate();
 }
+let dispatchEnrollEnabled = false;
 function updateDispatchSubmitGate() {
   const status = document.getElementById('dispatch-status');
   const submit = document.getElementById('dispatch-submit-btn');
@@ -843,9 +850,18 @@ function updateDispatchSubmitGate() {
     const check = row.querySelector('input[type="checkbox"]');
     if (check && check.checked && check.dataset.dispatchable === 'false') blocked = true;
   });
-  submit.disabled = blocked;
+  submit.disabled = blocked || !dispatchEnrollEnabled;
   if (blocked) status.textContent = 'Activate dormant departments before dispatch.';
 }
+function setDispatchEnrollEnabled(enabled) {
+  dispatchEnrollEnabled = !!enabled;
+  const notice = document.getElementById('dispatch-scope-notice');
+  if (notice) notice.hidden = !!enabled;
+  const recommend = document.getElementById('dispatch-recommend-btn');
+  if (recommend) recommend.disabled = !enabled;
+  updateDispatchSubmitGate();
+}
+setDispatchEnrollEnabled(false);
 function renderDispatchDepartments(options) {
   const host = document.getElementById('dispatch-dept-list');
   host.innerHTML = '';
@@ -936,6 +952,10 @@ document.getElementById('dispatch-criteria-template').addEventListener('change',
 document.getElementById('dispatch-recommend-btn').addEventListener('click', async () => {
   const projectId = document.getElementById('dispatch-project').value.trim();
   const status = document.getElementById('dispatch-status');
+  if (!dispatchEnrollEnabled) {
+    status.textContent = 'project.enroll required.';
+    return;
+  }
   if (!projectId) {
     status.textContent = 'Enter a project id first.';
     return;
@@ -948,6 +968,7 @@ document.getElementById('dispatch-recommend-btn').addEventListener('click', asyn
     headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'desk-rec-' + Date.now()},
     body: JSON.stringify({payload: {use_live: true}})
   });
+  if (res.status === 403) setDispatchEnrollEnabled(false);
   if (!res.ok) {
     status.textContent = await res.text();
     return;
@@ -995,6 +1016,7 @@ document.getElementById('dispatch-form').addEventListener('submit', async event 
       department_budgets: departmentBudgets
     }})
   });
+  if (res.status === 403) setDispatchEnrollEnabled(false);
   status.textContent = res.ok ? 'Dispatch created.' : await res.text();
   if (res.ok) { event.target.reset(); dispatchOptionsCache = null; document.getElementById('dispatch-dept-list').innerHTML = ''; load(); }
 });
@@ -1089,11 +1111,16 @@ document.getElementById('default-floorplan-btn').addEventListener('click', async
 });
 document.getElementById('staffing-scan-btn').addEventListener('click', async () => {
   const status = document.getElementById('staffing-scan-status');
+  if (!orgWriteEnabled) {
+    status.textContent = ' organization.write required.';
+    return;
+  }
   const res = await fetch('/api/v1/staffing-proposals/scan', {
     method: 'POST',
     headers: {...headers, 'Content-Type': 'application/json', 'Idempotency-Key': 'desk-staffing-scan-' + Date.now()},
     body: JSON.stringify({payload: {}})
   });
+  if (res.status === 403) setOrgMutateEnabled(false);
   status.textContent = res.ok ? ' Scan complete.' : ' ' + await res.text();
   if (res.ok) load();
 });
@@ -1155,6 +1182,8 @@ function renderPromotions(items) {
       button.type = 'button';
       button.className = 'chip';
       button.textContent = decision === 'approved' ? 'Approve' : 'Reject';
+      button.setAttribute('data-org-write', '');
+      button.disabled = !orgWriteEnabled;
       button.addEventListener('click', async () => {
         const res = await fetch(
           '/api/v1/promotions/' + promotion.id + '/decision',
@@ -1165,6 +1194,7 @@ function renderPromotions(items) {
             body: JSON.stringify({payload: {decision}})
           }
         );
+        if (res.status === 403) setOrgMutateEnabled(false);
         if (!res.ok) { alert(await res.text()); return; }
         load();
       });
@@ -1546,6 +1576,8 @@ function renderStaffingProposals(items) {
       button.type = 'button';
       button.className = 'chip';
       button.textContent = decision === 'approved' ? 'Approve' : 'Reject';
+      button.setAttribute('data-org-write', '');
+      button.disabled = !orgWriteEnabled;
       button.addEventListener('click', async () => {
         const res = await fetch(
           '/api/v1/staffing-proposals/' + proposal.id + '/decision',
@@ -1556,6 +1588,7 @@ function renderStaffingProposals(items) {
             body: JSON.stringify({payload: {decision}})
           }
         );
+        if (res.status === 403) setOrgMutateEnabled(false);
         if (!res.ok) { alert(await res.text()); return; }
         load();
       });
@@ -1586,6 +1619,8 @@ function renderDivisions(items) {
       button.className = 'chip';
       button.textContent = 'Activate (CEO)';
       button.style.marginLeft = '0.5rem';
+      button.setAttribute('data-org-write', '');
+      button.disabled = !orgWriteEnabled;
       button.addEventListener('click', async () => {
         const res = await fetch('/api/v1/divisions/' + division.id + '/activate', {
           method: 'POST',
@@ -1593,6 +1628,7 @@ function renderDivisions(items) {
             'Idempotency-Key': 'desk-division-activate-' + division.id},
           body: JSON.stringify({payload: {}})
         });
+        if (res.status === 403) setOrgMutateEnabled(false);
         if (!res.ok) { alert(await res.text()); return; }
         load();
       });
