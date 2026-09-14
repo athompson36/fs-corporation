@@ -70,6 +70,7 @@
 | ADR-066 | 2026-09-14 | Desk corporate write forms session gate | Extend organization.write fail-closed gate to scorecard/cross-dept/corporate-upgrades static submits + dynamic Close/Accept via setOrgMutateEnabled. |
 | ADR-067 | 2026-09-14 | Desk remaining session gates | People/Activate/promotions/staffing use organization.write; dispatch submit/recommend use project.enroll via setDispatchEnrollEnabled; README/VERIFICATION honesty. |
 | ADR-068 | 2026-09-14 | Finance open-next and pricing honesty | Explicit open-next after close; pricing honesty on finance summary; no Alembic; no auto-rollover on close. |
+| ADR-069 | 2026-09-14 | Consultant work-order measured before/after | Baseline/after ops snapshots on authorize/complete; GET measurements; desk + companion Home; no invented scores; Alembic 0029. |
 
 ### ADR-010 detail
 
@@ -1176,7 +1177,31 @@ Inventing billed amounts when pricing is unset (rejected — dishonest ledger). 
 ship without API (rejected — companion and automation need the same contract).
 
 **Consequences.** v0.3.86 closes the finance open-next and pricing-honesty audit gaps.
-Real provider invoices/refunds and consultant measured before/after (0.3.87) remain
-separate.
+Real provider invoices/refunds remain separate from consultant measured before/after
+(0.3.87).
+
+### ADR-069 detail
+
+**Context.** M7 and docs/19 require measured before/after validation after approved
+consultant work. Authorize/complete and replay rows existed, but no frozen company ops
+counters or UI deltas — operators could not see whether a change moved real metrics.
+
+**Decision.** Add `work_order_measurements` (Alembic **0029_work_order_measurements**)
+with unique (`work_order_id`, `phase`) for `baseline` and `after`. Capture five integer
+keys via `capture_ops_metrics` on authorize and `complete_work_order_outcome`
+(idempotent, no overwrite). Expose
+`GET /api/v1/work-orders/{id}/measurements` and
+`GET /api/v1/work-orders/measurements` under `consultant.read` or `company.read` with
+arithmetic deltas only (no invented efficiency scores). Surface awaiting/complete states
+on desk `#consultant` and companion Home Needs-you; Complete outcome stays CEO-gated
+(`company.pause` + `_ceo`).
+
+**Alternatives considered.** Heuristic efficiency scores in API/UI (rejected — dishonest
+without sourced measurement). Overwriting baseline/after on retry (rejected — poor audit
+trail). Desk-only ship without list GET (rejected — companion Home needs the same
+contract).
+
+**Consequences.** v0.3.87 closes the Ship 2 consultant measured before/after audit gap.
+Real provider invoices/refunds and owner-directed follow-ups remain separate.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

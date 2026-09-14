@@ -17,6 +17,7 @@ import {
   SessionInfo,
   SettingValue,
   StaffingProposal,
+  WorkOrderMeasurementItem,
   WorkerCard,
   loadSettings,
   redeemPairing,
@@ -115,6 +116,7 @@ export default function App() {
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
   const [inbox, setInbox] = useState<OwnerRequest[]>([]);
+  const [workOrderMeasurements, setWorkOrderMeasurements] = useState<WorkOrderMeasurementItem[]>([]);
   const [organization, setOrganization] = useState<OrgDepartment[]>([]);
   const [headInbox, setHeadInbox] = useState<HeadDispatch[]>([]);
   const [selectedProject, setSelectedProject] = useState<string | null>(initialUrl.project);
@@ -309,7 +311,7 @@ export default function App() {
     setError(null);
     setOffline(false);
     try {
-      const [d, p, dec, own, org, heads, local, score, objs, packs, divs, promos, staffing, xd, act, hq] =
+      const [d, p, dec, own, org, heads, local, score, objs, packs, divs, promos, staffing, xd, act, hq, measures] =
         await Promise.all([
           api.dashboard(),
           api.projects(),
@@ -327,6 +329,7 @@ export default function App() {
           api.crossDepartmentRequests().catch(() => ({ items: [] as CrossDeptRequest[] })),
           api.activity().catch(() => ({ items: [] as ActivityItem[] })),
           api.headquarters().catch(() => ({ rooms: [] as Record<string, unknown>[] })),
+          api.listWorkOrderMeasurements().catch(() => ({ items: [] as WorkOrderMeasurementItem[] })),
         ]);
       setDashboard(d);
       setProjects(p.projects);
@@ -344,6 +347,7 @@ export default function App() {
       setCrossDept(xd.items);
       setActivityItems(act.items);
       setHqRoomCount((hq.rooms || []).length);
+      setWorkOrderMeasurements(measures.items);
       if (local) {
         setLocalReposRoot(local.root);
         setLocalCandidates(local.candidates);
@@ -815,12 +819,20 @@ export default function App() {
           scopes={scopes}
           decisions={decisions}
           inbox={inbox}
+          workOrderMeasurements={workOrderMeasurements}
           company={company}
           dashboard={dashboard}
           ownerResponseDrafts={ownerResponseDrafts}
           setOwnerResponseDrafts={setOwnerResponseDrafts}
           onDecide={decide}
           onRespond={respond}
+          onCompleteWorkOrderOutcome={(workOrderId) => {
+            void runAction(
+              `measure-${workOrderId}`,
+              "Outcome completed; after metrics captured.",
+              () => api.completeWorkOrderOutcome(workOrderId, { status: "done" }),
+            );
+          }}
           onPause={() => { void api.pause().then(refresh); }}
           onResume={() => { void api.resume().then(refresh); }}
           onRefresh={refresh}

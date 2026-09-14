@@ -630,6 +630,24 @@ export class ApiClient {
   resume() {
     return this.post("/api/v1/company/resume", {}, "resume");
   }
+
+  listWorkOrderMeasurements() {
+    return this.get<{ items: WorkOrderMeasurementItem[] }>("/api/v1/work-orders/measurements");
+  }
+
+  getWorkOrderMeasurements(workOrderId: string) {
+    return this.get<WorkOrderMeasurementDetail>(
+      `/api/v1/work-orders/${encodeURIComponent(workOrderId)}/measurements`,
+    );
+  }
+
+  completeWorkOrderOutcome(workOrderId: string, outcome: Record<string, unknown>) {
+    return this.post(
+      `/api/v1/work-orders/${encodeURIComponent(workOrderId)}/complete-outcome`,
+      { outcome },
+      `measure-complete-${workOrderId}-${Date.now()}`,
+    );
+  }
 }
 
 export type SessionInfo = {
@@ -823,6 +841,28 @@ export type ActivityItem = {
   kind: string;
   status: string;
   room_id?: string | null;
+};
+
+export type WorkOrderMeasurementPhase = {
+  metrics: Record<string, number>;
+  created_at: string;
+  created_by?: string;
+};
+
+export type WorkOrderMeasurementItem = {
+  work_order_id: string;
+  proposal_id?: string;
+  status: string;
+  baseline: WorkOrderMeasurementPhase | null;
+  after: WorkOrderMeasurementPhase | null;
+  deltas: Record<string, number> | null;
+};
+
+export type WorkOrderMeasurementDetail = {
+  work_order_id: string;
+  baseline: (WorkOrderMeasurementPhase & { id?: string }) | null;
+  after: (WorkOrderMeasurementPhase & { id?: string }) | null;
+  deltas: Record<string, number> | null;
 };
 
 export type WorkerCard = {

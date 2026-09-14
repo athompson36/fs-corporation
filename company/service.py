@@ -147,7 +147,7 @@ form.compact { border-top: 1px solid var(--glass-border); margin-top: 0.6rem; pa
 <section class="glass metric" id="metric-departments-card"><h2>Departments</h2><div class="value" id="metric-departments">00</div></section>
 </div>
 <section class="glass" id="decisions"><h2>Decisions inbox</h2><ul id="proposal-list"></ul></section>
-<section class="glass" id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul></section>
+<section class="glass" id="consultant"><h2>Consultant inbox</h2><ul id="consultant-list"></ul><h3>Work-order measures</h3><ul id="consultant-measures-list"></ul></section>
 <div class="desk-grid">
 <section class="glass" id="hq">
 <h2>Headquarters</h2>
@@ -435,6 +435,61 @@ function fill(id, items, text) {
     el.appendChild(li);
   });
 }
+function formatMeasurementDeltas(deltas) {
+  if (!deltas) return '';
+  return Object.keys(deltas).map(k => {
+    const v = deltas[k];
+    const sign = v > 0 ? '+' : '';
+    return k + ': ' + sign + v;
+  }).join(', ');
+}
+function renderConsultantMeasures(items) {
+  const list = document.getElementById('consultant-measures-list');
+  if (!list) return;
+  list.innerHTML = '';
+  (items || []).forEach(item => {
+    const li = document.createElement('li');
+    const title = item.proposal_id || item.work_order_id || 'work order';
+    const baseline = item.baseline ? 'baseline captured' : 'no baseline';
+    const after = item.after ? 'after captured' : 'awaiting after';
+    const span = document.createElement('span');
+    span.textContent = title + ' — ' + item.status + ' — ' + baseline + ' · ' + after;
+    li.appendChild(span);
+    const deltasText = formatMeasurementDeltas(item.deltas);
+    if (deltasText) {
+      const muted = document.createElement('span');
+      muted.className = 'muted';
+      muted.textContent = ' · deltas: ' + deltasText;
+      li.appendChild(muted);
+    }
+    if (item.baseline && !item.after) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip';
+      btn.textContent = 'Complete outcome';
+      btn.style.marginLeft = '0.5rem';
+      btn.disabled = !deskPauseEnabled;
+      btn.addEventListener('click', async () => {
+        if (!deskPauseEnabled) {
+          alert('Complete outcome requires CEO company.pause scope.');
+          return;
+        }
+        try {
+          await postFinanceCommand(
+            '/api/v1/work-orders/' + encodeURIComponent(String(item.work_order_id)) + '/complete-outcome',
+            {outcome: {status: 'done'}},
+            'desk-measure-complete-' + item.work_order_id + '-' + Date.now(),
+          );
+          load();
+        } catch (e) {
+          alert(e instanceof Error ? e.message : String(e));
+        }
+      });
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  });
+}
 function listed(items, fn) {
   const arr = items || [];
   return arr.length ? arr.map(fn).join(', ') : 'none';
@@ -459,7 +514,9 @@ function fromFinanceLocalValue(local) {
 }
 let financeBilledCosts = [];
 let financeExpandedInvoiceId = '';
+let deskPauseEnabled = false;
 function setFinanceMutateEnabled(enabled) {
+  deskPauseEnabled = !!enabled;
   const notice = document.getElementById('finance-scope-notice');
   notice.hidden = !!enabled;
   [
@@ -1742,6 +1799,13 @@ async function load() {
   const cons = await fetch('/api/v1/consultant-proposals', {headers});
   const cj = await cons.json();
   fill('consultant-list', cj.proposals||[], p => ((p.body && p.body.title) ? p.body.title : p.id) + ' — ' + p.status);
+  try {
+    const measuresRes = await fetch('/api/v1/work-orders/measurements', {headers});
+    const measuresJ = await measuresRes.json().catch(() => ({}));
+    renderConsultantMeasures(measuresRes.ok ? (measuresJ.items || []) : []);
+  } catch (e) {
+    renderConsultantMeasures([]);
+  }
   const inbox = await fetch('/api/v1/decisions/inbox', {headers});
   const ij = await inbox.json();
   fill('proposal-list', ij.items||[], item => item.kind + ' — ' + item.title);
@@ -2182,6 +2246,15 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
             company.require_scope(ident, scope)
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    def scoped_any(ident, *scopes):
+        for scope in scopes:
+            try:
+                company.require_scope(ident, scope)
+                return
+            except PermissionError:
+                continue
+        raise HTTPException(status_code=403, detail="Missing scope")
 
     def envelope(ident, body: Command):
         if body.expected_policy_version is not None and body.expected_policy_version != company.policy()["version"]:
@@ -3955,6 +4028,18 @@ def create_app(company: Company, *, rate_limit=None) -> FastAPI:
         ident = principal(authorization)
         scoped(ident, "consultant.read")
         return {"reviews": company.list_consultant_reviews()}
+
+    @app.get("/api/v1/work-orders/measurements")
+    def work_order_measurements_list(authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped_any(ident, "consultant.read", "company.read")
+        return {"items": company.list_work_order_measurements()}
+
+    @app.get("/api/v1/work-orders/{work_order_id}/measurements")
+    def work_order_measurements(work_order_id: str, authorization: str | None = Header(default=None)):
+        ident = principal(authorization)
+        scoped_any(ident, "consultant.read", "company.read")
+        return company.get_work_order_measurements(work_order_id)
 
     @app.get("/api/v1/work-orders/{work_order_id}/replays")
     def work_order_replays(work_order_id: str, authorization: str | None = Header(default=None)):
