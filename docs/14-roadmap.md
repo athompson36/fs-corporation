@@ -2,10 +2,13 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
-**v0.3.88 status:** Provider invoice allocations (provider invoice headers +
-allocations onto immutable `billed_costs`; informational variance on summary/list/detail;
-desk `#budget` + companion Finance Browse/Manage provider group; ADR-070; Alembic
-**0030_provider_invoices**; no Stripe, no auto-adjustments, no billed mutate). Joins
+**v0.3.89 status:** Work-order measurement hardening (co-commit baseline/after with
+replay writes; `json_extract` list filter; denied-scope GET test; ADR-071; no Alembic;
+no UI/auth change). Joins **v0.3.88 status:** Provider invoice allocations (provider
+invoice headers + allocations onto immutable `billed_costs`; informational variance on
+summary/list/detail; desk `#budget` + companion Finance Browse/Manage provider group;
+ADR-070; Alembic **0030_provider_invoices**; no Stripe, no auto-adjustments, no billed
+mutate). Joins
 **v0.3.87 status:** Consultant work-order measured before/after (baseline/after ops
 snapshots on authorize/complete; `GET …/measurements` list + detail with arithmetic
 deltas; desk `#consultant` + companion Home Needs-you; ADR-069; Alembic
@@ -345,6 +348,9 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] Provider invoice allocations (0.3.88) — ship provider invoice headers + allocations;
       informational variance; desk `#budget` + companion Finance provider group; ADR-070;
       Alembic 0030; no Stripe/auto-adjust/billed mutate
+- [x] Work-order measurement hardening (0.3.89) — co-commit baseline/after with replay
+      writes; `json_extract` list filter; denied-scope GET test; ADR-071; no Alembic;
+      no UI/auth change
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -488,8 +494,9 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Ship 2 / audit code-local complete on `main` + fs-dev (0.3.88 after merge).** Remaining
-work is owner-directed: provider CSV/PDF import, refunds beyond partial_credit, optional
-second worker host, live documentation fetch, ChatDev-in-worker depth, or deferred design
+**Ship 2 / audit code-local complete on `main` + fs-dev (0.3.88 after merge; 0.3.89
+measurement hardening on `feature/measurement-hardening`).** Remaining work is
+owner-directed: provider CSV/PDF import, refunds beyond partial_credit, optional second
+worker host, live documentation fetch, ChatDev-in-worker depth, or deferred design
 (furnished art / scheduled consultant triggers). Refresh the feature-completion audit
 canvas after merge+deploy.

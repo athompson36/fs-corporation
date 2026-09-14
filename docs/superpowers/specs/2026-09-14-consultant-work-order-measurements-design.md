@@ -1,6 +1,8 @@
 # Design: Consultant work-order measured before/after (0.3.87)
 
-Date: 2026-09-14. Status: **implemented in v0.3.87**.
+Date: 2026-09-14. Status: **implemented in v0.3.87** (deferred nits closed in **0.3.89**:
+co-commit baseline/after with replay writes, `json_extract` list filter, denied-scope GET
+test; see ADR-071).
 
 ## Program context
 
