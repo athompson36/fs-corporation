@@ -1,8 +1,20 @@
 # Verification record
 
+Updated 2026-09-14 for **0.3.87** (consultant work-order baseline/after ops measurements;
+GET measurements list + detail with arithmetic deltas; desk `#consultant` + companion
+Home Needs-you; ADR-069; Alembic **0029_work_order_measurements**; no invented scores).
+Prior headline 0.3.61 retained below as historical host evidence.
+
+## Verified in this workspace (0.3.87)
+
+- **595 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`.
+- Measurement contracts: `tests/test_work_order_measurements.py`,
+  `tests/test_desk_consultant_measurements.py`.
+- Alembic head **0029_work_order_measurements** (linear single head).
+- Companion version lockstep **0.3.87**; `cd companion && npm run build` when shipping.
+
 Updated 2026-09-14 for **0.3.86** (finance open-next budget period after close; pricing
 honesty on finance summary; desk + companion Open next + hint; ADR-068; no auto-rollover).
-Prior headline 0.3.61 retained below as historical host evidence.
 
 ## Verified in this workspace (0.3.86)
 
