@@ -67,6 +67,7 @@
 | ADR-063 | 2026-09-12 | Companion tab/mode URL flash fix | Batch tab/mode sibling resets in selectTab / handlePanelModeChange; remove lagging reset effects; extend tsx harness; no Router. |
 | ADR-064 | 2026-09-14 | Desk Finance init-time mutate disable | Finance mutate controls ship disabled with visible #finance-scope-notice; setFinanceMutateEnabled(false) at init; session/403 paths unchanged. |
 | ADR-065 | 2026-09-14 | Desk Organization session mutate gate | Organization Manage fail-closes via session organization.write (markup + init + shared session with Finance + 403); seven #departments submits only. |
+| ADR-066 | 2026-09-14 | Desk corporate write forms session gate | Extend organization.write fail-closed gate to scorecard/cross-dept/corporate-upgrades static submits + dynamic Close/Accept via setOrgMutateEnabled. |
 
 ### ADR-010 detail
 
@@ -1110,5 +1111,29 @@ scope).
 paint with no Alembic revision or control-plane API change. Companion version
 locksteps at 0.3.83 with no OrgPanel changes. Other desk mutate UIs remain
 owner-directed follow-ups.
+
+### ADR-066 detail
+
+**Context.** After ADR-065, Organization Manage in `#departments` fail-closes via
+session `organization.write`, but Corporate-adjacent write forms in `#scorecard`,
+`#cross-department`, and `#corporate-upgrades` — including dynamic Close
+objective and Accept cross-dept row actions — stayed enabled until fetch returned
+403.
+
+**Decision.** Extend the existing `setOrgMutateEnabled` helper (not a separate
+corporate helper): three static submit chips ship `disabled` with per-section
+`data-org-write-notice` copy; dynamic Close/Accept buttons get `data-org-write`
+and respect `orgWriteEnabled`; 403 on Close/Accept calls
+`setOrgMutateEnabled(false)`. Promotions, staffing-scan, dispatch, and pairing
+remain ungated.
+
+**Alternatives considered.** Separate `setCorporateWriteEnabled` helper
+(rejected — duplicate session state). 403-only reactive gating (rejected — poor
+UX). Gating companion OrgPanel (rejected — out of scope).
+
+**Consequences.** Desk v0.3.84 ships fail-closed Corporate write forms from first
+paint with no Alembic revision or control-plane API change. Companion version
+locksteps at 0.3.84 with no OrgPanel changes. Promotions/staffing session gates
+remain owner-directed follow-ups.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

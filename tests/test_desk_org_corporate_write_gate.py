@@ -1,7 +1,6 @@
 """Desk corporate write forms session gate (v0.3.84)."""
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
 
