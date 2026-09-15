@@ -73,6 +73,7 @@
 | ADR-069 | 2026-09-14 | Consultant work-order measured before/after | Baseline/after ops snapshots on authorize/complete; GET measurements; desk + companion Home; no invented scores; Alembic 0029. |
 | ADR-070 | 2026-09-14 | Provider invoice allocations | New `provider_invoices` + `provider_invoice_allocations`; immutable billed rows; variance informational only; no Stripe; API + desk + companion; Alembic 0030. |
 | ADR-071 | 2026-09-14 | Work-order measurement hardening | Co-commit baseline/after with replay writes; `json_extract` list filter; denied-scope GET test; no Alembic; no UI/auth change. |
+| ADR-072 | 2026-09-14 | ChatDev-in-worker depth | Opt-in Dockerfile `uv sync` + `chatdev_deps` label; status `deps_ready`; gateway billed contract test; optional fail-closed smoke; control plane still has no ChatDev install. |
 
 ### ADR-010 detail
 
@@ -1256,5 +1257,30 @@ Weakening auth for measurement GETs (rejected — fail closed).
 
 **Consequences.** v0.3.89 closes the three 0.3.87 measurement deferred nits without
 changing metrics, scores, or companion/desk surfaces beyond version lockstep.
+
+### ADR-072 detail
+
+**Context.** Slice 3 embedded pinned ChatDev source in the opt-in worker image without
+`uv sync`, so the SDK was not reliably runnable in-image. `GET /chatdev/status` lacked
+deps honesty on whether dependencies were installed. The worker gateway billed path for
+`invoke_model` → `billed_costs` was unproven in CI.
+
+**Decision.** When `CHATDEV_ENABLE=1`, `deploy/fs-dev/Dockerfile.worker` installs `uv` and
+runs `uv sync` at the pinned checkout (fail closed on sync failure). Label
+`org.fs_corporation.chatdev_deps="${CHATDEV_ENABLE}"`; status exposes
+`worker_image_chatdev.deps_ready` from that label. `worker-entrypoint.sh` prepends the
+ChatDev `.venv` site-packages to `PYTHONPATH` when present (system Python still runs
+`company.worker`). CI proves
+`SubprocessWorkerRuntime.handle_request(invoke_model)` writes `billed_costs` on live invoke.
+Optional `scripts/exercise_chatdev_worker_billed.py` fail-closes without image, egress, or
+model key. The control-plane venv still has no ChatDev install.
+
+**Alternatives considered.** Always bake ChatDev into every worker image (rejected — default
+mock-only). Install ChatDev into root `pyproject.toml` (rejected — ADR-024 control-plane
+deny). Infer deps from source clone alone (rejected — status must be honest).
+
+**Consequences.** Rebuild with `FS_CORP_WORKER_CHATDEV=1` / `CHATDEV_ENABLE=1` required for
+live ChatDev workers with runnable deps. Historical source-only images without the deps label
+report `deps_ready: false`. No Alembic; no UI/auth change beyond version lockstep.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

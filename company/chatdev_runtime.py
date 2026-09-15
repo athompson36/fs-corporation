@@ -196,6 +196,7 @@ def run_work_order(order, *, allow_control_plane: bool | None = None, company=No
 
 LABEL_CHATDEV_ENABLE = "org.fs_corporation.chatdev_enable"
 LABEL_CHATDEV_PIN = "org.fs_corporation.chatdev_pin"
+LABEL_CHATDEV_DEPS = "org.fs_corporation.chatdev_deps"
 DEFAULT_WORKER_IMAGE = "fs-corporation-worker:local"
 
 
@@ -236,6 +237,8 @@ def worker_image_chatdev_summary() -> dict | None:
         out["enabled"] = False
     if pin_raw:
         out["pin"] = str(pin_raw).strip()
+    deps_raw = labels.get(LABEL_CHATDEV_DEPS)
+    out["deps_ready"] = str(deps_raw).strip() == "1" if deps_raw is not None else False
     return out
 
 

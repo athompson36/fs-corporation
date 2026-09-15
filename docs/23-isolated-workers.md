@@ -52,3 +52,5 @@ Omitting `worker_host_id` keeps same-host subprocess/container dispatch. Remote 
 agent host is not implemented yet (ADR-042).
 
 Optional ChatDev in the worker image: build with `--build-arg CHATDEV_ENABLE=1` (or `FS_CORP_WORKER_CHATDEV=1` via `install.sh`). The image records `org.fs_corporation.chatdev_enable` and `org.fs_corporation.chatdev_pin` labels; `GET /api/v1/chatdev/status` exposes them as `worker_image_chatdev` without running a container. Default builds stay mock-only (`enabled: false`). Container dispatch does not forward `CHATDEV_ALLOW_CONTROL_PLANE` from the host; the worker entrypoint sets `CHATDEV_HOME` only when `/opt/chatdev/runtime/sdk.py` exists.
+
+Worker gateway `invoke_model` writes `billed_costs` the same way as a control-plane live invoke (mock profiles do not). Contract test: `tests/test_worker_chatdev_billed.py`. Optional fs-dev smoke: [`scripts/exercise_chatdev_worker_billed.py`](../scripts/exercise_chatdev_worker_billed.py) (fail-closed prerequisites; never invents billed rows).

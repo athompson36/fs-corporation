@@ -1,6 +1,6 @@
 # Design: ChatDev-in-worker depth (0.3.90)
 
-Date: 2026-09-14. Status: **approved (pending implement)**.
+Date: 2026-09-14. Status: **implemented in v0.3.90**.
 
 ## Goal
 
