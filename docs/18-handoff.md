@@ -1,9 +1,9 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.91**. State: **ChatDev worker native build deps shipping
-(pushing/deploying).** Tip: **`1c561e9`**.
+Date: 2026-09-14. Version: **0.3.91**. State: **ChatDev worker native build deps on `main`
+and deployed to fs-dev.** Tip: **`da51ffe`** (ship `1c561e9`).
 
-## Shipping (0.3.91)
+## Merged on main (0.3.91)
 
 - Opt-in `Dockerfile.worker` installs `build-essential` + cairo headers before `uv sync`
   (pycairo); purges toolchain after; keeps `libcairo2`.
@@ -15,10 +15,13 @@ Date: 2026-09-14. Version: **0.3.91**. State: **ChatDev worker native build deps
 ## Verification
 
 - `.venv/bin/python -m unittest discover -s tests`: **611 tests, OK**.
-- `cd companion && npm run build`: at ship.
+- `cd companion && npm run build`: OK at ship.
+- fs-dev health: `{"ok":true,"version":"0.3.91",...}`; worker labels
+  `chatdev_enable=1` / `deps=1`; `/opt/chatdev/.venv` present in image.
+- Alembic **0030** unchanged.
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Deploy to fs-dev and confirm worker labels `chatdev_enable=1` / `deps=1`. Owner-directed
-follow-ups (provider CSV/PDF import, etc.).
+Owner-directed follow-ups (provider CSV/PDF import, refunds beyond partial_credit,
+optional second worker host, live documentation fetch, etc.).
