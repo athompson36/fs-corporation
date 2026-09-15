@@ -1,7 +1,7 @@
 # Current handoff
 
 Date: 2026-09-14. Version: **0.3.91**. State: **ChatDev worker native build deps shipping
-(pushing/deploying).** Tip: pending ship commit.
+(pushing/deploying).** Tip: **`1c561e9`**.
 
 ## Shipping (0.3.91)
 
