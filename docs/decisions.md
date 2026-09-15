@@ -74,6 +74,7 @@
 | ADR-070 | 2026-09-14 | Provider invoice allocations | New `provider_invoices` + `provider_invoice_allocations`; immutable billed rows; variance informational only; no Stripe; API + desk + companion; Alembic 0030. |
 | ADR-071 | 2026-09-14 | Work-order measurement hardening | Co-commit baseline/after with replay writes; `json_extract` list filter; denied-scope GET test; no Alembic; no UI/auth change. |
 | ADR-072 | 2026-09-14 | ChatDev-in-worker depth | Opt-in Dockerfile `uv sync` + `chatdev_deps` label; status `deps_ready`; gateway billed contract test; optional fail-closed smoke; control plane still has no ChatDev install. |
+| ADR-073 | 2026-09-14 | ChatDev worker native build deps | Opt-in image installs `build-essential` + cairo headers for `uv sync` (pycairo); purge toolchain after sync; keep `libcairo2` at runtime. |
 
 ### ADR-010 detail
 
@@ -1282,5 +1283,23 @@ deny). Infer deps from source clone alone (rejected — status must be honest).
 **Consequences.** Rebuild with `FS_CORP_WORKER_CHATDEV=1` / `CHATDEV_ENABLE=1` required for
 live ChatDev workers with runnable deps. Historical source-only images without the deps label
 report `deps_ready: false`. No Alembic; no UI/auth change beyond version lockstep.
+
+### ADR-073 detail
+
+**Context.** The first fs-dev rebuild with `CHATDEV_ENABLE=1` failed during `uv sync`: ChatDev’s
+`devall` dependency tree pulls `pycairo` (via xhtml2pdf/svglib/rlpycairo), which needs a C
+compiler and cairo headers. `python:3.12-slim` ships neither.
+
+**Decision.** When `CHATDEV_ENABLE=1`, install `build-essential`, `pkg-config`, and
+`libcairo2-dev` before `uv sync`; purge the toolchain afterward; keep runtime `libcairo2`.
+Default mock-only images remain unchanged.
+
+**Alternatives considered.** Always install build tools on every worker image (rejected —
+default stays slim). Skip pycairo / use `--no-install-package` (rejected — fail-closed full
+`uv sync` at the pin). Pre-built wheels only (rejected — pycairo still required a compiler
+on this pin/platform).
+
+**Consequences.** Opt-in ChatDev worker builds are larger during the sync layer and retain
+`libcairo2`. ADR-072 `deps_ready` semantics unchanged.
 
 For each future decision, add context, alternatives, rationale, consequences and superseded decision if any. Never rewrite history to suggest an untested choice was validated.

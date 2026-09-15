@@ -234,7 +234,7 @@ docker build -f deploy/fs-dev/Dockerfile.worker \
 docker compose -f deploy/fs-dev/docker-compose.workers.yml build
 ```
 
-Or set **`FS_CORP_WORKER_CHATDEV=1`** before `install.sh` / `run-install.sh` to pass `--build-arg CHATDEV_ENABLE=1`. Labels `org.fs_corporation.chatdev_enable` and `org.fs_corporation.chatdev_pin` are readable via `GET /api/v1/chatdev/status` → `worker_image_chatdev` (null when Docker inspect is unavailable).
+Or set **`FS_CORP_WORKER_CHATDEV=1`** before `install.sh` / `run-install.sh` to pass `--build-arg CHATDEV_ENABLE=1`. The opt-in layer runs `uv sync` and needs temporary `build-essential` + cairo headers (pycairo); the image keeps runtime `libcairo2`. Labels `org.fs_corporation.chatdev_enable`, `org.fs_corporation.chatdev_pin`, and `org.fs_corporation.chatdev_deps` are readable via `GET /api/v1/chatdev/status` → `worker_image_chatdev` (null when Docker inspect is unavailable). fs-dev `deploy_to_fs_dev.sh` currently sets `FS_CORP_WORKER_CHATDEV=1` in `env.prepared` and exports it in `run-install.sh`.
 
 - **Optional ChatDev billed smoke:** `scripts/exercise_chatdev_worker_billed.py` requires a ChatDev-enabled worker image with `deps_ready`, allowlist egress (`FS_CORP_CHATDEV_WORKER_EGRESS=allowlist` plus allowlist file and Docker network), and a model provider key in `secrets.env`. Fail-closed (exit 2) when prerequisites are missing; never invents `billed_costs` rows.
 

@@ -2,6 +2,9 @@
 
 A milestone is complete only when its acceptance conditions are met and the handoff reflects actual behavior. Continue locally through unblocked tasks; obtain missing live configuration only when needed. This file is the authoritative nested backlog. Do not invent a parallel product.
 
+**v0.3.91 status:** ChatDev worker native build deps (opt-in image installs
+`build-essential` + cairo headers for `uv sync`/pycairo; purge toolchain after; keep
+`libcairo2`; ADR-073; fs-dev deploy sets `FS_CORP_WORKER_CHATDEV=1`). Joins
 **v0.3.90 status:** ChatDev-in-worker depth (opt-in Dockerfile `uv sync` at pin;
 `org.fs_corporation.chatdev_deps` label; `deps_ready` on status; gateway billed contract
 test; optional fail-closed smoke; ADR-072; no Alembic; no control-plane ChatDev install).
@@ -357,6 +360,9 @@ Implement the 8-step decision algorithm in [04-governance.md](04-governance.md).
 - [x] ChatDev-in-worker depth (0.3.90) — opt-in Dockerfile `uv sync` at pin; deps label
       and `deps_ready` on status; gateway billed contract test; optional fail-closed smoke;
       ADR-072; no Alembic; no control-plane ChatDev install
+- [x] ChatDev worker native build deps (0.3.91) — opt-in image installs build-essential +
+      cairo headers for `uv sync`/pycairo; purge toolchain after; keep libcairo2; ADR-073;
+      fs-dev deploy sets `FS_CORP_WORKER_CHATDEV=1`
 
 **Acceptance:** over Tailscale or LAN HTTPS, owner issues admin QR, phone auto-configures, approves a proposal, dispatches a project brief, and responds to an owner request; read_only QR hides approve/pause; denial tests still pass.
 
@@ -500,8 +506,7 @@ Selected GitHub repository/fork IDs and App installation; exact enabled provider
 
 ## Immediate next implementation task
 
-**Ship 2 / audit code-local complete on `main` + fs-dev (0.3.89 measurement hardening
-merged; 0.3.90 ChatDev-in-worker depth on `feature/chatdev-worker-depth`).** Remaining
+**0.3.91 ChatDev worker native build deps on `main` (shipping/deploying).** Remaining
 work is owner-directed: provider CSV/PDF import, refunds beyond partial_credit, optional
 second worker host, live documentation fetch, or deferred design (furnished art /
 scheduled consultant triggers). Refresh the feature-completion audit canvas after

@@ -41,6 +41,12 @@ class WorkerDockerfileChatDevTests(unittest.TestCase):
         self.assertIn("uv sync", self.text)
         self.assertIn("org.fs_corporation.chatdev_deps", self.text)
 
+    def test_dockerfile_opt_in_installs_native_build_deps(self):
+        # pycairo (ChatDev → xhtml2pdf → svglib) needs gcc + cairo headers on slim.
+        self.assertIn("build-essential", self.text)
+        self.assertIn("libcairo2-dev", self.text)
+        self.assertIn("libcairo2", self.text)
+
     def test_dockerfile_default_enable_is_zero(self):
         self.assertIn("ARG CHATDEV_ENABLE=0", self.text)
 

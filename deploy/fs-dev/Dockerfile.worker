@@ -23,12 +23,20 @@ COPY fixtures /src/fixtures
 RUN pip install --no-cache-dir /src
 
 # Opt-in: embed pinned ChatDev source + uv sync (fail closed). Entry point sets CHATDEV_HOME.
+# ChatDev deps pull pycairo (via xhtml2pdf/svglib); slim needs a C toolchain + cairo headers.
 RUN if [ "$CHATDEV_ENABLE" = "1" ]; then \
-      git clone --depth 1 https://github.com/OpenBMB/ChatDev.git /opt/chatdev \
+      apt-get update \
+      && apt-get install -y --no-install-recommends \
+           build-essential pkg-config libcairo2-dev \
+      && git clone --depth 1 https://github.com/OpenBMB/ChatDev.git /opt/chatdev \
       && cd /opt/chatdev && git fetch --depth 1 origin "$CHATDEV_REF" && git checkout "$CHATDEV_REF" \
       && test -f /opt/chatdev/runtime/sdk.py \
       && cd /opt/chatdev && uv sync \
-      && test -d /opt/chatdev/.venv; \
+      && test -d /opt/chatdev/.venv \
+      && apt-get purge -y build-essential pkg-config libcairo2-dev \
+      && apt-get autoremove -y \
+      && apt-get install -y --no-install-recommends libcairo2 \
+      && rm -rf /var/lib/apt/lists/*; \
     fi
 
 LABEL org.fs_corporation.chatdev_enable="${CHATDEV_ENABLE}"

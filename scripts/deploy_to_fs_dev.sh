@@ -57,6 +57,8 @@ FS_CORP_DEFAULT_WORKER_RUNTIME=container
 FS_CORP_GATEWAY_EGRESS=worker_nic
 FS_CORP_PUBLIC_URL=https://192.168.4.100
 FS_CORP_TAILSCALE_FUNNEL_WEBHOOKS=1
+# Opt-in ChatDev-in-worker image (uv sync + deps label). Default mock-only when unset.
+FS_CORP_WORKER_CHATDEV=1
 EOF"
 
 echo "==> Stage secrets"
@@ -109,6 +111,8 @@ export FS_CORP_DB=/Data/fs-corporation/data/company.db
 export FS_CORP_COMPANION_DIST=/Data/fs-corporation/data/companion/dist
 export FS_CORP_TOKEN_FILE=/etc/fs-corporation/owner.token
 export FS_CORP_WORKER_SCRATCH=/Data/fs-corporation/data/worker-scratch
+# Opt-in ChatDev worker image (uv sync). install.sh reads this env, not /etc/env alone.
+export FS_CORP_WORKER_CHATDEV=1
 if id fs-corp &>/dev/null; then
   usermod -d /opt/fs-corporation fs-corp || true
 fi

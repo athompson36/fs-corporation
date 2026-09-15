@@ -1,5 +1,16 @@
 # Verification record
 
+Updated 2026-09-14 for **0.3.91** (ChatDev worker native build deps: opt-in image installs
+`build-essential` + cairo headers for `uv sync`/pycairo; purge toolchain after sync; keep
+`libcairo2`; ADR-073; fs-dev deploy enables `FS_CORP_WORKER_CHATDEV=1`).
+
+## Verified in this workspace (0.3.91)
+
+- **611 unit tests pass** via `.venv/bin/python -m unittest discover -s tests`.
+- Dockerfile contract: `tests/test_worker_dockerfile_chatdev.py` asserts native build deps.
+- Companion version lockstep **0.3.91**; `cd companion && npm run build` OK at ship.
+- Alembic head **0030_provider_invoices** (unchanged).
+
 Updated 2026-09-14 for **0.3.90** (ChatDev-in-worker depth: opt-in Dockerfile `uv sync`
 at pin; `org.fs_corporation.chatdev_deps` label; `deps_ready` on status; gateway billed
 contract test; optional fail-closed smoke; ADR-072; no Alembic; no control-plane ChatDev
