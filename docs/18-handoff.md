@@ -1,31 +1,29 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.90**. State: **ChatDev-in-worker depth on
-`feature/chatdev-worker-depth`.** Tip: **`33a2bfd`** (venv PYTHONPATH + smoke harden).
+Date: 2026-09-14. Version: **0.3.90**. State: **ChatDev-in-worker depth merged to `main`
+(pushing/deploying).** Tip: **`475fc8d`** (merge of 0.3.90 ship `2907ca6`; post-review
+fix `f85431a`).
 
-## Shipped on feature branch (0.3.90)
+## Merged on main (0.3.90)
 
-- Opt-in `Dockerfile.worker` runs `uv sync` at pinned ChatDev checkout when
-  `CHATDEV_ENABLE=1` (fail closed).
-- Label `org.fs_corporation.chatdev_deps`; status exposes `worker_image_chatdev.deps_ready`.
-- Gateway billed contract test: `SubprocessWorkerRuntime.handle_request(invoke_model)` writes
-  `billed_costs` on live invoke.
-- Worker entrypoint prepends ChatDev `.venv` site-packages to `PYTHONPATH` when present.
-- Optional smoke `scripts/exercise_chatdev_worker_billed.py` fail-closes without image,
-  egress, or model key; live invoke requires `FS_CORP_DB` (`--check-only` skips DB).
-- ADR-072. No Alembic. Companion lockstep **0.3.90**. Control plane still has no ChatDev
-  install.
-- Prior on `main`: measurement hardening 0.3.89, provider invoices 0.3.88.
+- Opt-in `Dockerfile.worker` runs `uv sync` at pinned ChatDev when `CHATDEV_ENABLE=1`
+  (fail closed); label `org.fs_corporation.chatdev_deps`.
+- Status: `worker_image_chatdev.deps_ready`; entrypoint prepends ChatDev `.venv`
+  site-packages to `PYTHONPATH` when present.
+- Gateway billed contract test + optional smoke
+  (`scripts/exercise_chatdev_worker_billed.py`).
+- ADR-072. No Alembic. Companion lockstep **0.3.90**. Control plane still has no
+  ChatDev install.
+- Prior: measurement hardening 0.3.89, provider invoices 0.3.88.
 
 ## Verification
 
-- `.venv/bin/python -m unittest discover -s tests`: **610 tests, OK** (at tip).
+- `.venv/bin/python -m unittest discover -s tests`: **610 tests, OK**.
 - `cd companion && npm run build`: OK at ship.
 - Alembic head **0030** (unchanged).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Owner-directed follow-ups: merge `feature/chatdev-worker-depth`, fs-dev rebuild with
-`FS_CORP_WORKER_CHATDEV=1`, provider CSV/PDF import, optional second worker host, live
-documentation fetch, etc.
+Deploy to fs-dev. Optional rebuild with `FS_CORP_WORKER_CHATDEV=1`. Owner-directed
+follow-ups (provider CSV/PDF import, etc.).
