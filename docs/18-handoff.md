@@ -1,8 +1,7 @@
 # Current handoff
 
-Date: 2026-09-14. Version: **0.3.90**. State: **ChatDev-in-worker depth merged to `main`
-(pushing/deploying).** Tip: **`475fc8d`** (merge of 0.3.90 ship `2907ca6`; post-review
-fix `f85431a`).
+Date: 2026-09-14. Version: **0.3.90**. State: **ChatDev-in-worker depth on `main` and
+deployed to fs-dev.** Tip: **`ae90d89`** (merge record; ship `2907ca6`; fix `f85431a`).
 
 ## Merged on main (0.3.90)
 
@@ -20,10 +19,12 @@ fix `f85431a`).
 
 - `.venv/bin/python -m unittest discover -s tests`: **610 tests, OK**.
 - `cd companion && npm run build`: OK at ship.
-- Alembic head **0030** (unchanged).
+- fs-dev health: `{"ok":true,"version":"0.3.90",...}`; Alembic **0030** unchanged;
+  worker image default `chatdev_enable=0` / `deps=0` (mock-only until
+  `FS_CORP_WORKER_CHATDEV=1` rebuild).
 - Do not commit `local repos/service-department/` or `.vscode/tasks.json`.
 
 ## Next
 
-Deploy to fs-dev. Optional rebuild with `FS_CORP_WORKER_CHATDEV=1`. Owner-directed
-follow-ups (provider CSV/PDF import, etc.).
+Optional fs-dev rebuild with `FS_CORP_WORKER_CHATDEV=1`. Owner-directed follow-ups
+(provider CSV/PDF import, etc.).
